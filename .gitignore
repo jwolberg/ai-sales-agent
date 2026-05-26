@@ -1,0 +1,19 @@
+# OS
+.DS_Store
+
+# environment vars
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# logs
+/logs
+
+# Claude Code local overrides (machine-specific, not shared)
+.claude/settings.local.json
+.claude/CLAUDE.local.md
