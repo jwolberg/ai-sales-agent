@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     # Tunables (override via env). Default to a capable Claude model; switch to
     # claude-haiku-4-5 for lower latency if needed.
     anthropic_model: str = "claude-sonnet-4-6"
-    cartesia_voice_id: str = "71a7ad14-091c-4e8e-a314-022ece01c121"
+    cartesia_voice_id: str = "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"
 
     def missing_voice_keys(self) -> list[str]:
         """Return the env-var names of any unset voice provider keys."""
