@@ -38,9 +38,13 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 5 — Decisioning Trace & Observability Dashboard (entering)
-- **Current ticket:** P5-T1 (next) — decision-trace logging
+- **Current phase:** Phase 4.5 — Conversation Integration & Latency (entering)
+- **Current ticket:** P4.5-T1 (next) — turn router
 - **Blockers:** None
+- **DESIGN:** Phase 4.5 inserted per `docs/AGENT_INTEGRATION.md` — the Phases 2–4 agent layer
+  is built but NOT wired into the live pipeline (which still runs raw Claude). This phase makes
+  the decider-led runtime real (router → extraction → render → engine → live wiring → latency
+  tiers). It precedes Phase 5/6/8 work that depends on the engine.
 - **ACTION NEEDED (user):** KB docs under `data/kb/` are safe PLACEHOLDERS, not approved
   Nerdy content. See `docs/QandA_opens.md` for the pricing/refund/matching/scheduling copy to
   provide; until then the agent defers those specifics to a human.
@@ -213,6 +217,72 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
     flags claims-human / unapproved price / guarantee). Wired `Orchestrator.check_escalation`
     → ESCALATE with `escalation_risk`; `CallRecorder.record_escalation` logs a KPIEvent.)
 
+### Phase 4.5 — Conversation Integration & Latency (inserted; decider-led runtime)
+**Goal**
+- Make the structured agent layer (Phases 2–4) actually drive what the agent *says*. Today the
+  live pipeline runs raw Claude on the persona prompt and ignores the orchestrator/decider/KB/
+  objections/guardrails. This phase builds the decider-led runtime per `docs/AGENT_INTEGRATION.md`:
+  a turn router + extraction + a pure render step, tied into a transport-agnostic conversation
+  engine, wired into the live voice pipeline, with a layered latency strategy.
+
+**Why inserted here:** the engine is a hard dependency for a meaningful decision trace (Phase 5),
+the synthetic simulator (Phase 6 self-play drives the same engine), and a real demo (Phase 8).
+Numbered 4.5 to avoid renumbering existing Phases 5–8.
+
+**Exit Criteria**
+- A full discovery → KB answer → objection → close → escalation conversation runs end-to-end
+  through the engine in text mode, producing turns + decision traces.
+- The live voice demo uses the engine (not raw Claude); rendered output passes guardrail checks.
+- Latency masking in place (pre-synthesized fillers); measured against VC-3.
+
+**Tickets**
+- P4.5-T1 — Turn router
+  - Objective: per-turn classify + priority dispatch (escalation DE-4 → refusal/disqualify →
+    objection → knowledge question → discovery/close); deterministic, unit-tested.
+  - Files likely involved: `backend/app/agent/router.py`
+  - Depends on: P3-T3, P4-T2, P4-T3, P4-T4
+  - Acceptance criteria covered: DF-3 (routing inputs); enabler for the engine
+  - Status: Todo
+- P4.5-T2 — Field & intent extraction
+  - Objective: turn the caller's utterance into `collected_fields` updates + signals (answer to
+    the pending question, `buying_intent`); confidence + "didn't catch that → clarify" path.
+    Rule-based first, then LLM structured extraction. (The missing NLU.)
+  - Files likely involved: `backend/app/agent/extraction.py`
+  - Depends on: P4.5-T1
+  - Acceptance criteria covered: LM-2 (detect missing), DF inputs; enabler for live progress
+  - Status: Todo
+- P4.5-T3 — Directive + render step
+  - Objective: replace the overloaded `NextAction.prompt` with a structured **Directive**
+    (intent + content + style) and a single pure `render(directive, state) → utterance`
+    (persona-consistent, DF-4). Makes render cacheable for the latency tiers.
+  - Files likely involved: `backend/app/agent/render.py`, `backend/app/agent/orchestrator.py`
+  - Depends on: P4.5-T1
+  - Acceptance criteria covered: VC-4 (consistent persona), DF-4; enabler for latency tiers
+  - Status: Todo
+- P4.5-T4 — Conversation engine (transport-agnostic)
+  - Objective: `run_turn` loop tying router → extraction → capability/decider → render →
+    recorder + decision trace; independent of voice. Used by the simulator and live pipeline.
+  - Files likely involved: `backend/app/agent/engine.py`
+  - Depends on: P4.5-T1, P4.5-T2, P4.5-T3, P2-T4
+  - Acceptance criteria covered: §21 (discovery-to-close runs end-to-end); enabler for P5/P6
+  - Status: Todo
+- P4.5-T5 — Live voice wiring
+  - Objective: replace the raw-Claude path in `run_bot` with the engine (STT final →
+    `run_turn` → render → TTS); persist turns/decisions; enforce `check_agent_output` (§18) on
+    rendered output (and demote/scope the price flag now that approved prices exist).
+  - Files likely involved: `backend/app/voice/pipeline.py`, `backend/app/voice/bot.py`
+  - Depends on: P4.5-T4, P4-T4
+  - Acceptance criteria covered: §18 (output guardrails enforced live); VC-1/VC-4
+  - Status: Todo
+- P4.5-T6 — Latency tiers (fillers + caching + speculation)
+  - Objective: Tier-0 pre-synthesized static + filler audio; cached FAQ answers; filler-masking
+    on slow/cache-miss paths; speculative prefetch of the predicted next directive (verify
+    action-signature before speaking). Measure vs VC-3.
+  - Files likely involved: `backend/app/voice/latency.py`
+  - Depends on: P4.5-T5
+  - Acceptance criteria covered: VC-3 (latency targets)
+  - Status: Todo
+
 ### Phase 5 — Decisioning Trace & Observability Dashboard
 **Goal**
 - Every decision is logged with rationale, every call is version/variant-tagged, KPIs are computed, and an operator can review it all in a dashboard.
@@ -351,24 +421,36 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 13. P4-T2 — Grounded answer action + fallback
 14. P4-T3 — Objection handling (≥3 types)
 15. P4-T4 — Guardrails & escalation criteria
-16. P5-T1 — Decision-trace logging
-17. P5-T2 — Version attribution
-18. P5-T3 — KPI event capture & metrics
-19. P5-T4 — Dashboard
-20. P6-T1 — Synthetic persona definitions
-21. P6-T2 — Simulated call runner
-22. P6-T3 — Agent performance scoring
-23. P7-T1 — Experiment & variant infrastructure
-24. P7-T2 — Establish documented baseline
-25. P7-T3 — Generate & test variants
-26. P7-T4 — Evaluate, promote/retire & report
-27. P8-T1 — Human trial calls & escalation tuning
-28. P8-T2 — Required documentation set
-29. P8-T3 — Demo scenario rehearsal
+16. P4.5-T1 — Turn router
+17. P4.5-T2 — Field & intent extraction
+18. P4.5-T3 — Directive + render step
+19. P4.5-T4 — Conversation engine (transport-agnostic)
+20. P4.5-T5 — Live voice wiring
+21. P4.5-T6 — Latency tiers (fillers + caching + speculation)
+22. P5-T1 — Decision-trace logging *(now logged from the engine's per-turn decisions)*
+23. P5-T2 — Version attribution
+24. P5-T3 — KPI event capture & metrics
+25. P5-T4 — Dashboard
+26. P6-T1 — Synthetic persona definitions
+27. P6-T2 — Simulated call runner *(drives the Phase 4.5 engine in text mode)*
+28. P6-T3 — Agent performance scoring
+29. P7-T1 — Experiment & variant infrastructure
+30. P7-T2 — Establish documented baseline
+31. P7-T3 — Generate & test variants
+32. P7-T4 — Evaluate, promote/retire & report
+33. P8-T1 — Human trial calls & escalation tuning
+34. P8-T2 — Required documentation set
+35. P8-T3 — Demo scenario rehearsal
 
 ## Recommended Next Step
-- **Start with:** P1-T1 — Backend scaffold & config
-- **Why this is first:** Every other ticket writes to the backend and the SQLite data layer; the persistence schema (P1-T2) in particular is a hard dependency for transcript capture, memory, decision traces, KPIs, and experiments. A booting app with tests/lint also satisfies the project's per-ticket validation gate from the very first commit.
+- **Start with:** P4.5-T1 — Turn router (Phases 1–4 complete; the agent layer is built but not
+  wired into the live pipeline).
+- **Why this is next:** the structured agent layer currently has zero influence on what the live
+  agent says — it runs raw Claude on the persona prompt. The turn router is the first piece of the
+  decider-led runtime (`docs/AGENT_INTEGRATION.md`): it classifies each turn and dispatches to the
+  right capability, and is the foundation the extraction, render, and engine tickets build on.
+  Getting the engine real also unblocks a meaningful decision trace (Phase 5) and the synthetic
+  simulator (Phase 6), which both drive it.
 
 ## Deferred / Out of Scope
 From PRD §4 non-goals:
