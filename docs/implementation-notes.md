@@ -417,3 +417,28 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 - **Validation:** `ruff` clean; `pytest` 64 passed (7 new: coverage+baseline, phrase detection,
   high-risk flagging, KB-grounded rebuttal, orchestrator handling, close-held-by-objection,
   folded-whitespace load).
+
+---
+
+## P4-T4 — guardrails & escalation criteria (2026-05-27) — Phase 4 complete
+
+- **`app/agent/guardrails.py`** (deterministic, cue-based): `detect_escalation` covers the DE-4
+  triggers (human request, price concession, legal/safety/privacy, payment, anger/confusion) in
+  priority order, plus a low-confidence trigger that ties KB-4 fallbacks (confidence 0.3) to a
+  handoff via `DEFAULT_CONFIDENCE_THRESHOLD = 0.35`. `should_stop_selling` detects a clear
+  refusal (§18 stop-pushing). `check_agent_output` is a last-line net flagging claims-to-be-human,
+  unapproved price figures, and guarantee promises.
+- **Wired:** `Orchestrator.check_escalation(text, confidence=)` → ESCALATE NextAction with
+  `escalation_risk="high"` (new `NextAction.escalation_risk`, maps to `Decision.escalation_risk`);
+  `Orchestrator.should_stop_selling`; `CallRecorder.record_escalation` logs an `escalation`
+  KPIEvent (mirrors close-attempt logging).
+- **Cue-tuning note:** human-request detection uses `"a human"` (not bare `"human"`, which would
+  false-positive on "humanities"); the space-bearing cue stays safe. Guardrails err toward
+  catching too much.
+- **Scope:** `check_agent_output` is a tested utility; enforcing it on live LLM output (a
+  post-generation filter in the pipeline) rides with the live-wiring work. Escalation/refusal
+  checks are exposed as orchestrator methods a driver calls each turn.
+- **Validation:** `ruff` clean; `pytest` 72 passed (8 new: each trigger, low-confidence,
+  priority, stop-on-refusal, output flags, orchestrator escalate, escalation logging).
+- **Phase 4 exit criteria met:** grounded answers with source tracking; honest fallback when KB
+  is insufficient; 6 objection types incl. the price baseline; guardrails + escalation enforced.

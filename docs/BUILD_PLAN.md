@@ -38,8 +38,8 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 4 — Knowledge Base & Guardrails
-- **Current ticket:** P4-T4 (next) — guardrails & escalation criteria
+- **Current phase:** Phase 5 — Decisioning Trace & Observability Dashboard (entering)
+- **Current ticket:** P5-T1 (next) — decision-trace logging
 - **Blockers:** None
 - **ACTION NEEDED (user):** KB docs under `data/kb/` are safe PLACEHOLDERS, not approved
   Nerdy content. See `docs/QandA_opens.md` for the pricing/refund/matching/scheduling copy to
@@ -208,7 +208,10 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
   - Files likely involved: `backend/app/agent/guardrails.py`, `backend/app/agent/decisioning.py`
   - Depends on: P4-T2
   - Acceptance criteria covered: DE-4, §18; §21 (can escalate)
-  - Status: Todo
+  - Status: Complete (added `app/agent/guardrails.py`: `detect_escalation` (DE-4 triggers +
+    low-confidence), `should_stop_selling` (stop after refusal), `check_agent_output` (§18 —
+    flags claims-human / unapproved price / guarantee). Wired `Orchestrator.check_escalation`
+    → ESCALATE with `escalation_risk`; `CallRecorder.record_escalation` logs a KPIEvent.)
 
 ### Phase 5 — Decisioning Trace & Observability Dashboard
 **Goal**

@@ -111,6 +111,17 @@ class CallRecorder:
         self._session.commit()
         return event
 
+    def record_escalation(self, code: str, reason: str | None = None) -> KPIEvent:
+        """Log an escalation to a human (DE-4) as a KPIEvent; ``created_at`` is the timing."""
+        event = KPIEvent(
+            call_id=self._call.call_id,
+            event_type="escalation",
+            event_metadata={"code": code, "reason": reason},
+        )
+        self._session.add(event)
+        self._session.commit()
+        return event
+
     def end(
         self,
         *,

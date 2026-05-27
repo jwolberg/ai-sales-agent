@@ -19,6 +19,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
+from app.agent.guardrails import ESCALATION_MESSAGE, detect_escalation, should_stop_selling
 from app.agent.knowledge import answer_question, grounding_prompt
 from app.agent.objections import get_objection_playbook, respond_to_objection
 from app.agent.persona import build_greeting_cue, build_system_prompt
@@ -43,6 +44,7 @@ class NextAction:
     question_key: str | None = None
     prompt: str | None = None
     kb_sources: list[str] = field(default_factory=list)  # KB-3 source attribution
+    escalation_risk: str | None = None  # maps to Decision.escalation_risk (DE-2)
 
 
 @dataclass
@@ -214,6 +216,26 @@ class Orchestrator:
             confidence=0.3,
             prompt=answer.fallback,
         )
+
+    def check_escalation(self, text: str, *, confidence: float | None = None) -> NextAction | None:
+        """If the turn (or low confidence) trips a DE-4 trigger, return an ESCALATE action —
+        the agent must hand off to a human. ``None`` if no trigger fires."""
+        trigger = detect_escalation(text, confidence=confidence)
+        if trigger is None:
+            return None
+        return NextAction(
+            stage=Stage.ESCALATION,
+            action=Action.ESCALATE,
+            reason=trigger.reason,
+            confidence=0.9,
+            escalation_risk="high",
+            question_key=trigger.code,
+            prompt=ESCALATION_MESSAGE,
+        )
+
+    def should_stop_selling(self, text: str) -> bool:
+        """True if the caller has clearly refused; the agent must stop pushing (§18)."""
+        return should_stop_selling(text)
 
     def handle_objection(self, text: str) -> NextAction | None:
         """If the turn raises a known objection, respond from the approved playbook + KB
