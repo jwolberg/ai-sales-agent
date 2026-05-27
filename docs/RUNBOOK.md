@@ -168,8 +168,10 @@ Set these in `backend/.env` (see `.env.example`). Until all three are present,
 | `DEEPGRAM_API_KEY`  | Deepgram | Speech-to-text                          |
 | `ANTHROPIC_API_KEY` | Anthropic| Claude (the agent's reasoning/replies)  |
 | `CARTESIA_API_KEY`  | Cartesia | Text-to-speech                          |
-| `ANTHROPIC_MODEL`   | —        | Optional; default `claude-sonnet-4-6`   |
-| `CARTESIA_VOICE_ID` | Cartesia | Optional; default is a sample voice     |
+
+Non-secret tunables (`anthropic_model`, `cartesia_voice_id`) live in committed
+**`backend/config.toml`**, not `.env`. Edit that file to change the model or voice; an
+env var of the same name still overrides it if you need a one-off.
 
 ### 11.3 Run the demo
 

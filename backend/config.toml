@@ -1,0 +1,9 @@
+# Non-secret, tunable runtime settings (committed to git).
+# Secrets (API keys) live in backend/.env, which is gitignored.
+# An environment variable of the same name still overrides any value here.
+
+# LLM for the agent's reasoning/replies. Use "claude-haiku-4-5" for lower latency.
+anthropic_model = "claude-sonnet-4-6"
+
+# Cartesia TTS voice id. Browse voices at https://play.cartesia.ai.
+cartesia_voice_id = "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"

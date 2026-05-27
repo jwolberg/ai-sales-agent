@@ -114,3 +114,21 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 - **NOT validated here (environment limits):** an end-to-end live call needs a browser +
   microphone + real keys. Wiring/construction is validated; live audio + barge-in must be
   run from the RUNBOOK on a provisioned machine.
+
+---
+
+## Config split: secrets vs. tunables (2026-05-27)
+
+- Moved non-secret tunables (`anthropic_model`, `cartesia_voice_id`) out of `.env` into a
+  committed **`backend/config.toml`**. Secrets (API keys) stay in `.env` (gitignored).
+- Wired via pydantic-settings `TomlConfigSettingsSource`; precedence high→low:
+  init args > env vars > `.env` > `config.toml` > code defaults. So an env var still
+  overrides the TOML for one-off changes.
+- Declared `tomli>=2.0; python_version < "3.11"` as a core dep (stdlib `tomllib` is 3.11+;
+  core config now parses TOML).
+- **Incident note:** while updating the voice id earlier, a `sed -i ''` on `backend/.env`
+  (BSD sed) truncated the file to 0 bytes in this sandbox and the keys were lost (re-added
+  by the user). Lesson: never edit the secrets file with in-place `sed` here — use
+  filter-to-temp-then-`mv`, or the Edit tool, and re-verify keys after.
+- **Validation:** `ruff` clean; `pytest` 9 passed; `Settings()` loads all three keys plus
+  model/voice from `config.toml`.

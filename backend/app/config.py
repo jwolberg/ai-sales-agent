@@ -1,14 +1,41 @@
-"""Application settings loaded from the environment (and an optional .env file)."""
+"""Application settings.
+
+Secrets (API keys) come from the environment / ``backend/.env``. Non-secret tunables
+(model, voice) come from the committed ``backend/config.toml``. An env var of the same
+name overrides the TOML value.
+"""
 
 from functools import lru_cache
+from pathlib import Path
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict, TomlConfigSettingsSource
+
+# Committed, non-secret tunables (resolved absolutely so cwd doesn't matter).
+CONFIG_TOML = Path(__file__).resolve().parent.parent / "config.toml"
 
 
 class Settings(BaseSettings):
-    """Runtime configuration. Override any field via env var or .env."""
+    """Runtime configuration. Override any field via env var, .env, or config.toml."""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        toml_file=CONFIG_TOML,
+    )
+
+    @classmethod
+    def settings_customise_sources(
+        cls, settings_cls, init_settings, env_settings, dotenv_settings, file_secret_settings
+    ):
+        # Precedence, high -> low: init args, env vars, .env, config.toml, defaults.
+        return (
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            TomlConfigSettingsSource(settings_cls),
+            file_secret_settings,
+        )
 
     app_name: str = "Autonomous AI Sales Agent"
     environment: str = "development"
