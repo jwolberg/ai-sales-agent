@@ -1,0 +1,53 @@
+# Discovery playbook — the questions the agent works through to qualify a lead.
+#
+# - `required` encodes PRD DF-1 (the minimum the agent must learn when missing).
+# - `leading`  encodes PRD DF-2 (sales-relevant context to gather when natural).
+#
+# Each question has a `key` (the collected-fields slot it fills), a spoken `prompt`,
+# and an optional `confirm` template used when the value is already known (LM-3:
+# confirm rather than re-ask). List order is the default ask priority; P3-T3 layers
+# dynamic ordering (DF-3) on top. The agent must group these conversationally, never
+# read them as a checklist (DF-4).
+
+required:
+  - key: relationship_to_student
+    prompt: "Who's the tutoring for, and are you the parent — or is it for you?"
+    confirm: "So this is for {value} — is that right?"
+  - key: subject
+    prompt: "What subject or test are we focused on?"
+    confirm: "I have this is about {value} — still the main thing you're after?"
+  - key: grade_level
+    prompt: "And what grade or level are they at right now?"
+    confirm: "Got it — {value}."
+  - key: challenge
+    prompt: "What's been hardest lately — the material itself, test scores, or more of a confidence thing?"
+  - key: goal
+    prompt: "If this goes really well, what does success look like for you?"
+  - key: urgency
+    prompt: "How soon are you hoping to get started?"
+  - key: prior_tutoring
+    prompt: "Have you tried tutoring before, or would this be the first time?"
+  - key: schedule_constraints
+    prompt: "What kind of schedule tends to work — weekdays, evenings, weekends?"
+  - key: decision_maker_status
+    prompt: "Are you the one who'd decide on moving forward, or is someone else involved too?"
+  - key: readiness
+    prompt: "Where are you in the process — just exploring options, or closer to ready to find a tutor?"
+
+leading:
+  - key: pain_severity
+    prompt: "How big a concern is this for you right now?"
+  - key: consequences
+    prompt: "What happens if things stay the way they are for another few months?"
+  - key: motivation
+    prompt: "How's their motivation — are they on board with getting some help?"
+  - key: competing_options
+    prompt: "Are you weighing any other options, like a local tutor or school support?"
+  - key: budget_sensitivity
+    prompt: "Do you have a budget range in mind, or are you still figuring that part out?"
+  - key: tutor_style
+    prompt: "Any preference on tutor style — more patient and encouraging, or structured and rigorous?"
+  - key: confidence_level
+    prompt: "How's their confidence in this subject these days?"
+  - key: success_criteria
+    prompt: "A few months in, how would you want to measure whether it's working?"

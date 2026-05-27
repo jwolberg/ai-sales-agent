@@ -281,3 +281,25 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 - **Validation:** `ruff` clean; `pytest` 26 passed (6 new: info-level vs use cases, unknown
   lead, get_or_create, carry-forward across calls, objection de-dup / empty-skip, orchestrator
   seeding).
+
+---
+
+## P3-T2 — discovery question set & skip-known (2026-05-27)
+
+- **`data/playbooks/discovery.yaml`:** 10 required questions (DF-1) + 8 leading (DF-2), each
+  with a `key` (collected-fields slot), spoken `prompt`, and optional `confirm` template
+  (LM-3: confirm a known value instead of re-asking). List order = default ask priority.
+- **`app/agent/discovery.py`:** `DiscoveryPlaybook` with `next_question` (fills required gaps
+  first, then leading; `None` when done), `missing_required` (LM-2), `known_required` (LM-3),
+  and `Question.confirm_prompt`. `get_discovery_playbook()` parses the YAML once (`lru_cache`).
+- **New dep:** declared `pyyaml>=6.0` as a **core** dependency (was only transitively present
+  via the voice extra). Playbooks are YAML per the build plan and reused by P4-T3 (objections)
+  and P6 (personas), so the format earns the dep. Already installed — no reinstall needed.
+- **Two field vocabularies, intentionally distinct:** lead_store's `REQUIRED_FIELDS` (3, for
+  `info_level` gating) vs. the playbook's 10 required questions (for question selection). Some
+  playbook keys (`challenge`, `prior_tutoring`, `readiness`, all leading keys) have no `Lead`
+  column — they live in `collected_fields` and only the `PROFILE_FIELDS` subset is persisted by
+  `apply_call_outcome`. Kept separate rather than forcing one list to serve both jobs.
+- **Scope:** playbook + selection primitives only; wiring into the orchestrator's `next_action`
+  with signal-aware dynamic ordering (DF-3) is P3-T3.
+- **Validation:** `ruff` clean; `pytest` 33 passed (7 new).

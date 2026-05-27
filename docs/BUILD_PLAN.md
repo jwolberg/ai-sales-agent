@@ -39,7 +39,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 3 — Lead Memory & Discovery
-- **Current ticket:** P3-T2 (next) — discovery question set (required + leading) & skip-known
+- **Current ticket:** P3-T3 (next) — dynamic next-question selection
 - **Blockers:** None
 - **Note:** P2-T4 transcript/call-record capture complete as a capability (`CallRecorder`
   + optional Orchestrator integration, unit-tested). **Follow-up:** wiring it into the live
@@ -140,7 +140,10 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
   - Files likely involved: `backend/app/agent/discovery.py`, `data/playbooks/discovery.yaml`
   - Depends on: P3-T1
   - Acceptance criteria covered: DF-1, DF-2, LM-2, LM-3; §21 (gathers required / skips known)
-  - Status: Todo
+  - Status: Complete (added `data/playbooks/discovery.yaml` — 10 required (DF-1) + 8 leading
+    (DF-2) questions with confirm templates — and `app/agent/discovery.py` `DiscoveryPlaybook`
+    with skip-known `next_question`/`missing_required`/`known_required`. Added `pyyaml` core
+    dep. Dynamic ordering is P3-T3.)
 - P3-T3 — Dynamic next-question selection
   - Objective: Decisioning to pick the next-best question from known data, missing fields, stage, and signals, grouped conversationally (DF-3, DF-4); extend orchestrator `next_action`.
   - Files likely involved: `backend/app/agent/decisioning.py`, `backend/app/agent/orchestrator.py`
