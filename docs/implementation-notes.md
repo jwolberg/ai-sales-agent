@@ -303,3 +303,26 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 - **Scope:** playbook + selection primitives only; wiring into the orchestrator's `next_action`
   with signal-aware dynamic ordering (DF-3) is P3-T3.
 - **Validation:** `ruff` clean; `pytest` 33 passed (7 new).
+
+---
+
+## P3-T3 — dynamic next-question selection (2026-05-27)
+
+- **`app/agent/decisioning.py` `DiscoveryDecider`** (a `NextActionDecider`): confirm known
+  context once (LM-3) → fill the highest-priority missing required field → explore leading
+  questions → `SUMMARIZE_FIT` when discovery is exhausted. Drives Use Cases 1–3 from the lead's
+  seeded `collected_fields`.
+- **Extended `NextAction`** with `question_key` + `prompt` (the chosen question's words) and
+  added `ConversationState.context_confirmed`; the orchestrator flips that flag the first time
+  it returns a `CONTEXT_CONFIRMATION` stage, so confirmation happens once, not every turn.
+- **Avoided a circular import:** kept `NextAction`/`ConversationState`/`NextActionDecider` in
+  `orchestrator.py`; `decisioning.py` imports them one-way. So the **orchestrator default stays
+  `StubDecider`** and `DiscoveryDecider` is opt-in via the pluggable interface (drivers/sim pass
+  it). Avoided changing the default to dodge both the cycle and churn to the P2-T3 stub tests.
+- **DF-3 partial by design:** emotional state / buying signals / objections are listed inputs
+  but their detection is Phase 4, so they're not yet weighted. **DF-4** (non-checklist phrasing)
+  is the LLM layer's job — this module picks *what* to ask via the playbook prompt, not the
+  exact wording. **Field extraction** (turning a user's answer into `collected_fields` values)
+  is also not here — it's LLM/NLU work for later; tests update `collected_fields` directly.
+- **Validation:** `ruff` clean; `pytest` 39 passed (6 new: no-info start, confirm-known,
+  post-confirm probing, skip-known advance, leading→fit, orchestrator confirm-once).

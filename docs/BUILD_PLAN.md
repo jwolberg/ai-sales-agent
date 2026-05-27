@@ -39,7 +39,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 3 — Lead Memory & Discovery
-- **Current ticket:** P3-T3 (next) — dynamic next-question selection
+- **Current ticket:** P3-T4 (next) — fit summary, close attempt & close logging
 - **Blockers:** None
 - **Note:** P2-T4 transcript/call-record capture complete as a capability (`CallRecorder`
   + optional Orchestrator integration, unit-tested). **Follow-up:** wiring it into the live
@@ -149,7 +149,10 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
   - Files likely involved: `backend/app/agent/decisioning.py`, `backend/app/agent/orchestrator.py`
   - Depends on: P3-T2
   - Acceptance criteria covered: DF-3, DF-4, DE-1 (discovery actions)
-  - Status: Todo
+  - Status: Complete (added `app/agent/decisioning.py` `DiscoveryDecider`: confirm-known →
+    fill required → leading → fit summary; extended `NextAction` with `question_key`/`prompt`
+    and `ConversationState.context_confirmed`. DF-3 signal inputs accepted but not yet
+    weighted pending P4 detection; opt-in decider — orchestrator default stays `StubDecider`.)
 - P3-T4 — Fit summary, close attempt & close logging
   - Objective: Detect close criteria (DE-3), produce a fit summary (CF-1), recommend one next step (CF-2), log every close attempt (CF-3).
   - Files likely involved: `backend/app/agent/closing.py`, `backend/app/agent/decisioning.py`

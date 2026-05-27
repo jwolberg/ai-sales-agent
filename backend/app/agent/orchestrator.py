@@ -28,7 +28,8 @@ from app.memory.lead_store import missing_required
 
 @dataclass
 class NextAction:
-    """One decision turn. Field-for-field the persistable shape of ``Decision`` (DE-2)."""
+    """One decision turn. Field-for-field the persistable shape of ``Decision`` (DE-2),
+    plus the discovery question chosen (P3-T3) so the phrasing layer knows what to ask."""
 
     stage: Stage
     action: Action
@@ -36,6 +37,8 @@ class NextAction:
     reason: str | None = None
     confidence: float | None = None
     missing_fields: list[str] = field(default_factory=list)
+    question_key: str | None = None
+    prompt: str | None = None
 
 
 @dataclass
@@ -51,6 +54,9 @@ class ConversationState:
     history: list[tuple[str, str]] = field(default_factory=list)  # (speaker, text)
     collected_fields: dict[str, str] = field(default_factory=dict)
     lead_id: str | None = None
+    # Set once the agent has confirmed the lead's already-known context (LM-3 / P3-T3),
+    # so it doesn't re-confirm on every turn.
+    context_confirmed: bool = False
 
 
 @runtime_checkable
@@ -162,6 +168,9 @@ class Orchestrator:
             self.recorder.record_prospect(user_text)
         action = self.decider.decide(self.state, user_text)
         self.state.stage = action.stage
+        # Once we've entered context confirmation, don't keep re-confirming (LM-3).
+        if action.stage is Stage.CONTEXT_CONFIRMATION:
+            self.state.context_confirmed = True
         return action
 
     def record_agent_turn(self, text: str) -> None:
