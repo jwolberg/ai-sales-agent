@@ -39,7 +39,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 4 — Knowledge Base & Guardrails
-- **Current ticket:** P4-T3 (next) — objection handling (≥3 types) via playbook + KB
+- **Current ticket:** P4-T4 (next) — guardrails & escalation criteria
 - **Blockers:** None
 - **ACTION NEEDED (user):** KB docs under `data/kb/` are safe PLACEHOLDERS, not approved
   Nerdy content. See `docs/QandA_opens.md` for the pricing/refund/matching/scheduling copy to
@@ -199,7 +199,10 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
   - Files likely involved: `backend/app/agent/objections.py`, `data/playbooks/objections.yaml`
   - Depends on: P4-T2
   - Acceptance criteria covered: Use Case 4; §21 (≥3 objections); §8 baseline
-  - Status: Todo
+  - Status: Complete (added `data/playbooks/objections.yaml` — 6 objection types incl. the
+    §8 price baseline — and `app/agent/objections.py` cue-based detection + KB-grounded
+    rebuttals. `Orchestrator.handle_objection` → HANDLE_OBJECTION; high-risk (discount) sets
+    `open_high_risk_objection`, which holds the close gate. Rebuttals are placeholders.)
 - P4-T4 — Guardrails & escalation criteria
   - Objective: Enforce §18 guardrails (no invented pricing/guarantees, never claim to be human, always honor human requests, stop after refusal, etc.); implement escalation triggers (DE-4) and escalation records.
   - Files likely involved: `backend/app/agent/guardrails.py`, `backend/app/agent/decisioning.py`

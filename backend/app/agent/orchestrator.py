@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 from app.agent.knowledge import answer_question, grounding_prompt
+from app.agent.objections import get_objection_playbook, respond_to_objection
 from app.agent.persona import build_greeting_cue, build_system_prompt
 from app.agent.recorder import CallRecorder
 from app.agent.stages import Action, Modifier, Stage
@@ -212,6 +213,27 @@ class Orchestrator:
             reason="KB does not cover this; honest fallback (KB-4)",
             confidence=0.3,
             prompt=answer.fallback,
+        )
+
+    def handle_objection(self, text: str) -> NextAction | None:
+        """If the turn raises a known objection, respond from the approved playbook + KB
+        (Use Case 4); ``None`` if no objection is detected. A high-risk objection (e.g. a
+        discount request) flags the call so the close gate holds and escalation can follow."""
+        objection = get_objection_playbook().detect(text)
+        if objection is None:
+            return None
+        response = respond_to_objection(objection, retriever=self._retriever)
+        if response.high_risk:
+            self.state.open_high_risk_objection = True
+        risk = " (high-risk)" if response.high_risk else ""
+        return NextAction(
+            stage=Stage.OBJECTION_HANDLING,
+            action=Action.HANDLE_OBJECTION,
+            reason=f"detected objection '{objection.key}'{risk}",
+            confidence=0.6,
+            question_key=objection.key,
+            prompt=response.rebuttal,
+            kb_sources=response.kb_sources,
         )
 
     def record_agent_turn(self, text: str) -> None:

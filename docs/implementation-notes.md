@@ -394,3 +394,26 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
   larger orchestrator/live-pipeline wiring. Kept the loop stable.
 - **Validation:** `ruff` clean; `pytest` 57 passed (6 new: grounded snippets+sources, honest
   fallback, grounding-prompt material-only, question heuristic, orchestrator grounded + fallback).
+
+---
+
+## P4-T3 — objection handling (≥3 types) via playbook + KB (2026-05-27)
+
+- **`data/playbooks/objections.yaml`:** 6 objection types (price [§8 BASELINE], discount,
+  spouse, comparison, tutor_quality, tried_before), each with detection `cues`, a `high_risk`
+  flag, an approved `rebuttal`, and optional `kb_query`. Rebuttals are PLACEHOLDER and avoid
+  inventing prices/guarantees.
+- **`app/agent/objections.py`:** `ObjectionPlaybook.detect` (first cue match in playbook order),
+  `baseline_price`, and `respond_to_objection` which returns the rebuttal + KB sources (grounds
+  supporting detail by reusing P4-T2's `answer_question`). YAML-folded rebuttal whitespace is
+  normalized on load.
+- **Wired:** `Orchestrator.handle_objection(text)` → HANDLE_OBJECTION NextAction; a high-risk
+  objection (discount = unauthorized concession, DE-4) sets `open_high_risk_objection`, which
+  the close gate already respects — so a discount request now *holds the close* until resolved.
+  Nice cross-ticket integration (P3-T4 gate + P4-T3 detection).
+- **Scope:** objection *detection* is cue-based (deterministic, testable); richer intent
+  detection and clearing the high-risk flag once resolved are future. Buying-intent detection
+  is still external. Routing into the live loop rides with the larger orchestrator wiring.
+- **Validation:** `ruff` clean; `pytest` 64 passed (7 new: coverage+baseline, phrase detection,
+  high-risk flagging, KB-grounded rebuttal, orchestrator handling, close-held-by-objection,
+  folded-whitespace load).

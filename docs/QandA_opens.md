@@ -30,12 +30,14 @@ human rather than stating as fact.
 | **Competitive comparison** | _(none yet)_ | Approved guidance on how to talk about Wyzant / local tutors / school support (KB-2 lists this; no doc yet) |
 | **Tutor credentials/quality** | _(none yet)_ | Approved language on tutor vetting/qualifications (callers ask "how do I know the tutor is good?") |
 
-## Objection rebuttals (P4-T3)
+## Objection rebuttals (P4-T3) — placeholders seeded, need approval
 
-The objection-handling playbook (`data/playbooks/objections.yaml`, built in P4-T3) will need
-**approved rebuttal language** for at least: price ("it's too expensive"), spousal decision
-("need to talk to my spouse"), comparison shopping, "we tried tutoring before," and discount
-requests. I'll seed safe placeholder rebuttals and list them here for your review.
+`data/playbooks/objections.yaml` now exists with **PLACEHOLDER** rebuttals for: `price`
+(the §8 baseline), `discount` (high-risk → defers, no concession), `spouse`, `comparison`,
+`tutor_quality`, and `tried_before`. They're consultative and avoid inventing prices/guarantees,
+but the **wording needs your approval** — especially the **price baseline**, since Phase 7's
+recursive-improvement loop will A/B-test variants against it. Please review/replace the
+`rebuttal:` text in that file.
 
 ## Escalation / compliance
 
