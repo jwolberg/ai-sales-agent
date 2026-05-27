@@ -38,8 +38,8 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 3 — Lead Memory & Discovery
-- **Current ticket:** P3-T4 (next) — fit summary, close attempt & close logging
+- **Current phase:** Phase 4 — Knowledge Base & Guardrails (entering)
+- **Current ticket:** P4-T1 (next) — KB ingestion & retrieval (RAG)
 - **Blockers:** None
 - **Note:** P2-T4 transcript/call-record capture complete as a capability (`CallRecorder`
   + optional Orchestrator integration, unit-tested). **Follow-up:** wiring it into the live
@@ -158,7 +158,12 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
   - Files likely involved: `backend/app/agent/closing.py`, `backend/app/agent/decisioning.py`
   - Depends on: P3-T3
   - Acceptance criteria covered: CF-1, CF-2, CF-3, DE-3; §21 (attempts a close; discovery-to-close)
-  - Status: Todo
+  - Status: Complete (added `app/agent/closing.py`: `assess_close_criteria` (DE-3),
+    `build_fit_summary` (CF-1), `choose_close`/`next_step_prompt` (CF-2), `CloseAttempt`.
+    DiscoveryDecider now flows discovery → fit summary → attempt close (or develop need /
+    pivot when criteria unmet). Close attempts logged as KPIEvents via
+    `CallRecorder.record_close_attempt` (CF-3). Buying-intent/objection signals are state
+    flags pending Phase 4 detection.)
 
 ### Phase 4 — Knowledge Base & Guardrails
 **Goal**

@@ -57,6 +57,13 @@ class ConversationState:
     # Set once the agent has confirmed the lead's already-known context (LM-3 / P3-T3),
     # so it doesn't re-confirm on every turn.
     context_confirmed: bool = False
+    # Set once a fit summary has been given, so the agent moves on to the close (P3-T4).
+    fit_summarized: bool = False
+    # Close-criteria signals (DE-3). Real detection lands in Phase 4; until then a driver
+    # or test sets these. buying_intent = prospect has shown interest; the objection flag =
+    # an unresolved high-risk objection is on the table.
+    buying_intent: bool = False
+    open_high_risk_objection: bool = False
 
 
 @runtime_checkable
@@ -171,6 +178,9 @@ class Orchestrator:
         # Once we've entered context confirmation, don't keep re-confirming (LM-3).
         if action.stage is Stage.CONTEXT_CONFIRMATION:
             self.state.context_confirmed = True
+        # Once a fit summary is given, the next discovery-complete turn moves to close.
+        if action.stage is Stage.FIT_SUMMARY:
+            self.state.fit_summarized = True
         return action
 
     def record_agent_turn(self, text: str) -> None:

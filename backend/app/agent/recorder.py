@@ -16,7 +16,8 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Call, Turn
+from app.agent.closing import CloseAttempt
+from app.db.models import Call, KPIEvent, Turn
 
 # Turn.speaker values (PRD §15).
 SPEAKER_AGENT = "agent"
@@ -92,6 +93,23 @@ class CallRecorder:
     def record_prospect(self, text: str, **kwargs) -> Turn:
         """Record something the caller said."""
         return self.record_turn(SPEAKER_PROSPECT, text, **kwargs)
+
+    def record_close_attempt(self, attempt: CloseAttempt) -> KPIEvent:
+        """Log a close attempt (CF-3) as a KPIEvent; ``created_at`` captures the timing."""
+        event = KPIEvent(
+            call_id=self._call.call_id,
+            event_type="close_attempt",
+            event_metadata={
+                "close_type": attempt.close_type,
+                "next_step": attempt.next_step,
+                "objection_state": attempt.objection_state,
+                "user_response": attempt.user_response,
+                "outcome": attempt.outcome,
+            },
+        )
+        self._session.add(event)
+        self._session.commit()
+        return event
 
     def end(
         self,

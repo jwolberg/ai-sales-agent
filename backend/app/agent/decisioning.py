@@ -17,6 +17,12 @@ ask, not the exact words.
 
 from __future__ import annotations
 
+from app.agent.closing import (
+    assess_close_criteria,
+    build_fit_summary,
+    choose_close,
+    next_step_prompt,
+)
 from app.agent.discovery import DiscoveryPlaybook, get_discovery_playbook
 from app.agent.orchestrator import ConversationState, NextAction
 from app.agent.stages import Action, Stage
@@ -61,22 +67,57 @@ class DiscoveryDecider:
                 prompt=question.prompt,
             )
 
-        # 3. Required complete — explore the next leading question (DF-2).
+        # 3. Required complete — decide between developing need, summarizing, and closing.
+        readiness = assess_close_criteria(
+            discovery_complete=True,
+            buying_intent=state.buying_intent,
+            high_risk_objection=state.open_high_risk_objection,
+        )
+        if readiness.ready:
+            if not state.fit_summarized:
+                return NextAction(
+                    stage=Stage.FIT_SUMMARY,
+                    action=Action.SUMMARIZE_FIT,
+                    reason="required discovery complete; summarizing fit (CF-1)",
+                    confidence=0.7,
+                    prompt=build_fit_summary(collected),
+                )
+            close_type, next_step = choose_close(
+                buying_intent=state.buying_intent,
+                high_risk_objection=state.open_high_risk_objection,
+            )
+            return NextAction(
+                stage=Stage.CLOSE,
+                action=Action.ATTEMPT_CLOSE,
+                reason=f"close criteria met; {close_type} close -> {next_step} (CF-2)",
+                confidence=0.7,
+                question_key=next_step,
+                prompt=next_step_prompt(next_step),
+            )
+
+        # Not ready to close: keep developing need via leading questions (DF-2) ...
         next_leading = self._playbook.next_question(collected)
         if next_leading is not None:
             return NextAction(
                 stage=Stage.NEED_DEVELOPMENT,
                 action=Action.ASK_LEADING_DISCOVERY,
-                reason=f"exploring leading info '{next_leading.key}'",
+                reason=f"developing need via '{next_leading.key}' ({'; '.join(readiness.reasons)})",
                 confidence=0.6,
                 question_key=next_leading.key,
                 prompt=next_leading.prompt,
             )
-
-        # 4. Nothing left to ask — summarize fit (close criteria detection is P3-T4).
+        # ... then summarize, then gently pivot toward the close.
+        if not state.fit_summarized:
+            return NextAction(
+                stage=Stage.FIT_SUMMARY,
+                action=Action.SUMMARIZE_FIT,
+                reason="discovery exhausted; summarizing fit (CF-1)",
+                confidence=0.6,
+                prompt=build_fit_summary(collected),
+            )
         return NextAction(
-            stage=Stage.FIT_SUMMARY,
-            action=Action.SUMMARIZE_FIT,
-            reason="required and leading discovery complete",
-            confidence=0.6,
+            stage=Stage.CLOSE,
+            action=Action.PIVOT_TOWARD_CLOSE,
+            reason=f"close criteria unmet ({'; '.join(readiness.reasons)}); probing readiness",
+            confidence=0.5,
         )

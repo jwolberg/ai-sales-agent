@@ -326,3 +326,29 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
   is also not here — it's LLM/NLU work for later; tests update `collected_fields` directly.
 - **Validation:** `ruff` clean; `pytest` 39 passed (6 new: no-info start, confirm-known,
   post-confirm probing, skip-known advance, leading→fit, orchestrator confirm-once).
+
+---
+
+## P3-T4 — fit summary, close attempt & close logging (2026-05-27) — Phase 3 complete
+
+- **`app/agent/closing.py`** (pure): `assess_close_criteria` (DE-3 → ready + unmet reasons),
+  `build_fit_summary` (CF-1 templated from known fields), `choose_close` + `next_step_prompt`
+  (CF-2: close type matched to readiness → one of 5 next steps), and the `CloseAttempt` record.
+- **DiscoveryDecider close flow:** once required discovery is complete it assesses DE-3 — if
+  ready, `SUMMARIZE_FIT` then `ATTEMPT_CLOSE` (carrying the recommended next step); if not, it
+  keeps developing need via leading questions, then summarizes, then `PIVOT_TOWARD_CLOSE`.
+  Added `ConversationState.fit_summarized` (orchestrator flips it on `FIT_SUMMARY`, mirroring
+  `context_confirmed`) plus `buying_intent` / `open_high_risk_objection` signal flags.
+- **CF-3 logging via KPIEvent:** `CallRecorder.record_close_attempt` writes a
+  `close_attempt` KPIEvent with close_type / next_step / objection_state / user_response /
+  outcome; `created_at` is the timing. Chose KPIEvent (vs. extending Decision) because it
+  already has a JSON metadata column and seeds P5-T3's KPI work — noted the slight overlap.
+- **Signals are flags, not detection:** `buying_intent` / `open_high_risk_objection` are set by
+  a driver/test for now; real intent & objection detection is Phase 4 (then DiscoveryDecider's
+  close gate becomes fully signal-driven). The earlier P3-T3 leading→fit test still passes
+  because with `buying_intent=False` the decider develops need before summarizing.
+- **Validation:** `ruff` clean; `pytest` 46 passed (7 new: criteria ready/unmet, fit summary,
+  close-type selection, summarize→close flow, pivot-when-unmet, CF-3 KPIEvent logging).
+- **Phase 3 exit criteria met:** follow-up calls continue from prior context (lead_store),
+  required fields collected when missing / known skipped or confirmed (discovery + decisioning),
+  and a fit summary + close attempt are produced and logged (closing + recorder).
