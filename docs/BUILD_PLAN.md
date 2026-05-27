@@ -37,9 +37,9 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 **Process note (project rules, `.claude/CLAUDE.md`):** commit per ticket (scoped, referencing the ticket ID), run lint/relevant tests before each commit, and append a dated entry to `docs/implementation-notes.md` on any decision/deviation/tradeoff. Do not push without explicit instruction.
 
 ## Current Status
-- **Overall status:** Not Started
+- **Overall status:** In Progress
 - **Current phase:** Phase 1 — Foundation & Data Layer
-- **Current ticket:** P1-T1
+- **Current ticket:** P1-T2 (next)
 - **Blockers:** None
 
 ---
@@ -60,7 +60,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
   - Files likely involved: `backend/app/main.py`, `backend/app/config.py`, `backend/pyproject.toml` (or `requirements.txt`), `backend/tests/test_health.py`, `.env.example`
   - Depends on: none
   - Acceptance criteria covered: Enabler for all (no direct §21 criterion)
-  - Status: Todo
+  - Status: Complete
 - P1-T2 — Data model & persistence
   - Objective: Implement the §15 schema (Lead, Call, Turn, Decision, KPIEvent, Experiment, Variant) with SQLAlchemy + SQLite; create-all; repository helpers.
   - Files likely involved: `backend/app/db/models.py`, `backend/app/db/session.py`, `backend/tests/test_models.py`
