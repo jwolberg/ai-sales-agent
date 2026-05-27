@@ -442,3 +442,24 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
   priority, stop-on-refusal, output flags, orchestrator escalate, escalation logging).
 - **Phase 4 exit criteria met:** grounded answers with source tracking; honest fallback when KB
   is insufficient; 6 objection types incl. the price baseline; guardrails + escalation enforced.
+
+---
+
+## KB content: pricing provided by operator (2026-05-27)
+
+- Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).
+  After review (with the operator, via decision prompts):
+  - **Included:** Varsity Tutors live tutoring = custom-quoted (subject / tutor experience /
+    hours), and Nerd AI homework-app freemium tiers with **exact figures** (free ~3/day;
+    $6.99–9.99/wk; ~$39.99/yr; $39.99–49.99 lifetime).
+  - **Excluded:** NerdyData (SEO), Nerdio (Azure/IT), Nerdy Form (lead forms) — the source
+    conflated unrelated companies with Nerdy/VT; quoting them would be actively wrong.
+  - Provenance + "re-verify figures" recorded as an HTML comment (stripped from chunks).
+  - Pricing queries now retrieve `pricing.md` strongly (1.3–1.9).
+- **Guardrail tension to revisit (not changed here):** `check_agent_output` (P4-T4) flags ANY
+  price figure as `QUOTES_PRICE`. Now that approved Nerd AI prices exist, that blunt check would
+  false-positive on legitimate prices. It's a tested *utility*, not yet enforced on live output,
+  so no functional impact today — but when the live post-generation filter is wired, demote it to
+  advisory or scope it to *live-tutoring* prices (which must always be custom/deferred). The real
+  no-hallucination protection remains the KB-grounding flow (answer from retrieved snippets only).
+- **Validation:** `ruff` clean; `pytest` 72 passed (retrieval probe confirms pricing grounding).

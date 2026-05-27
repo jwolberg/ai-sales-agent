@@ -14,10 +14,10 @@ human rather than stating as fact.
 
 ## Priority 1 — caller will ask on most calls
 
-| Topic | KB file | What's needed | Current placeholder behavior |
+| Topic | KB file | What's needed | Current behavior |
 | --- | --- | --- | --- |
-| **Pricing** | `pricing.md` | Approved pricing *language* (ranges? "starting at"? per-session vs package?) or explicit "do not quote" rule | Says price depends on plan; defers exact numbers to a specialist; refuses discounts |
-| **Plans / commitment** | `pricing.md` | Whether there's a commitment, month-to-month, trial, etc. | Defers to specialist |
+| ~~**Pricing**~~ ✅ PROVIDED | `pricing.md` | Operator-provided 2026-05-27: live tutoring is custom-quoted; Nerd AI app tiers quote exact figures. **Re-verify app figures periodically** (prices change); unrelated companies (NerdyData/Nerdio/Nerdy Form) excluded as non-VT products | Quotes Nerd AI app prices; live tutoring stays custom → specialist; refuses discounts |
+| **Plans / commitment** | `pricing.md` | Whether live tutoring has a commitment, month-to-month, trial, etc. (Nerd AI tiers covered) | Defers commitment terms to specialist |
 | **Refund / satisfaction policy** | `policies_and_compliance.md` | Exact refund or satisfaction-guarantee terms, if any | States nothing specific; defers |
 | **Tutor matching & re-match** | `tutoring_formats_and_matching.md` | How matching works; can a student switch tutors, and any guarantee | General description; defers re-match specifics |
 | **Scheduling / cancellation** | `scheduling.md` | Reschedule/cancellation deadlines and any fees | Says flexible; defers exact rules |
