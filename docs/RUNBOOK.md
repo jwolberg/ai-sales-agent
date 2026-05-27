@@ -138,8 +138,49 @@ git push origin main
 | `zsh: no matches found: .[dev]` | Quote the extras: `pip install -e ".[dev]"`. |
 | Port already in use | Run uvicorn with a different `--port`. |
 
-## 11. Not yet wired (coming in later phases)
+## 11. Voice demo (Phase 2 — P2-T1)
 
-The realtime voice pipeline (Phase 2) will require a voice stack and API keys
-(e.g. STT/TTS providers and an LLM key). Those env vars will be added to `.env.example`
-and documented here when that ticket lands.
+Realtime voice uses **Pipecat**: Deepgram (STT) → Claude (LLM) → Cartesia (TTS) over
+WebRTC, with Silero VAD for turn-taking. These deps are heavy and live in an optional
+`voice` extra, separate from the core dev setup.
+
+### 11.1 Install the voice extra
+
+```bash
+cd backend
+.venv/bin/python -m pip install -e ".[voice]"
+```
+
+> **If the install fails building `llvmlite`** (a native dep pulled via `numba`/`resampy`):
+> install prebuilt wheels first, then retry the extra:
+> ```bash
+> .venv/bin/python -m pip install --only-binary=:all: "llvmlite>=0.43" numba
+> .venv/bin/python -m pip install -e ".[voice]"
+> ```
+
+### 11.2 Add provider keys
+
+Set these in `backend/.env` (see `.env.example`). Until all three are present,
+`/voice/offer` returns `503` and the demo page tells you which keys are missing.
+
+| Variable            | Provider | Notes                                   |
+| ------------------- | -------- | --------------------------------------- |
+| `DEEPGRAM_API_KEY`  | Deepgram | Speech-to-text                          |
+| `ANTHROPIC_API_KEY` | Anthropic| Claude (the agent's reasoning/replies)  |
+| `CARTESIA_API_KEY`  | Cartesia | Text-to-speech                          |
+| `ANTHROPIC_MODEL`   | —        | Optional; default `claude-sonnet-4-6`   |
+| `CARTESIA_VOICE_ID` | Cartesia | Optional; default is a sample voice     |
+
+### 11.3 Run the demo
+
+```bash
+.venv/bin/uvicorn app.main:app --reload --port 8000
+```
+
+Open **http://localhost:8000/demo**, click **Call**, allow the microphone, and talk —
+the agent greets you first. Check readiness any time at
+`GET http://localhost:8000/voice/status`.
+
+> A browser + microphone are required; the voice path can't be exercised headlessly.
+> Construction/wiring is covered by `tests/test_voice_pipeline.py` (skips automatically
+> when the `voice` extra isn't installed).

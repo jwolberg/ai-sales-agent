@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nerdy Sales Agent — Voice Demo</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 36rem;
+        margin: 4rem auto;
+        padding: 0 1rem;
+        color: #1a1a2e;
+      }
+      h1 { font-size: 1.4rem; }
+      button {
+        font-size: 1rem;
+        padding: 0.6rem 1.2rem;
+        border-radius: 0.5rem;
+        border: 1px solid #444;
+        cursor: pointer;
+        margin-right: 0.5rem;
+      }
+      #call { background: #2d6cdf; color: #fff; border-color: #2d6cdf; }
+      #hangup { background: #fff; }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      #status { margin-top: 1.5rem; padding: 0.75rem 1rem; background: #f1f3f8; border-radius: 0.5rem; }
+    </style>
+  </head>
+  <body>
+    <h1>Nerdy Sales Agent — Voice Demo</h1>
+    <p>Click <strong>Call</strong>, allow microphone access, and start talking. The agent
+    speaks first.</p>
+    <button id="call">Call</button>
+    <button id="hangup" disabled>Hang up</button>
+    <div id="status">Idle.</div>
+    <audio id="remote" autoplay playsinline></audio>
+    <script src="client.js"></script>
+  </body>
+</html>

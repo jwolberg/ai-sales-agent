@@ -38,9 +38,11 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 1 complete → Phase 2 — Core Voice Agent (next)
-- **Current ticket:** P2-T1 (next)
+- **Current phase:** Phase 2 — Core Voice Agent
+- **Current ticket:** P2-T2 (next) — barge-in / interruption tuning
 - **Blockers:** None
+- **Note:** P2-T1 voice pipeline wired & construction-validated; live audio + barge-in
+  require a browser/mic/keys run (see RUNBOOK §11). `allow_interruptions=True` already set.
 
 ---
 
@@ -87,7 +89,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
   - Files likely involved: `backend/app/voice/pipeline.py`, `backend/app/voice/server.py`, `frontend/` (demo client)
   - Depends on: P1-T1
   - Acceptance criteria covered: VC-1, VC-3; §21 Voice (live channel, voice response, turn-taking)
-  - Status: Todo
+  - Status: Complete (wiring + construction validated; live audio pending a browser/mic/keys run)
 - P2-T2 — Barge-in / interruption handling
   - Objective: Stop playback on detected user speech (< 1s), flush output, resume from updated context.
   - Files likely involved: `backend/app/voice/pipeline.py`

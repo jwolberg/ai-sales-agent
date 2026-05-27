@@ -16,6 +16,26 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./nerdy_sales.db"
     log_level: str = "INFO"
 
+    # --- Voice pipeline (Phase 2) ---
+    # Provider API keys. Optional so the core app boots without them; the voice
+    # endpoint returns a clear 503 until all three are set.
+    deepgram_api_key: str | None = None   # STT
+    anthropic_api_key: str | None = None  # LLM (Claude)
+    cartesia_api_key: str | None = None   # TTS
+    # Tunables (override via env). Default to a capable Claude model; switch to
+    # claude-haiku-4-5 for lower latency if needed.
+    anthropic_model: str = "claude-sonnet-4-6"
+    cartesia_voice_id: str = "71a7ad14-091c-4e8e-a314-022ece01c121"
+
+    def missing_voice_keys(self) -> list[str]:
+        """Return the env-var names of any unset voice provider keys."""
+        required = {
+            "DEEPGRAM_API_KEY": self.deepgram_api_key,
+            "ANTHROPIC_API_KEY": self.anthropic_api_key,
+            "CARTESIA_API_KEY": self.cartesia_api_key,
+        }
+        return [name for name, value in required.items() if not value]
+
 
 @lru_cache
 def get_settings() -> Settings:

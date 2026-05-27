@@ -74,3 +74,43 @@ Newest entries at the bottom of each ticket. Dates are ISO (YYYY-MM-DD).
 ### Phase 1 — Foundation & Data Layer: COMPLETE (2026-05-26)
 All exit criteria met: app boots with `/health` + tests/lint; all §15 entities persist and
 round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real.
+
+---
+
+## P2-T1 — Realtime voice pipeline (2026-05-27)
+
+- **Stack chosen (user decision):** Pipecat orchestrating Deepgram STT → Claude →
+  Cartesia TTS over WebRTC, Silero VAD for turn-taking. Keeps reasoning in Claude, which
+  matches the strategy (we own decisioning/observability). User supplies real keys.
+- **Optional `voice` extra:** the realtime deps are heavy and native-build-prone, so they
+  live in `pyproject.toml [voice]`, not core `dev`. Core app + tests stay light.
+- **Verified the exact 0.0.108 import paths by introspection** before writing wiring
+  (transport moved to `pipecat.transports.smallwebrtc.*`; greeting via `LLMRunFrame`;
+  `get_answer()` returns `{sdp,type,pc_id}`).
+- **Decisions not specified in the PRD:**
+  - Default model `claude-sonnet-4-6` (override `ANTHROPIC_MODEL`; note `claude-haiku-4-5`
+    for lower latency). Default Cartesia voice id is a sample, overridable.
+  - **Lazy Pipecat import:** `app.main`/`app.voice.server` do not import Pipecat at module
+    load (verified: not in `sys.modules` after importing `app.main`). It's imported inside
+    the `/voice/offer` handler, so the core app runs without the `voice` extra.
+  - **Key-gating:** `/voice/offer` returns `503` listing missing keys; `/voice/status`
+    reports readiness for the demo client.
+  - First-turn greeting: seed a single user cue + `LLMRunFrame` so the agent speaks first
+    (Anthropic requires a user turn to respond to).
+  - Placeholder persona in `pipeline.py`; full persona/decisioning deferred to P2-T3/T4.
+  - `allow_interruptions=True` set now as the **barge-in foundation**; formal barge-in
+    tuning/verification is P2-T2.
+- **Install gotcha (documented in RUNBOOK):** pip resolved an old `llvmlite` with no wheel
+  and tried to build from source (no LLVM here). Fix: `pip install --only-binary=:all:
+  "llvmlite>=0.43" numba` first, then the extra. Installed clean as 0.0.108.
+- **TODO / follow-up:** Pipecat deprecation warnings — `model=`/`voice_id=` kwargs and
+  `AnthropicLLMContext`/`create_context_aggregator` are deprecated for a universal
+  `LLMContext`. Kept the working (deprecated) API for now and **pinned `pipecat-ai<0.1`**
+  so a future release can't remove it unexpectedly. Migrate to `LLMContext` during a
+  live-validated ticket (P2-T2/T4), since the new message format can't be verified here.
+- **Validation:** `ruff` clean; `pytest` 9 passed (incl. real Pipecat construction smoke
+  via `importorskip`); TestClient smoke confirms `/health`, `/voice/status` (3 missing
+  keys), `/voice/offer` 503, and no eager Pipecat import.
+- **NOT validated here (environment limits):** an end-to-end live call needs a browser +
+  microphone + real keys. Wiring/construction is validated; live audio + barge-in must be
+  run from the RUNBOOK on a provisioned machine.

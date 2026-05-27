@@ -1,9 +1,16 @@
 """FastAPI application entry point."""
 
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.config import get_settings
+from app.voice.server import router as voice_router
+
+# Repo root is two levels up from this file: backend/app/main.py -> repo root.
+FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 
 
 def create_app() -> FastAPI:
@@ -21,6 +28,12 @@ def create_app() -> FastAPI:
             "version": __version__,
             "environment": config.environment,
         }
+
+    app.include_router(voice_router)
+
+    # Serve the voice demo client at /demo (if the frontend has been added).
+    if FRONTEND_DIR.is_dir():
+        app.mount("/demo", StaticFiles(directory=FRONTEND_DIR, html=True), name="demo")
 
     return app
 
