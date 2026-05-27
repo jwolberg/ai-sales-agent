@@ -52,6 +52,30 @@ __all__ = [
 AUDIO_IN_SAMPLE_RATE = 16000
 
 
+class _DeepgramSTTService(DeepgramSTTService):
+    """Work around two pipecat-0.0.108 serialization bugs that make Deepgram reject the
+    streaming WebSocket with HTTP 400 (silently masked by the SDK as "Unexpected error
+    when initializing websocket connection"):
+
+    1. ``language`` is sent as ``str(Language.EN)`` -> "Language.EN" instead of the
+       BCP-47 value "en". Settings coerces any string back to the enum, so the only
+       reliable fix is to re-serialize the enum's ``.value`` here.
+    2. ``sample_rate`` can still be 0/None at connect time if the pipeline hasn't
+       propagated it yet; pin it to our known input rate so the query param is valid.
+
+    Verified against Deepgram live: with these two corrected, the handshake is accepted.
+    """
+
+    def _build_connect_kwargs(self) -> dict:
+        kwargs = super()._build_connect_kwargs()
+        language = self._settings.language
+        if language is not None and hasattr(language, "value"):
+            kwargs["language"] = str(language.value)
+        if kwargs.get("sample_rate") in (None, "0", "None"):
+            kwargs["sample_rate"] = str(AUDIO_IN_SAMPLE_RATE)
+        return kwargs
+
+
 def configure_debug_logging() -> None:
     """Quiet Pipecat's INFO chatter to warnings-only while keeping our app markers.
 
@@ -103,9 +127,9 @@ def build_services(
     settings: Settings,
 ) -> tuple[DeepgramSTTService, AnthropicLLMService, CartesiaTTSService]:
     """Construct the STT, LLM, and TTS services from configured keys."""
-    # Set sample_rate explicitly: relying on pipeline propagation left it None, which
-    # Pipecat serializes to "None" and Deepgram rejects with HTTP 400.
-    stt = DeepgramSTTService(
+    # Use the patched STT: pins sample_rate and fixes Deepgram language serialization
+    # (both otherwise cause a masked HTTP 400 on the streaming WebSocket).
+    stt = _DeepgramSTTService(
         api_key=settings.deepgram_api_key or "",
         sample_rate=AUDIO_IN_SAMPLE_RATE,
     )

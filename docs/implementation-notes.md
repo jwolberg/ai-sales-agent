@@ -203,3 +203,32 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 - **NOT validated here:** the sample-rate fix targets a real live-audio bug; construction
   tests pass, but confirming audio actually flows still needs a browser/mic/keys run (RUNBOOK).
 - **Validation:** `ruff` clean on `app`; `pytest` 16 passed (incl. Pipecat construction smoke).
+
+---
+
+## P2-T1 follow-up #2 — Deepgram language serialization fix (2026-05-27)
+
+- **Symptom (live run):** agent greeted fine but never responded to speech. Debug log showed
+  audio arriving + VAD firing, then a flood of `DeepgramSTTService: Connection lost ...
+  status_code: 400, body: Unexpected error when initializing websocket connection` — no STT
+  output, so Claude had nothing to answer.
+- **Diagnosis (live, against Deepgram):** key valid (REST 200) and a *raw* websocket handshake
+  with our params was accepted, so it wasn't auth, the key, or the sample-rate fix. Dumping
+  pipecat's actual `_build_connect_kwargs()` revealed two bad params:
+  1. `language='Language.EN'` — pipecat 0.0.108 serializes the default `Language` *enum* with
+     `str()` (giving "Language.EN") instead of `.value` ("en"). Deepgram 400s on it. Settings
+     coerces any string back to the enum, so passing `language="en-US"` doesn't help.
+  2. `sample_rate='0'` — the connect reads the pipeline-negotiated rate, which can be 0 if not
+     yet propagated.
+  Bisecting via the Deepgram SDK proved **both** must be valid; with `language='en'` +
+  `sample_rate='16000'` the handshake connects.
+- **Fix:** thin `_DeepgramSTTService` subclass in `voice/pipeline.py` overriding
+  `_build_connect_kwargs()` to (a) re-serialize the language enum's `.value` and (b) pin
+  `sample_rate` to `AUDIO_IN_SAMPLE_RATE` when it's 0/None. Contained workaround for a pipecat
+  0.0.108 bug; tied to that pinned version (`pipecat-ai>=0.0.108,<0.1`).
+- **Validated LIVE (browser + mic + keys):** debug log now shows `✅ STT final: '...'`
+  transcripts and **zero** Deepgram 400s; the agent responds to speech.
+- **Security:** pipecat's retry warning logs the full `Authorization: Token <key>` header on
+  every failure — the earlier debug log captured the Deepgram key in plaintext. That log was
+  scrubbed; consider rotating the key. (`voice_debug` stays off by default partly for this.)
+- **Validation:** `ruff` clean on `app`; `pytest` 16 passed.
