@@ -19,10 +19,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
+from app.agent.knowledge import answer_question, grounding_prompt
 from app.agent.persona import build_greeting_cue, build_system_prompt
 from app.agent.recorder import CallRecorder
 from app.agent.stages import Action, Modifier, Stage
 from app.config import Settings, get_settings
+from app.kb.retriever import KBRetriever
 from app.memory.lead_store import missing_required
 
 
@@ -39,6 +41,7 @@ class NextAction:
     missing_fields: list[str] = field(default_factory=list)
     question_key: str | None = None
     prompt: str | None = None
+    kb_sources: list[str] = field(default_factory=list)  # KB-3 source attribution
 
 
 @dataclass
@@ -140,12 +143,15 @@ class Orchestrator:
         recorder: CallRecorder | None = None,
         known_fields: dict[str, str] | None = None,
         lead_id: str | None = None,
+        retriever: KBRetriever | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.decider = decider or StubDecider()
         # Optional: when set, prospect/agent turns are persisted as the call's
         # transcript (P2-T4). Left None for pure, DB-free decision testing.
         self.recorder = recorder
+        # KB retriever for grounded answers (P4-T2); defaults to the shared one on demand.
+        self._retriever = retriever
         # Built once and reused every turn — this is what keeps the persona consistent.
         self.system_prompt = build_system_prompt(self.settings)
         self.state = ConversationState(lead_id=lead_id)
@@ -182,6 +188,31 @@ class Orchestrator:
         if action.stage is Stage.FIT_SUMMARY:
             self.state.fit_summarized = True
         return action
+
+    def answer_knowledge(self, question: str) -> NextAction:
+        """Answer a caller's question from the KB, or fall back honestly (KB-1, KB-4).
+
+        Grounded answers carry the retrieved material in ``prompt`` (the phrasing layer must
+        use only that) and their `kb_sources` for the trace; an uncovered question yields the
+        honest deferral instead of a guess.
+        """
+        answer = answer_question(question, retriever=self._retriever)
+        if answer.grounded:
+            return NextAction(
+                stage=Stage.KNOWLEDGE_ANSWER,
+                action=Action.ANSWER_KNOWLEDGE,
+                reason="answering from approved KB content (KB-1)",
+                confidence=0.7,
+                kb_sources=answer.sources,
+                prompt=grounding_prompt(answer),
+            )
+        return NextAction(
+            stage=Stage.KNOWLEDGE_ANSWER,
+            action=Action.ANSWER_KNOWLEDGE,
+            reason="KB does not cover this; honest fallback (KB-4)",
+            confidence=0.3,
+            prompt=answer.fallback,
+        )
 
     def record_agent_turn(self, text: str) -> None:
         """Record the agent's spoken words for the transcript (the decider chooses the

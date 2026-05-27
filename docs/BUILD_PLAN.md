@@ -39,7 +39,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 4 — Knowledge Base & Guardrails
-- **Current ticket:** P4-T2 (next) — grounded answer action + no-hallucination fallback
+- **Current ticket:** P4-T3 (next) — objection handling (≥3 types) via playbook + KB
 - **Blockers:** None
 - **ACTION NEEDED (user):** KB docs under `data/kb/` are safe PLACEHOLDERS, not approved
   Nerdy content. See `docs/QandA_opens.md` for the pricing/refund/matching/scheduling copy to
@@ -190,7 +190,10 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
   - Files likely involved: `backend/app/agent/orchestrator.py`, `backend/app/agent/decisioning.py`
   - Depends on: P4-T1, P3-T3
   - Acceptance criteria covered: KB-1, KB-4; §21 (answers KB-grounded questions)
-  - Status: Todo
+  - Status: Complete (added `app/agent/knowledge.py`: `answer_question` grounds in retrieved
+    snippets above a tuned min_score or returns an honest fallback (KB-4); `grounding_prompt`
+    confines phrasing to retrieved material. Wired `Orchestrator.answer_knowledge` →
+    ANSWER_KNOWLEDGE with `kb_sources` (KB-3). Routing heuristic `is_knowledge_question`.)
 - P4-T3 — Objection handling (≥3 types) via playbook + KB
   - Objective: Detect objections; respond from approved rebuttals/playbook + KB; cover ≥3 common objections including the **baseline** price rebuttal (sets up Phase 7).
   - Files likely involved: `backend/app/agent/objections.py`, `data/playbooks/objections.yaml`

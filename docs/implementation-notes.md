@@ -373,3 +373,24 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
   priority. `min_score` is the hook P4-T2 uses for the KB-4 no-hallucination fallback.
 - **Validation:** `ruff` clean; `pytest` 51 passed (5 new: chunking+sources, relevant-source
   retrieval, topic ranking, empty-on-no-signal, min_score filtering).
+
+---
+
+## P4-T2 — grounded answer action + no-hallucination fallback (2026-05-27)
+
+- **`app/agent/knowledge.py`:** `answer_question` retrieves with a `min_score` gate; above it
+  returns a `GroundedAnswer` (snippets + unique sources, best-first), below it returns an honest
+  fallback offering to clarify/escalate (KB-4). `grounding_prompt` builds the phrasing-layer
+  instruction that says to answer from the retrieved material ONLY. `is_knowledge_question` is a
+  cheap routing heuristic.
+- **`min_score = 0.45`:** calibrated against the placeholder corpus — relevant queries scored
+  ~0.53–1.34, nonsense ~0.37, off-topic none. Documented as corpus-tuned; revisit with real KB.
+- **Wired as an orchestrator action:** `Orchestrator.answer_knowledge(question)` →
+  `ANSWER_KNOWLEDGE` NextAction. Added `NextAction.kb_sources` (maps to `Decision.kb_sources_used`,
+  KB-3); grounded answers carry the retrieved material in `prompt` for the LLM, fallback carries
+  the honest deferral and claims no sources.
+- **Scope:** routing (deciding a turn is a question vs a discovery answer) is provided as a
+  heuristic but not yet wired into `on_user_turn`'s main loop — that integration rides with the
+  larger orchestrator/live-pipeline wiring. Kept the loop stable.
+- **Validation:** `ruff` clean; `pytest` 57 passed (6 new: grounded snippets+sources, honest
+  fallback, grounding-prompt material-only, question heuristic, orchestrator grounded + fallback).
