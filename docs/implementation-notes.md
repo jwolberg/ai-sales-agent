@@ -132,3 +132,48 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
   filter-to-temp-then-`mv`, or the Edit tool, and re-verify keys after.
 - **Validation:** `ruff` clean; `pytest` 9 passed; `Settings()` loads all three keys plus
   model/voice from `config.toml`.
+
+---
+
+## docs/AGENT_FLOW.md — conversation flow mockup (2026-05-27)
+
+- Added `docs/AGENT_FLOW.md` as a discussion artifact ahead of the orchestrator. Captures
+  the two-layer model (sales progression vs. human conversation) and the logging contract
+  agreed in discussion, which then drove the P2-T3 enums:
+  - **Stages** = PRD §17's 11 values → logged `Decision.stage`.
+  - **`selected_action`** = PRD §9.5 DE-1's 10 sales actions only.
+  - **Modifiers** = a *separate, optional* dimension (rapport/clarify/reassure/banter/
+    bridge_back/time_filler), used during ambiguous/non-progressing turns; does not change
+    the stage. **Open:** `Decision` has no `modifier` column yet — proposed nullable String.
+- **Open gap (deferred):** DE-1 has no "greet"/"confirm context" action; `context_confirmation`
+  currently borrows `ask_required_discovery`. Decide whether to add `confirm_context` later.
+
+---
+
+## P2-T3 — Orchestrator skeleton + consistent persona (2026-05-27)
+
+- **Deviation from plan order:** built P2-T3 before P2-T2 (barge-in). Rationale: per the
+  BUILD_PLAN note, barge-in can only be *validated* with a live browser/mic/keys run
+  (`allow_interruptions=True` is already set), so there is nothing build-and-test-able there
+  right now. P2-T3 is pure, unit-testable logic and unblocks P2-T4/P3. P2-T2 remains Todo,
+  to be exercised during a live-validation pass.
+- **New `app/agent/` layer**, transport-agnostic so the voice pipeline (Phase 2) and the
+  simulator (Phase 6) share it:
+  - `stages.py` — `Stage`/`Action`/`Modifier` as `str` enums (values match AGENT_FLOW), so
+    they serialize straight into the `Decision` string columns.
+  - `persona.py` — moved `build_system_prompt`/`build_greeting_cue` here from
+    `voice/pipeline.py` (single source of truth; pipeline now re-exports them for backward
+    compatibility). Added `stage_directive(stage)` for per-stage guidance, surfaced into
+    generation in a later ticket.
+  - `orchestrator.py` — `NextAction` (mirrors the DE-2 trace fields exactly), mutable
+    `ConversationState`, a `NextActionDecider` Protocol (the pluggable interface), a trivial
+    `StubDecider` (linear happy-path off turn count), and `Orchestrator` (builds the persona
+    **once** for consistency = VC-4; `open()` → greeting, `on_user_turn()` → next action).
+- **Stub is deliberately dumb:** no real intent/objection/KB detection — those are P3-T3/P4.
+  It advances on a turn count (`_STUB_DISCOVERY_TURNS = 3`) purely so the loop and trace are
+  demonstrable. To be replaced wholesale, not extended.
+- **Modifier demo:** the stub attaches `Modifier.RAPPORT` to the first discovery turn to
+  exercise the (stage-independent) modifier channel.
+- **Validation:** `ruff` clean; `pytest` 13 passed (7 new orchestrator tests + existing
+  health/models/voice-construction tests still green, confirming the persona move is
+  non-breaking).

@@ -39,10 +39,13 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 2 — Core Voice Agent
-- **Current ticket:** P2-T2 (next) — barge-in / interruption tuning
+- **Current ticket:** P2-T4 (next) — transcript & call-record capture
 - **Blockers:** None
-- **Note:** P2-T1 voice pipeline wired & construction-validated; live audio + barge-in
-  require a browser/mic/keys run (see RUNBOOK §11). `allow_interruptions=True` already set.
+- **Note:** P2-T3 orchestrator skeleton + persona complete (pure logic, unit-tested).
+  P2-T2 (barge-in) intentionally deferred: it can only be *validated* with a live
+  browser/mic/keys run (`allow_interruptions=True` already set), so it is grouped into
+  the live-validation pass. P2-T1 voice pipeline wired & construction-validated; live
+  audio + barge-in require a browser/mic/keys run (see RUNBOOK §11).
 
 ---
 
@@ -101,7 +104,9 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
   - Files likely involved: `backend/app/agent/orchestrator.py`, `backend/app/agent/persona.py`
   - Depends on: P2-T1
   - Acceptance criteria covered: VC-4; enabler for DE-1
-  - Status: Todo
+  - Status: Complete (added `app/agent/{stages,persona,orchestrator}.py`: 11-stage/10-action/
+    6-modifier vocab, pluggable `NextActionDecider` + `StubDecider`, persona built once for
+    consistency. Decisioning logic itself is stubbed pending P3-T3.)
 - P2-T4 — Transcript & call-record capture
   - Objective: Persist Turns (speaker/text/timestamp) and a Call record per session, including final outcome field and optional recording link.
   - Files likely involved: `backend/app/agent/orchestrator.py`, `backend/tests/test_transcript.py`
