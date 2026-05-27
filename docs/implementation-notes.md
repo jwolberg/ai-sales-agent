@@ -257,3 +257,27 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 - **Validation:** `ruff` clean; `pytest` 20 passed (4 new transcript tests: ordered
   transcript round-trip, synthetic flag, orchestrator-driven recording, and no-recorder =
   no DB writes).
+
+---
+
+## P3-T1 — lead profile loading & cross-call memory (2026-05-27)
+
+- **`app/memory/lead_store.py`:** `LeadStore(session)` with `load` / `get_or_create` and
+  `apply_call_outcome` (the LM-4 cross-call write: merges newly collected profile fields,
+  de-dupes appended objections, sets `prior_summary` and `status`). Plus pure field-state
+  helpers — `known_fields`, `missing_required`, `info_level` — that accept a Lead *or* a dict
+  so the DB-free orchestrator can reuse them.
+- **Field sets:** `PROFILE_FIELDS` = the LM-1 discoverable profile; `REQUIRED_FIELDS` =
+  the DF-1 minimum (who / subject / grade) that gates discovery. `info_level` →
+  full/partial/none maps exactly onto Use Cases 1–3 (verified against the three seed leads).
+- **Orchestrator:** now accepts `known_fields` + `lead_id`, seeds `state.collected_fields`,
+  and exposes `missing_required_fields()` (skip-known foundation for P3-T2/T3). Stays DB-free.
+- **Decision — no schema change:** LM-4 lists "buying signals" and "disqualification signals"
+  to persist, but `Lead` has no columns for them and there's no migration framework (SQLite
+  `create_all`). Mapped them onto the existing `status` (next-step/lifecycle) + `prior_summary`
+  rather than alter the schema mid-project. Agent version / variant (also in LM-4) already
+  live on `Call` and are P5-T2's job. Dedicated signal columns can come with a future
+  migration ticket if needed.
+- **Validation:** `ruff` clean; `pytest` 26 passed (6 new: info-level vs use cases, unknown
+  lead, get_or_create, carry-forward across calls, objection de-dup / empty-skip, orchestrator
+  seeding).

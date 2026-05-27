@@ -38,8 +38,8 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 3 — Lead Memory & Discovery (entering)
-- **Current ticket:** P3-T1 (next) — lead profile loading & cross-call memory
+- **Current phase:** Phase 3 — Lead Memory & Discovery
+- **Current ticket:** P3-T2 (next) — discovery question set (required + leading) & skip-known
 - **Blockers:** None
 - **Note:** P2-T4 transcript/call-record capture complete as a capability (`CallRecorder`
   + optional Orchestrator integration, unit-tested). **Follow-up:** wiring it into the live
@@ -131,7 +131,10 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
   - Files likely involved: `backend/app/memory/lead_store.py`, `backend/app/agent/orchestrator.py`
   - Depends on: P1-T2, P2-T4
   - Acceptance criteria covered: LM-1, LM-4; §21 Memory; Use Cases 1–3
-  - Status: Todo
+  - Status: Complete (added `app/memory/lead_store.py`: `LeadStore` load/get_or_create +
+    `apply_call_outcome` cross-call write, plus pure `info_level`/`known_fields`/
+    `missing_required` helpers. Orchestrator seeded with known lead context. Buying/disqual
+    signals folded into status+summary — no schema change; see notes.)
 - P3-T2 — Discovery question set (required + leading) & skip-known
   - Objective: Encode required fields (DF-1) and leading questions (DF-2) as a prioritized playbook; detect missing fields; skip or confirm known fields (LM-2, LM-3).
   - Files likely involved: `backend/app/agent/discovery.py`, `data/playbooks/discovery.yaml`

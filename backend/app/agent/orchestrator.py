@@ -23,6 +23,7 @@ from app.agent.persona import build_greeting_cue, build_system_prompt
 from app.agent.recorder import CallRecorder
 from app.agent.stages import Action, Modifier, Stage
 from app.config import Settings, get_settings
+from app.memory.lead_store import missing_required
 
 
 @dataclass
@@ -41,15 +42,15 @@ class NextAction:
 class ConversationState:
     """Mutable per-call state the decider reads to choose the next action.
 
-    Lead context, collected fields, and detected signals are populated by later
-    tickets (P3 memory/discovery, P4 KB/objections); for now the stub only needs the
-    stage and the running user-turn count.
+    ``collected_fields`` starts from the lead's known profile (P3-T1) and grows as the
+    agent learns more; detected signals are populated by later tickets (P4 KB/objections).
     """
 
     stage: Stage = Stage.GREETING
     user_turns: int = 0
     history: list[tuple[str, str]] = field(default_factory=list)  # (speaker, text)
     collected_fields: dict[str, str] = field(default_factory=dict)
+    lead_id: str | None = None
 
 
 @runtime_checkable
@@ -124,6 +125,8 @@ class Orchestrator:
         settings: Settings | None = None,
         decider: NextActionDecider | None = None,
         recorder: CallRecorder | None = None,
+        known_fields: dict[str, str] | None = None,
+        lead_id: str | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.decider = decider or StubDecider()
@@ -132,7 +135,14 @@ class Orchestrator:
         self.recorder = recorder
         # Built once and reused every turn — this is what keeps the persona consistent.
         self.system_prompt = build_system_prompt(self.settings)
-        self.state = ConversationState()
+        self.state = ConversationState(lead_id=lead_id)
+        # Seed known lead context so the agent can skip-known and ask only for gaps (P3-T1).
+        if known_fields:
+            self.state.collected_fields.update(known_fields)
+
+    def missing_required_fields(self) -> list[str]:
+        """Required discovery fields still unknown given what we've collected (LM-2)."""
+        return missing_required(self.state.collected_fields)
 
     def open(self) -> str:
         """Return the greeting cue for the agent's opening line.
