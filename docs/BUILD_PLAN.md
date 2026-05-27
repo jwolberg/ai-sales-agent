@@ -38,14 +38,16 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 2 — Core Voice Agent
-- **Current ticket:** P2-T4 (next) — transcript & call-record capture
+- **Current phase:** Phase 3 — Lead Memory & Discovery (entering)
+- **Current ticket:** P3-T1 (next) — lead profile loading & cross-call memory
 - **Blockers:** None
-- **Note:** P2-T3 orchestrator skeleton + persona complete (pure logic, unit-tested).
-  P2-T2 (barge-in) intentionally deferred: it can only be *validated* with a live
-  browser/mic/keys run (`allow_interruptions=True` already set), so it is grouped into
-  the live-validation pass. P2-T1 voice pipeline wired & construction-validated; live
-  audio + barge-in require a browser/mic/keys run (see RUNBOOK §11).
+- **Note:** P2-T4 transcript/call-record capture complete as a capability (`CallRecorder`
+  + optional Orchestrator integration, unit-tested). **Follow-up:** wiring it into the live
+  Pipecat frame path (recording real STT/TTS turns during a voice call) is not yet done —
+  tracked for when the orchestrator is wired into `run_bot`. P2-T3 orchestrator skeleton +
+  persona complete. Live STT→Claude→TTS validated end-to-end (browser+mic) after the
+  Deepgram language/sample-rate fixes. P2-T2 (barge-in) still deferred to a live-validation
+  pass (`allow_interruptions=True` set).
 
 ---
 
@@ -112,7 +114,9 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
   - Files likely involved: `backend/app/agent/orchestrator.py`, `backend/tests/test_transcript.py`
   - Depends on: P1-T2, P2-T3
   - Acceptance criteria covered: §10.1; §21 Observability (transcript captured)
-  - Status: Todo
+  - Status: Complete (added `app/agent/recorder.py` `CallRecorder`: creates a Call row,
+    appends Turn rows committed per turn, finalizes with outcome/summary; wired as an
+    optional Orchestrator collaborator. Live Pipecat-frame capture is a tracked follow-up.)
 
 ### Phase 3 — Lead Memory & Discovery
 **Goal**

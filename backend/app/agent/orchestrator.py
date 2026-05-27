@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 from app.agent.persona import build_greeting_cue, build_system_prompt
+from app.agent.recorder import CallRecorder
 from app.agent.stages import Action, Modifier, Stage
 from app.config import Settings, get_settings
 
@@ -122,9 +123,13 @@ class Orchestrator:
         self,
         settings: Settings | None = None,
         decider: NextActionDecider | None = None,
+        recorder: CallRecorder | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.decider = decider or StubDecider()
+        # Optional: when set, prospect/agent turns are persisted as the call's
+        # transcript (P2-T4). Left None for pure, DB-free decision testing.
+        self.recorder = recorder
         # Built once and reused every turn — this is what keeps the persona consistent.
         self.system_prompt = build_system_prompt(self.settings)
         self.state = ConversationState()
@@ -133,7 +138,8 @@ class Orchestrator:
         """Return the greeting cue for the agent's opening line.
 
         Greeting precedes the first user turn, so it produces no decision row
-        (AGENT_FLOW §4.5); it only sets the stage.
+        (AGENT_FLOW §4.5); it only sets the stage. The greeting's spoken words are
+        captured later via :meth:`record_agent_turn` once the LLM produces them.
         """
         self.state.stage = Stage.GREETING
         return build_greeting_cue(self.settings)
@@ -142,6 +148,20 @@ class Orchestrator:
         """Record a user turn, ask the decider for the next action, advance the stage."""
         self.state.user_turns += 1
         self.state.history.append(("user", user_text))
+        if self.recorder is not None:
+            self.recorder.record_prospect(user_text)
         action = self.decider.decide(self.state, user_text)
         self.state.stage = action.stage
         return action
+
+    def record_agent_turn(self, text: str) -> None:
+        """Record the agent's spoken words for the transcript (the decider chooses the
+        action; the words come from the LLM / TTS layer that calls this)."""
+        self.state.history.append(("agent", text))
+        if self.recorder is not None:
+            self.recorder.record_agent(text)
+
+    def end(self, *, outcome: str | None = None, summary: str | None = None) -> None:
+        """Finalize the call record, if one is being kept."""
+        if self.recorder is not None:
+            self.recorder.end(outcome=outcome, summary=summary)

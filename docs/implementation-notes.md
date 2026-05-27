@@ -232,3 +232,28 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
   every failure — the earlier debug log captured the Deepgram key in plaintext. That log was
   scrubbed; consider rotating the key. (`voice_debug` stays off by default partly for this.)
 - **Validation:** `ruff` clean on `app`; `pytest` 16 passed.
+
+---
+
+## P2-T4 — transcript & call-record capture (2026-05-27)
+
+- **`app/agent/recorder.py` `CallRecorder`:** owns one `Call` row (created + flushed on
+  construction for an immediate `call_id`), appends `Turn` rows via `record_agent` /
+  `record_prospect` / `record_turn`, and finalizes with `end(outcome=, summary=)` (stamps
+  `ended_at`). Speaker and outcome constants live here so KPI rollups (P5) can rely on them.
+- **Commit-per-turn:** turns are committed as they happen (not batched) so a transcript
+  survives a mid-call crash — observability is the point. Negligible cost at call cadence.
+- **Kept the Orchestrator pure:** the recorder is a *separate* object; the Orchestrator
+  takes it as an **optional** collaborator (`recorder=None` default). With it set,
+  `on_user_turn` records the prospect turn and `record_agent_turn` / `end` persist the rest;
+  without it, the orchestrator does zero DB work (existing decider tests untouched). This is
+  the same seam the live pipeline and the simulator (P6) will use.
+- **Deviation / scope note:** the ticket's stated files were `orchestrator.py` + the test, so
+  this delivers the *capture capability* + integration, validated in text mode. Wiring it
+  into the **live Pipecat frame path** (taps `TranscriptionFrame` for prospect turns and the
+  TTS/LLM output for agent turns, with a DB session per `run_bot` call) is **not done** —
+  tracked as a follow-up for when the orchestrator is wired into `run_bot`. Chose not to
+  expand into the live frame layer here (can't unit-validate; overlaps P3 wiring).
+- **Validation:** `ruff` clean; `pytest` 20 passed (4 new transcript tests: ordered
+  transcript round-trip, synthetic flag, orchestrator-driven recording, and no-recorder =
+  no DB writes).
