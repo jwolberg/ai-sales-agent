@@ -38,9 +38,12 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 4 — Knowledge Base & Guardrails (entering)
-- **Current ticket:** P4-T1 (next) — KB ingestion & retrieval (RAG)
+- **Current phase:** Phase 4 — Knowledge Base & Guardrails
+- **Current ticket:** P4-T2 (next) — grounded answer action + no-hallucination fallback
 - **Blockers:** None
+- **ACTION NEEDED (user):** KB docs under `data/kb/` are safe PLACEHOLDERS, not approved
+  Nerdy content. See `docs/QandA_opens.md` for the pricing/refund/matching/scheduling copy to
+  provide; until then the agent defers those specifics to a human.
 - **Note:** P2-T4 transcript/call-record capture complete as a capability (`CallRecorder`
   + optional Orchestrator integration, unit-tested). **Follow-up:** wiring it into the live
   Pipecat frame path (recording real STT/TTS turns during a voice call) is not yet done —
@@ -178,7 +181,10 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
   - Files likely involved: `backend/app/kb/ingest.py`, `backend/app/kb/retriever.py`, `data/kb/*.md`
   - Depends on: P1-T1
   - Acceptance criteria covered: KB-1, KB-2, KB-3
-  - Status: Todo
+  - Status: Complete (added `app/kb/ingest.py` markdown chunker w/ source ids and
+    `app/kb/retriever.py` dependency-free TF-IDF `KBRetriever` returning scored snippets.
+    5 PLACEHOLDER KB docs seeded; real approved content tracked in `docs/QandA_opens.md`.
+    Lexical retriever chosen over a vector store — see notes.)
 - P4-T2 — Grounded answer action + no-hallucination fallback
   - Objective: Answer only from retrieved content; when insufficient, say so and clarify or escalate (KB-4); wire as an orchestrator action.
   - Files likely involved: `backend/app/agent/orchestrator.py`, `backend/app/agent/decisioning.py`

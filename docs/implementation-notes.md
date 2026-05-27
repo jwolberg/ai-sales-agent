@@ -352,3 +352,24 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 - **Phase 3 exit criteria met:** follow-up calls continue from prior context (lead_store),
   required fields collected when missing / known skipped or confirmed (discovery + decisioning),
   and a fit summary + close attempt are produced and logged (closing + recorder).
+
+---
+
+## P4-T1 — KB ingestion & retrieval (2026-05-27)
+
+- **`app/kb/ingest.py`:** loads `data/kb/*.md`, strips HTML comments, and chunks at `##`
+  headings into `KBChunk`s tagged with source file + section title (KB-3 source attribution).
+- **`app/kb/retriever.py`:** `KBRetriever` — a dependency-free **TF-IDF** lexical retriever
+  with stopword filtering and length normalization; `retrieve(query, k, min_score)` returns
+  scored `RetrievedChunk`s, best first. `get_retriever()` builds it once (`lru_cache`).
+- **Tradeoff — lexical, not vector:** the PRD *suggests* a vector store but doesn't mandate
+  one. Chose TF-IDF to avoid an embedding model/API (cost, latency, a heavy dep like
+  torch/sentence-transformers) and to keep retrieval deterministic for tests. Fine for a small
+  approved-doc set; documented as swappable if recall needs it.
+- **Content gap flagged (per user request):** the 5 KB docs are **safe PLACEHOLDERS**, not
+  approved Nerdy content — they describe offerings generally and defer all specifics (pricing,
+  refunds, guarantees, re-match) to a human, which also enforces §18. Created
+  `docs/QandA_opens.md` listing exactly what approved copy the user must provide, by file and
+  priority. `min_score` is the hook P4-T2 uses for the KB-4 no-hallucination fallback.
+- **Validation:** `ruff` clean; `pytest` 51 passed (5 new: chunking+sources, relevant-source
+  retrieval, topic ranking, empty-on-no-signal, min_score filtering).
