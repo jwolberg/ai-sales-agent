@@ -274,13 +274,16 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Depends on: P4.5-T4, P4-T4
   - Acceptance criteria covered: §18 (output guardrails enforced live); VC-1/VC-4
   - Status: Todo
-- P4.5-T6 — Latency tiers (fillers + caching + speculation)
+- P4.5-T6 — Latency tiers + audio realism (fillers, caching, speculation, ambient bed)
   - Objective: Tier-0 pre-synthesized static + filler audio; cached FAQ answers; filler-masking
     on slow/cache-miss paths; speculative prefetch of the predicted next directive (verify
-    action-signature before speaking). Measure vs VC-3.
-  - Files likely involved: `backend/app/voice/latency.py`
+    action-signature before speaking). **Looping ambient "comfort noise"** mixed under the agent's
+    voice via Pipecat `SoundfileMixer` on the transport output (output-only → no STT/VAD impact),
+    gated by an `ambient_noise` config flag (off by default), low volume, WAV asset. Measure vs VC-3.
+  - Files likely involved: `backend/app/voice/latency.py`, `backend/app/voice/pipeline.py`,
+    `backend/app/config.py`, `backend/config.toml`, `data/audio/ambient.wav`
   - Depends on: P4.5-T5
-  - Acceptance criteria covered: VC-3 (latency targets)
+  - Acceptance criteria covered: VC-3 (latency targets); call-realism polish
   - Status: Todo
 
 ### Phase 5 — Decisioning Trace & Observability Dashboard

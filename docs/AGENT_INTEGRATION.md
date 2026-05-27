@@ -121,11 +121,26 @@ filler's start time (~200ms).
   the `stage` or `selected_action`; it's logged (if at all) as `modifier = time_filler`. This
   is exactly why `time_filler` is a *modifier*, not an action (`AGENT_FLOW.md` §4.4 / §5.10).
 
+### Ambient bed (comfort noise)
+
+A subtle looping room-tone track mixed **under** the agent's voice so the call never drops to
+dead digital silence between turns. Pipecat's `SoundfileMixer` (`loop=True`, low `volume`) attached
+via `TransportParams(audio_out_mixer=…)`, gated by an `ambient_noise` config flag (off by default).
+
+- **Output-only** — it mixes into what the caller hears, not the mic input, so it can't reach
+  Deepgram STT or Silero VAD (no transcription/turn-taking contamination).
+- **WAV, not MP3** (libsndfile); mono, sample-rate-matched, **seamless loop**, subtle volume
+  (~0.10–0.20). Asset lives at `data/audio/ambient.wav` (see that dir's README).
+- **Complements fillers:** fillers mask gaps with *speech*; the ambient bed masks them with *room
+  tone* — together there's never an unnatural silence.
+- **Honesty (§18):** ambiance for naturalness only; the agent still must never claim to be human.
+
 ### How they compose
 
 Speculation/caching *eliminates* compute for predicted branches (often → no filler needed);
-fillers *mask* the compute you couldn't eliminate (cache misses, the <4s grounded-answer case).
-Best UX = both, plus Tier-0 static audio as the always-available floor.
+fillers *mask* the compute you couldn't eliminate (cache misses, the <4s grounded-answer case);
+the ambient bed covers the residual silence under everything. Best UX = all of them, with Tier-0
+static audio as the always-available floor.
 
 ### Design constraint that keeps it all possible
 
