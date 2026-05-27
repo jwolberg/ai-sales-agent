@@ -39,7 +39,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 1 — Foundation & Data Layer
-- **Current ticket:** P1-T2 (next)
+- **Current ticket:** P1-T3 (next)
 - **Blockers:** None
 
 ---
@@ -66,7 +66,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
   - Files likely involved: `backend/app/db/models.py`, `backend/app/db/session.py`, `backend/tests/test_models.py`
   - Depends on: P1-T1
   - Acceptance criteria covered: Observability data substrate (§10.1); Memory storage (LM-4)
-  - Status: Todo
+  - Status: Complete
 - P1-T3 — Seed data & synthetic/real labeling
   - Objective: Seed sample leads covering Use Cases 1–3 (full/partial/no info); PII-substituted transcript loader stub; synthetic-vs-real label on calls/leads (§13.3).
   - Files likely involved: `backend/app/db/seed.py`, `data/leads/*.json`
