@@ -44,14 +44,26 @@ async function startCall() {
       remoteAudio.srcObject = event.streams[0];
     };
     pc.onconnectionstatechange = () => {
+      console.log("[webrtc] connectionState:", pc.connectionState);
       if (["failed", "disconnected", "closed"].includes(pc.connectionState)) {
         setStatus(`Connection ${pc.connectionState}.`);
       }
     };
+    pc.oniceconnectionstatechange = () =>
+      console.log("[webrtc] iceConnectionState:", pc.iceConnectionState);
 
     setStatus("Requesting microphone…");
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+    // Diagnostic: confirm the mic track is captured, live, and not muted.
+    localStream.getAudioTracks().forEach((t) =>
+      console.log("[mic] track:", {
+        label: t.label,
+        enabled: t.enabled,
+        muted: t.muted,
+        readyState: t.readyState,
+      }),
+    );
 
     const offer = await pc.createOffer({ offerToReceiveAudio: true });
     await pc.setLocalDescription(offer);

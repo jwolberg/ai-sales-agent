@@ -4,8 +4,12 @@
 # NOTE: this file overrides the defaults in app/config.py — set values HERE.
 
 # --- Agent persona ---
-agent_name = "Alex"
-company_name = "Varsity Tutors"
+agent_name = "Jay"
+company_name = "Nerdy"
+
+# --- Debug ---
+# Logs inbound audio / VAD / transcription to the server console. Flip on while debugging.
+voice_debug = false
 
 # --- LLM ---
 # Use "claude-haiku-4-5" for lower latency.

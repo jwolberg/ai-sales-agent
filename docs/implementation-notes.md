@@ -177,3 +177,29 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 - **Validation:** `ruff` clean; `pytest` 13 passed (7 new orchestrator tests + existing
   health/models/voice-construction tests still green, confirming the persona move is
   non-breaking).
+
+---
+
+## P2-T1 follow-up — live-audio fix + voice debug instrumentation (2026-05-27)
+
+- Committing in-flight pipeline work that predated the P2-T3 session (had been sitting
+  uncommitted in the working tree).
+- **Root fix (live audio):** Deepgram with `linear16` needs an explicit sample rate. Relying
+  on Pipecat pipeline propagation left it `None`, which serializes to the string `"None"` and
+  Deepgram rejects with HTTP 400. Now set explicitly (`AUDIO_IN_SAMPLE_RATE = 16000`) on the
+  STT service, the transport params, and `PipelineParams.audio_in_sample_rate`; the transport
+  resamples the browser's 48 kHz WebRTC audio down to it.
+- **Debug instrumentation (gated):** new `voice_debug` setting (`config.py` default `False`,
+  `config.toml`). When on: `DebugTurnLogger` traces the inbound path (audio arrival → VAD →
+  interim/final transcript) at two pipeline points, `configure_debug_logging()` quiets
+  Pipecat's INFO flood to warnings + our `app` markers, and `client.js` logs WebRTC
+  connection/ICE state + mic track status. **Default committed `voice_debug = false`** (per
+  user) so logging is off unless explicitly enabled.
+- **Persona move rode along:** `pipeline.py` also picks up the P2-T3 change (imports
+  `build_system_prompt`/`build_greeting_cue` from `app.agent.persona`, re-exported via
+  `__all__`) since the two edits were entangled in the same file.
+- **Persona identity:** committed `agent_name = "Jay"`, `company_name = "Nerdy"` as-is
+  (per user).
+- **NOT validated here:** the sample-rate fix targets a real live-audio bug; construction
+  tests pass, but confirming audio actually flows still needs a browser/mic/keys run (RUNBOOK).
+- **Validation:** `ruff` clean on `app`; `pytest` 16 passed (incl. Pipecat construction smoke).

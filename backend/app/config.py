@@ -60,8 +60,10 @@ class Settings(BaseSettings):
     # brook e07c00bc-4134-4eae-9ea4-1a55fb45746b
 
     # Agent persona identity. Set the live values in config.toml (these are fallbacks).
-    agent_name: str = "Alex"
-    company_name: str = "Varsity Tutors"
+    agent_name: str = "Jay"
+    company_name: str = "Nerdy"
+    # When true, log inbound audio / VAD / transcription to the server console (debug).
+    voice_debug: bool = False
 
     def missing_voice_keys(self) -> list[str]:
         """Return the env-var names of any unset voice provider keys."""
