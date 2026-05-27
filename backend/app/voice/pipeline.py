@@ -20,22 +20,26 @@ from pipecat.transports.base_transport import TransportParams
 from pipecat.transports.smallwebrtc.connection import SmallWebRTCConnection
 from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 
-from app.config import Settings
+from app.config import Settings, get_settings
 
-# Placeholder persona — replaced by the full persona/playbook in P2-T3.
-DEFAULT_SYSTEM_PROMPT = (
-    "You are a warm, consultative sales specialist for Varsity Tutors (Nerdy). "
-    "Your goal is to understand the caller's tutoring needs and help them take a "
-    "sensible next step. Be concise and natural — this is a spoken phone call, so "
-    "keep replies short and ask one question at a time. Never invent prices, "
-    "guarantees, or policies; if you are unsure, say so. Do not claim to be human."
-)
 
-# First-turn cue so the agent speaks first (Anthropic needs a user turn to respond to).
-_GREETING_CUE = (
-    "The call has just connected. Greet the caller warmly, introduce yourself as a "
-    "Varsity Tutors specialist, and ask how you can help today."
-)
+def build_system_prompt(settings: Settings) -> str:
+    """Persona prompt. Identity comes from config; the full playbook lands in P2-T3."""
+    return (
+        f"You are {settings.agent_name}, a warm, consultative sales specialist for "
+        f"{settings.company_name}. Your goal is to understand the caller's tutoring needs "
+        "and help them take a sensible next step. Be concise and natural — this is a spoken "
+        "phone call, so keep replies short and ask one question at a time. Never invent "
+        "prices, guarantees, or policies; if you are unsure, say so. Do not claim to be human."
+    )
+
+
+def build_greeting_cue(settings: Settings) -> str:
+    """First-turn cue so the agent speaks first (Anthropic needs a user turn to respond to)."""
+    return (
+        "The call has just connected. Greet the caller warmly, introduce yourself as "
+        f"{settings.agent_name} from {settings.company_name}, and ask how you can help today."
+    )
 
 
 def build_services(
@@ -57,15 +61,20 @@ def build_pipeline_task(
     stt: DeepgramSTTService,
     llm: AnthropicLLMService,
     tts: CartesiaTTSService,
-    system_prompt: str = DEFAULT_SYSTEM_PROMPT,
+    system_prompt: str | None = None,
+    greeting_cue: str | None = None,
 ) -> PipelineTask:
     """Assemble the streaming pipeline and return a runnable task.
 
     Frame order: mic in -> STT -> aggregate user turn -> Claude -> Cartesia TTS ->
     speaker out -> aggregate assistant turn (so context carries across turns).
+    Prompt and greeting default to the configured persona when not provided.
     """
+    settings = get_settings()
+    system_prompt = system_prompt or build_system_prompt(settings)
+    greeting_cue = greeting_cue or build_greeting_cue(settings)
     context = AnthropicLLMContext(
-        messages=[{"role": "user", "content": _GREETING_CUE}],
+        messages=[{"role": "user", "content": greeting_cue}],
         system=system_prompt,
     )
     context_aggregator = llm.create_context_aggregator(context)
@@ -98,12 +107,18 @@ def build_transport(connection: SmallWebRTCConnection) -> SmallWebRTCTransport:
 async def run_bot(
     connection: SmallWebRTCConnection,
     settings: Settings,
-    system_prompt: str = DEFAULT_SYSTEM_PROMPT,
 ) -> None:
     """Run one voice bot session for a connected WebRTC peer until it disconnects."""
     stt, llm, tts = build_services(settings)
     transport = build_transport(connection)
-    task = build_pipeline_task(transport, stt, llm, tts, system_prompt)
+    task = build_pipeline_task(
+        transport,
+        stt,
+        llm,
+        tts,
+        system_prompt=build_system_prompt(settings),
+        greeting_cue=build_greeting_cue(settings),
+    )
 
     @transport.event_handler("on_client_connected")
     async def _on_connected(_transport, _client):
