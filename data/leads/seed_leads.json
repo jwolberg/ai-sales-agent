@@ -1,0 +1,34 @@
+[
+  {
+    "lead_id": "seed-full-001",
+    "contact_name": "Dana Rivera",
+    "student_name": "Mia Rivera",
+    "relationship_to_student": "parent",
+    "subject": "Algebra I",
+    "grade_level": "8th grade",
+    "goal": "Rebuild confidence and raise test scores before the next unit",
+    "urgency": "within 2 weeks",
+    "schedule_constraints": "weekday evenings after 5pm",
+    "decision_maker_status": "primary decision maker",
+    "budget_sensitivity": "moderate",
+    "prior_objections": ["worried about cost", "tried a tutor before without results"],
+    "prior_summary": "Called once before about 1:1 algebra tutoring for daughter Mia. Asked about tutor quality and pricing; did not commit, wanted to discuss with spouse.",
+    "status": "returning",
+    "is_synthetic": true
+  },
+  {
+    "lead_id": "seed-partial-002",
+    "contact_name": "Sam Okafor",
+    "subject": "SAT prep",
+    "grade_level": "11th grade",
+    "prior_objections": [],
+    "status": "new",
+    "is_synthetic": true
+  },
+  {
+    "lead_id": "seed-none-003",
+    "prior_objections": [],
+    "status": "new",
+    "is_synthetic": true
+  }
+]

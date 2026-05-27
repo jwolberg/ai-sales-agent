@@ -46,3 +46,31 @@ Newest entries at the bottom of each ticket. Dates are ISO (YYYY-MM-DD).
 - **Lint note:** ruff `UP045` auto-rewrote `Optional[X]` → `X | None` (py310 target).
 - **Validation:** `ruff check .` clean; `pytest` 4 passed (full call graph round-trip, JSON
   round-trip, experiment/variant relationship, cascade delete); `init_db()` smoke ok.
+
+---
+
+## P1-T3 — Seed data & synthetic/real labeling (2026-05-26)
+
+- Added `is_synthetic` boolean to `Lead` and `Call` (PRD §13.3) so synthetic/seed/self-play
+  data is cleanly separable from real production data downstream.
+- **Seed leads** in `data/leads/seed_leads.json` cover the three PRD use cases:
+  `seed-full-001` (full prior info, returning), `seed-partial-002` (subject/grade only),
+  `seed-none-003` (effectively empty inbound). All flagged `is_synthetic: true`.
+- **Decisions not specified in the PRD:**
+  - Seed leads use **fixed `lead_id`s**, and `seed_leads()` upserts by id, so re-seeding is
+    idempotent (verified by test).
+  - **`data/` lives at the repo root** (not under `backend/`), matching the BUILD_PLAN file
+    map (`data/leads`, `data/kb`, `data/personas`, `data/playbooks`). `seed.py` resolves it
+    via `Path(__file__).parents[3]`.
+  - **Transcript loader is a guarded stub** (`load_transcripts`): scans `data/transcripts/*.json`,
+    skips any file not marked `pii_substituted: true`, returns `[]` when none present. Real
+    transcripts "will be provided" per the PRD; format documented in
+    `data/transcripts/README.md`.
+- **Validation:** `ruff check .` clean; `pytest` 7 passed; `python -m app.db.seed` ran
+  end-to-end ("Seeded 3 leads. Loaded 0 PII-substituted transcripts.").
+
+---
+
+### Phase 1 — Foundation & Data Layer: COMPLETE (2026-05-26)
+All exit criteria met: app boots with `/health` + tests/lint; all §15 entities persist and
+round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real.

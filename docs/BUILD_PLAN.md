@@ -38,8 +38,8 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 1 — Foundation & Data Layer
-- **Current ticket:** P1-T3 (next)
+- **Current phase:** Phase 1 complete → Phase 2 — Core Voice Agent (next)
+- **Current ticket:** P2-T1 (next)
 - **Blockers:** None
 
 ---
@@ -72,7 +72,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
   - Files likely involved: `backend/app/db/seed.py`, `data/leads/*.json`
   - Depends on: P1-T2
   - Acceptance criteria covered: Use Cases 1–3 data; §13 data requirements
-  - Status: Todo
+  - Status: Complete
 
 ### Phase 2 — Core Voice Agent
 **Goal**

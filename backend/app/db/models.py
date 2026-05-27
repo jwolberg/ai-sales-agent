@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, Text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -44,6 +44,8 @@ class Lead(Base):
     prior_objections: Mapped[list] = mapped_column(JSON, default=list)
     prior_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String, default="new")
+    # Separates synthetic test/seed leads from real production leads (PRD §13.3).
+    is_synthetic: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
@@ -77,6 +79,8 @@ class Call(Base):
     outcome: Mapped[str | None] = mapped_column(String, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     recording_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    # True for simulated/self-play calls; keeps them out of real-call metrics (PRD §13.3).
+    is_synthetic: Mapped[bool] = mapped_column(Boolean, default=False)
 
     lead: Mapped[Optional["Lead"]] = relationship(back_populates="calls")
     turns: Mapped[list["Turn"]] = relationship(
