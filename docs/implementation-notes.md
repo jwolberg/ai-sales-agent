@@ -561,6 +561,39 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 
 ---
 
+## P4.5-T5 — live voice wiring (decider-led runtime) (2026-05-27)
+
+- **`app/voice/bot.py`** replaces the raw-Claude pipeline path. `EngineProcessor` (a Pipecat
+  `FrameProcessor`) sits where the LLM was: on each final `TranscriptionFrame` it runs
+  `engine.run_turn` and speaks the result via `TTSSpeakFrame`; it greets first via `engine.open()`.
+  The engine's per-turn LLM work (extraction + render synthesis) is sync, so it runs in
+  `asyncio.to_thread` to avoid blocking the pipeline loop. New pipeline:
+  `transport.input → STT → EngineProcessor → TTS → transport.output` (no in-pipeline LLM/context
+  aggregators).
+- **Hybrid rendering** (the chosen architecture): `render` now LLM-smooths *smoothable* SPEAK
+  directives (discovery questions, fit summaries, pivots) and synthesizes GROUND from approved
+  snippets, while fixed lines (objection rebuttals, escalation, KB-4 fallback, wrap-up) stay
+  verbatim. `make_synthesizer` is one Claude call (configured model, persona system prompt,
+  cached) that returns `None` on any error so render falls back to verbatim/KB-4 — a phrasing
+  failure never drops the call.
+- **§18 enforced on output:** `guard_output` runs `check_agent_output` on every rendered line;
+  claims-to-be-human / guarantee → substitute the handoff line; **price figures are now advisory
+  only** (logged, not blocked) since approved pricing is in the KB — resolving the guardrail
+  tension flagged earlier.
+- **Wiring/refactor:** `run_bot` moved `pipeline.py → bot.py`; `server.py` imports it from `bot`.
+  `pipeline.py` keeps the shared service/transport builders + the legacy `build_pipeline_task`
+  (still construction-tested). Persists turns + decision trace via `CallRecorder` (per-call DB
+  session; `init_db()` ensures tables). On disconnect, stamps `ended_at` and closes the session.
+- **Threading/DB caveat:** one SQLite session per call, written from the worker thread; turns are
+  sequential so it's safe for the demo (noted for hardening). Barge-in mid-turn may push a late
+  line (the in-flight `to_thread` completes) — acceptable for MVP.
+- **NOT live-validated here:** construction only (imports/wiring/`PipelineTask`). The real
+  decider-led conversation needs a browser/mic/keys run.
+- **Validation:** `ruff` clean; `pytest` 115 passed (7 new: render smoothing ×2; guard, synth
+  ×2, construction).
+
+---
+
 ## KB content: pricing provided by operator (2026-05-27)
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).

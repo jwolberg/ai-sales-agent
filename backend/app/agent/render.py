@@ -30,6 +30,19 @@ class ContentKind(str, Enum):
     GROUND = "ground"  # synthesize from KB material via the LLM, with a safe fallback
 
 
+# Intents whose SPEAK text should be LLM-smoothed into natural phrasing (Hybrid rendering):
+# discovery questions, confirmations, fit summaries, and pivots. Fixed lines (rebuttals,
+# escalation, KB-4 fallback, the wrap-up close) are spoken verbatim — they're approved language.
+_SMOOTHABLE_INTENTS = frozenset(
+    {
+        Action.ASK_REQUIRED_DISCOVERY,
+        Action.ASK_LEADING_DISCOVERY,
+        Action.SUMMARIZE_FIT,
+        Action.PIVOT_TOWARD_CLOSE,
+    }
+)
+
+
 @dataclass
 class Directive:
     """A structured render spec — what to say and how to produce it."""
@@ -41,6 +54,7 @@ class Directive:
     fallback: str | None = None      # GROUND: safe words if no LLM is available
     sources: list[str] = field(default_factory=list)  # KB-3 source ids (trace)
     style: Modifier | None = None    # human-layer modifier, if any
+    smoothable: bool = False         # SPEAK: may be LLM-rephrased for natural delivery (DF-4)
 
 
 def to_directive(action: NextAction) -> Directive:
@@ -61,21 +75,37 @@ def to_directive(action: NextAction) -> Directive:
         kind=ContentKind.SPEAK,
         text=action.prompt or "",
         style=action.modifier,
+        smoothable=action.action in _SMOOTHABLE_INTENTS,
     )
 
 
-# An LLM phrasing function: instruction -> spoken text. Injected live; omitted in tests.
-Synthesize = Callable[[str], str]
+# An LLM phrasing function: instruction -> spoken text (or None on failure). Injected live.
+Synthesize = Callable[[str], "str | None"]
+
+
+def _smoothing_instruction(text: str) -> str:
+    return (
+        "Rephrase the following into a natural, warm, spoken-style line. Keep it to one or two "
+        "sentences, add no new information, and output only the words to say:\n\n"
+        f"{text}"
+    )
 
 
 def render(directive: Directive, *, synthesize: Synthesize | None = None) -> str:
-    """Produce the final utterance for a directive.
+    """Produce the final utterance for a directive (Hybrid rendering).
 
-    SPEAK returns its words directly. GROUND synthesizes from the instruction via ``synthesize``
-    when available, otherwise degrades to the honest fallback rather than guessing (KB-4).
+    - GROUND: synthesize from the instruction via ``synthesize``; degrade to the honest KB-4
+      fallback if there's no LLM or it fails (never guesses).
+    - SPEAK + smoothable: LLM-rephrase the authored text for natural delivery, falling back to
+      the verbatim text if there's no LLM or it fails.
+    - SPEAK otherwise: the words verbatim (approved fixed language).
     """
     if directive.kind is ContentKind.GROUND:
         if synthesize is not None and directive.instruction:
-            return synthesize(directive.instruction)
+            return synthesize(directive.instruction) or (directive.fallback or FALLBACK_MESSAGE)
         return directive.fallback or FALLBACK_MESSAGE
-    return directive.text or ""
+
+    text = directive.text or ""
+    if text and directive.smoothable and synthesize is not None:
+        return synthesize(_smoothing_instruction(text)) or text
+    return text

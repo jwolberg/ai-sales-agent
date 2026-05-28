@@ -49,7 +49,7 @@ async def voice_offer(offer: Offer) -> dict:
     try:
         from pipecat.transports.smallwebrtc.connection import SmallWebRTCConnection
 
-        from app.voice.pipeline import run_bot
+        from app.voice.bot import run_bot
     except ImportError as exc:  # voice extra not installed
         raise HTTPException(
             status_code=503,

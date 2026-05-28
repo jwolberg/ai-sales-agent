@@ -39,7 +39,10 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 4.5 — Conversation Integration & Latency
-- **Current ticket:** P4.5-T5 (next) — live voice wiring
+- **Current ticket:** P4.5-T6 (next) — latency tiers + ambient bed
+- **LIVE-VALIDATE:** P4.5-T5 replaced the raw-Claude voice path with the decider-led engine
+  (`app/voice/bot.py`). Construction-validated only — needs a browser/mic/keys run (RUNBOOK §11,
+  http://localhost:8000/demo) to confirm the live decider-led conversation works.
 - **Blockers:** None
 - **DESIGN:** Phase 4.5 inserted per `docs/AGENT_INTEGRATION.md` — the Phases 2–4 agent layer
   is built but NOT wired into the live pipeline (which still runs raw Claude). This phase makes
@@ -286,7 +289,13 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `backend/app/voice/pipeline.py`, `backend/app/voice/bot.py`
   - Depends on: P4.5-T4, P4-T4
   - Acceptance criteria covered: §18 (output guardrails enforced live); VC-1/VC-4
-  - Status: Todo
+  - Status: Complete (construction-validated; needs live run). Added `app/voice/bot.py`:
+    `EngineProcessor` drives the engine on each STT-final transcript and speaks the rendered line
+    via `TTSSpeakFrame`; Hybrid rendering (verbatim fixed lines / LLM-smoothed questions /
+    GROUND-synthesized KB) via `make_synthesizer`; `guard_output` enforces §18 (blocks
+    claims-human/guarantee → handoff; price advisory). `run_bot` moved here, wires LLMExtractor +
+    DiscoveryDecider + CallRecorder; greets first; persists turns/decisions. `run_bot` removed
+    from `pipeline.py` (legacy `build_pipeline_task` kept for the construction test).
 - P4.5-T6 — Latency tiers + audio realism (fillers, caching, speculation, ambient bed)
   - Objective: Tier-0 pre-synthesized static + filler audio; cached FAQ answers; filler-masking
     on slow/cache-miss paths; speculative prefetch of the predicted next directive (verify

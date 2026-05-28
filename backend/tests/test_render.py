@@ -57,3 +57,22 @@ def test_render_is_pure_for_speak():
     d = Directive(intent=Action.SUMMARIZE_FIT, kind=ContentKind.SPEAK, text="So, to confirm…")
     assert render(d) == "So, to confirm…"
     assert render(d) == render(d)  # same input -> same output
+
+
+def test_smoothable_speak_is_llm_rephrased(monkeypatch=None):
+    # A discovery question is smoothable: with an LLM it's rephrased, without it stays verbatim.
+    action = DiscoveryDecider().decide(ConversationState(), "")
+    directive = to_directive(action)
+    assert directive.smoothable is True
+    assert render(directive, synthesize=lambda instruction: "Smoothed line.") == "Smoothed line."
+    assert render(directive) == action.prompt  # no LLM -> verbatim
+    # Synthesize failure falls back to the verbatim authored text.
+    assert render(directive, synthesize=lambda instruction: None) == action.prompt
+
+
+def test_fixed_lines_are_not_smoothed():
+    # An objection rebuttal is approved language — spoken verbatim even with an LLM available.
+    action = _orch().handle_objection("it's too expensive")
+    directive = to_directive(action)
+    assert directive.smoothable is False
+    assert render(directive, synthesize=lambda i: "should not be used") == action.prompt

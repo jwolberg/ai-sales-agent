@@ -16,13 +16,11 @@ from pipecat.frames.frames import (
     Frame,
     InputAudioRawFrame,
     InterimTranscriptionFrame,
-    LLMRunFrame,
     TranscriptionFrame,
     UserStartedSpeakingFrame,
     UserStoppedSpeakingFrame,
 )
 from pipecat.pipeline.pipeline import Pipeline
-from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.services.anthropic.llm import AnthropicLLMContext, AnthropicLLMService
@@ -37,13 +35,15 @@ from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 from app.agent.persona import build_greeting_cue, build_system_prompt
 from app.config import Settings, get_settings
 
+# NOTE: the live bot now lives in app.voice.bot (decider-led runtime, P4.5-T5). This module
+# keeps the shared service/transport builders and the legacy raw-Claude `build_pipeline_task`
+# (still construction-tested). `run_bot` moved to app.voice.bot.
 __all__ = [
     "build_system_prompt",
     "build_greeting_cue",
     "build_services",
     "build_pipeline_task",
     "build_transport",
-    "run_bot",
 ]
 
 # Deepgram requires an explicit sample rate with linear16. The transport must declare it
@@ -200,34 +200,3 @@ def build_transport(connection: SmallWebRTCConnection) -> SmallWebRTCTransport:
         vad_analyzer=SileroVADAnalyzer(),
     )
     return SmallWebRTCTransport(webrtc_connection=connection, params=params)
-
-
-async def run_bot(
-    connection: SmallWebRTCConnection,
-    settings: Settings,
-) -> None:
-    """Run one voice bot session for a connected WebRTC peer until it disconnects."""
-    if settings.voice_debug:
-        configure_debug_logging()
-    stt, llm, tts = build_services(settings)
-    transport = build_transport(connection)
-    task = build_pipeline_task(
-        transport,
-        stt,
-        llm,
-        tts,
-        system_prompt=build_system_prompt(settings),
-        greeting_cue=build_greeting_cue(settings),
-    )
-
-    @transport.event_handler("on_client_connected")
-    async def _on_connected(_transport, _client):
-        # Trigger the agent's opening line.
-        await task.queue_frames([LLMRunFrame()])
-
-    @transport.event_handler("on_client_disconnected")
-    async def _on_disconnected(_transport, _client):
-        await task.cancel()
-
-    runner = PipelineRunner(handle_sigint=False)
-    await runner.run(task)
