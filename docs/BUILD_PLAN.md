@@ -38,12 +38,14 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 9 complete (demo phone-call intro); Phase 8 still open; live-voice
-  hardening underway
-- **Current ticket:** Phase 9 done. Live voice now being exercised on real browser/mic calls —
-  this surfaced (and fixed) two real bugs (see "Live-voice hardening" note). Remaining: P8-T1
-  (live human trials), P8-T2 finalize failure-modes, P8-T3 demo rehearsal — all need a
-  browser/mic + funded keys.
+- **Current phase:** Phase 10 (conversation memory & context continuity) implemented & unit-tested;
+  Phase 8 still open; live-voice hardening underway
+- **Current ticket:** Phase 10 done in code (P10-T1/T2/T3 — cross-call memory wired into the live
+  path, transcript fed to the synthesizer, all discovery slots persisted; `ruff` clean, `pytest`
+  174 passed). Like the rest of the live path, the conversational effect needs a browser/mic/keys
+  re-test (RUNBOOK §11). Also open: P8-T1 (live human trials), P8-T2 finalize failure-modes, P8-T3
+  demo rehearsal — all need a browser/mic + funded keys. **Reminder:** P10-T3 added a `Lead`
+  column with no migration tool, so an existing dev DB must be recreated before the next run.
 
 ### ▶ Live-voice hardening (2026-05-28)
 Real demo calls (web/mic) are now being run, surfacing issues the construction tests couldn't:
@@ -592,7 +594,10 @@ connected in the live path (`app/voice/bot.py`). Numbered 10 to follow Phase 9 w
     `backend/app/agent/orchestrator.py`, `backend/tests/test_bot.py`, `backend/tests/test_lead_store.py`
   - Depends on: P3-T1, P4.5-T5
   - Acceptance criteria covered: LM-1, LM-3 (skip/confirm known); §21 Memory (follow-up continues from context)
-  - Status: Todo
+  - Status: Complete (construction/unit-validated; needs live run). `run_bot` loads a `Lead` via
+    the new `demo_lead_id` setting, seeds the engine with its known fields, and links the `Call`.
+    `build_engine` gained `known_fields`/`lead_id`. Anonymous sessions start cold. Live mic re-test
+    pending (RUNBOOK §11). Commit `d9faa25`.
 - P10-T2 — Feed running transcript into the synthesizer
   - Objective: Pass `state.history` (prior turns) as prior `messages` into the Claude phrasing call
     so the LLM phrases with conversational context instead of a single isolated instruction.
@@ -604,7 +609,10 @@ connected in the live path (`app/voice/bot.py`). Numbered 10 to follow Phase 9 w
     `backend/app/agent/engine.py`, `backend/tests/test_render.py`
   - Depends on: P4.5-T3, P4.5-T4
   - Acceptance criteria covered: DF-4 (conversational, persona-consistent phrasing); VC-4
-  - Status: Todo
+  - Status: Complete (unit-validated; needs live run). `make_synthesizer`'s callable takes an
+    optional `history`, replayed as prior messages (coalesced, user-first, instruction last);
+    `render` forwards it only when present so the 1-arg/SPEAK paths are unchanged; the engine passes
+    `state.history` each turn. Capped at `MAX_HISTORY_TURNS=20`. Commit `5790a49`.
 - P10-T3 — Persist all discovery slots & auto-write on call end
   - Objective: Stop dropping slots at call end. `apply_call_outcome` only persists the 9
     `PROFILE_FIELDS`, but `discovery.yaml` defines 15 required slots (`challenge`, `goal`,
@@ -616,7 +624,12 @@ connected in the live path (`app/voice/bot.py`). Numbered 10 to follow Phase 9 w
     `backend/app/agent/engine.py`, `backend/tests/test_lead_store.py`, `backend/tests/test_models.py`
   - Depends on: P3-T1, P10-T1
   - Acceptance criteria covered: LM-1, LM-4 (memory storage across calls); §21 Memory
-  - Status: Todo
+  - Status: Complete. Added a `collected_fields` JSON column on `Lead`; `apply_call_outcome` merges
+    *all* non-empty slots into it (typed columns still update); `all_known_fields` re-seeds the
+    union. Write-back fires automatically from `engine.end()` via optional `lead_store`/`lead`
+    collaborators on the `Orchestrator` (decision layer stays DB-free in tests). `run_bot` seeds
+    returning callers with `all_known_fields`. Note: no migration tool — existing dev DBs must be
+    recreated to get the column. Commit `d0e7514`.
 
 ---
 
