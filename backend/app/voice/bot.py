@@ -39,6 +39,7 @@ from app.agent.guardrails import (
 from app.agent.orchestrator import Orchestrator
 from app.agent.persona import build_system_prompt
 from app.agent.recorder import CallRecorder
+from app.agent.versioning import compute_versions
 from app.config import Settings
 from app.db.session import SessionLocal, init_db
 from app.voice.fillers import FillerBank
@@ -175,7 +176,7 @@ async def run_bot(connection: SmallWebRTCConnection, settings: Settings) -> None
     init_db()  # idempotent; ensures Call/Turn/Decision tables exist
     stt, _llm, tts = build_services(settings)  # _llm unused: the engine owns reasoning now
     db = SessionLocal()
-    recorder = CallRecorder(db, channel="web")
+    recorder = CallRecorder(db, channel="web", **compute_versions(settings).as_dict())
     engine = build_engine(settings, recorder=recorder)
     processor = EngineProcessor(engine, fillers=settings.fillers)
     transport = build_transport(connection, settings)

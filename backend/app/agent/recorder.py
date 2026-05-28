@@ -50,9 +50,21 @@ class CallRecorder:
         lead_id: str | None = None,
         channel: str | None = None,
         is_synthetic: bool = False,
+        agent_version: str | None = None,
+        playbook_version: str | None = None,
+        kb_version: str | None = None,
+        model_version: str | None = None,
     ) -> None:
         self._session = session
-        self._call = Call(lead_id=lead_id, channel=channel, is_synthetic=is_synthetic)
+        self._call = Call(
+            lead_id=lead_id,
+            channel=channel,
+            is_synthetic=is_synthetic,
+            agent_version=agent_version,  # version attribution (PRD §10.4)
+            playbook_version=playbook_version,
+            kb_version=kb_version,
+            model_version=model_version,
+        )
         session.add(self._call)
         session.flush()  # assign call_id without ending the surrounding transaction
 

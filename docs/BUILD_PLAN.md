@@ -39,7 +39,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 5 — Decisioning Trace & Observability Dashboard (entering)
-- **Current ticket:** P5-T2 (next) — version attribution
+- **Current ticket:** P5-T3 (next) — KPI event capture & metric computation
 - **LIVE-VALIDATE (Phase 4.5):** the decider-led voice path (`app/voice/bot.py`) + latency layer
   (fillers, ambient bed) are construction/unit-validated only. A browser/mic/keys run (RUNBOOK
   §11) is still needed to confirm the live conversation and to measure latency vs VC-3.
@@ -338,7 +338,9 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `backend/app/agent/versioning.py`
   - Depends on: P2-T4
   - Acceptance criteria covered: §10.4; §21 (tagged by version & variant)
-  - Status: Todo
+  - Status: Complete (added `app/agent/versioning.py` `compute_versions` → content-hash versions
+    for persona/playbooks/KB + configured model; `CallRecorder` stamps them on the Call; `run_bot`
+    applies them. Variant/experiment id are Phase 7; voice config has no Call column (noted).)
 - P5-T3 — KPI event capture & metric computation
   - Objective: Emit KPI events and compute the strategy metrics — Close Success, Objection Recovery, Unsupported-Claim, Discovery Completion, Escalation, Latency, Frustration (§16).
   - Files likely involved: `backend/app/kpis/events.py`, `backend/app/kpis/metrics.py`

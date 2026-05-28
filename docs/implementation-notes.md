@@ -640,6 +640,20 @@ turning on/tuning the deferred Tier-1/Tier-2 latency work.
 
 ---
 
+## P5-T2 — version attribution (2026-05-27)
+
+- **`app/agent/versioning.py` `compute_versions(settings)`** → `Versions(agent_version,
+  playbook_version, kb_version, model_version)`: content hashes of the persona prompt, the
+  `data/playbooks/*.yaml`, and the `data/kb/*.md` (so a version changes iff the content changes),
+  plus the configured model id. `CallRecorder` accepts these and stamps them on the `Call` (§10.4);
+  `run_bot` applies `compute_versions(settings).as_dict()`.
+- **Gaps (noted):** `experiment_id`/`variant_id` are Phase 7; the PRD lists "voice config" but
+  `Call` has no column for it — skipped rather than alter the schema.
+- **Validation:** `ruff` clean; `pytest` 126 passed (3 new: stable/well-formed versions, persona
+  change bumps agent_version, recorder stamps the Call).
+
+---
+
 ## KB content: pricing provided by operator (2026-05-27)
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).
