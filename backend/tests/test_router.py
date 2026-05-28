@@ -45,6 +45,11 @@ def test_discovery_answer_routes_to_progress():
     assert classify_turn("It's for my daughter, math.").route is Route.PROGRESS
 
 
+def test_hostility_routes_to_escalate():
+    assert classify_turn("Shut the **** up.").route is Route.ESCALATE
+    assert classify_turn("Just shut up.").route is Route.ESCALATE
+
+
 def test_priority_order_is_strict():
     # A turn that mentions a human AND an objection still escalates first.
     assert classify_turn("I'd rather talk to a human, this is too expensive").route is (

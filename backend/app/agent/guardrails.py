@@ -59,6 +59,11 @@ _ESCALATION_CUES: list[tuple[str, tuple[str, ...]]] = [
     (ANGER_CONFUSION, (
         "this is ridiculous", "i'm frustrated", "so frustrated", "i'm angry", "wasting my time",
         "i'm confused", "i don't understand", "makes no sense", "you're not listening",
+        # Hostility / abuse. STT often masks profanity (e.g. "shut the **** up"), so match the
+        # surrounding phrase and unmasked insults rather than relying on the swear word itself.
+        "shut up", "shut the", "shut your", "stop talking", "be quiet",
+        "you suck", "you're useless", "you're stupid", "idiot", "moron", "i hate",
+        "fuck", "shit", "asshole", "bullshit", "piss off",
     )),
 ]
 

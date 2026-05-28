@@ -45,6 +45,15 @@ def test_detects_each_escalation_trigger():
     assert detect_escalation("This is ridiculous, you're not listening.").code == ANGER_CONFUSION
 
 
+def test_hostility_and_abuse_escalate_as_anger():
+    # Real call 8b72f75c: "Shut the **** up." routed to PROGRESS and looped instead of
+    # escalating. STT masks the profanity, so the surrounding phrase must trip the cue.
+    assert detect_escalation("Shut the **** up.").code == ANGER_CONFUSION
+    assert detect_escalation("Just shut up and answer me.").code == ANGER_CONFUSION
+    assert detect_escalation("You're useless, stop talking.").code == ANGER_CONFUSION
+    assert detect_escalation("This is bullshit.").code == ANGER_CONFUSION
+
+
 def test_low_confidence_triggers_escalation():
     assert detect_escalation("tell me more", confidence=0.2).code == LOW_CONFIDENCE
     assert detect_escalation("tell me more", confidence=0.9) is None
