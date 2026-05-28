@@ -39,7 +39,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 6 — Synthetic Prospect Simulator (entering)
-- **Current ticket:** P6-T2 (next) — simulated call runner (LLM self-play)
+- **Current ticket:** P6-T3 (next) — agent performance scoring
 - **LIVE-VALIDATE (Phase 4.5):** the decider-led voice path (`app/voice/bot.py`) + latency layer
   (fillers, ambient bed) are construction/unit-validated only. A browser/mic/keys run (RUNBOOK
   §11) is still needed to confirm the live conversation and to measure latency vs VC-3.
@@ -383,7 +383,11 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `backend/app/simulator/runner.py`
   - Depends on: P6-T1, P5-T3
   - Acceptance criteria covered: §12.1; powers §21 Recursive Improvement (synthetic test)
-  - Status: Todo
+  - Status: Complete (added `app/simulator/runner.py`: `run_call` (LLM-agnostic self-play loop:
+    greet → prospect↔agent until terminal stage/goodbye/cap), `make_prospect` (Claude self-play
+    prospect from the persona prompt), `simulate` (wires the real engine + prospect). Writes the
+    same Call/Turn/Decision/KPIEvent records, `is_synthetic=True`, channel `sim:<persona>`. Moved
+    `make_synthesizer` to pipecat-free `app/agent/synthesis.py`. Live-validated end-to-end.)
 - P6-T3 — Agent performance scoring
   - Objective: Score each simulated call on KPIs including frustration, unsupported-claim, and objection recovery (LLM-as-judge where qualitative).
   - Files likely involved: `backend/app/simulator/scoring.py`

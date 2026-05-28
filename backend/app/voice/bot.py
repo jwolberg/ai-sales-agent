@@ -14,7 +14,6 @@ lazily so the core app stays importable without it.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable
 
 from loguru import logger
 from pipecat.frames.frames import Frame, TranscriptionFrame, TTSSpeakFrame
@@ -37,8 +36,8 @@ from app.agent.guardrails import (
     check_agent_output,
 )
 from app.agent.orchestrator import Orchestrator
-from app.agent.persona import build_system_prompt
 from app.agent.recorder import CallRecorder
+from app.agent.synthesis import make_synthesizer
 from app.agent.versioning import compute_versions
 from app.config import Settings
 from app.db.session import SessionLocal, init_db
@@ -50,39 +49,6 @@ from app.voice.pipeline import (
     build_transport,
     configure_debug_logging,
 )
-
-
-def make_synthesizer(
-    settings: Settings, *, client: object | None = None
-) -> Callable[[str], str | None]:
-    """Return a function that turns a render instruction into a spoken line via Claude.
-
-    Used for GROUND (synthesize from approved snippets) and Hybrid SPEAK smoothing. The persona
-    is the (cached) system prompt so output stays in voice. Returns ``None`` on any error, so
-    ``render()`` degrades to the safe fallback / verbatim text rather than crashing the call.
-    """
-    system = build_system_prompt(settings)
-
-    def synthesize(instruction: str) -> str | None:
-        nonlocal client
-        try:
-            if client is None:
-                import anthropic  # lazy
-
-                client = anthropic.Anthropic(api_key=settings.anthropic_api_key or "")
-            response = client.messages.create(
-                model=settings.anthropic_model,
-                max_tokens=400,
-                system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
-                messages=[{"role": "user", "content": instruction}],
-            )
-            text = "".join(b.text for b in response.content if b.type == "text").strip()
-            return text or None
-        except Exception as exc:  # never let a phrasing error drop the call
-            logger.warning(f"synthesize failed, falling back: {exc}")
-            return None
-
-    return synthesize
 
 
 def guard_output(text: str) -> str:

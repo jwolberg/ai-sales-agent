@@ -712,6 +712,27 @@ the Phase 6 simulator and Phase 7 experiment loop build on. (Latency/frustration
 
 ---
 
+## P6-T2 — simulated call runner (2026-05-27)
+
+- **`app/simulator/runner.py`:** `run_call(engine, prospect, persona_key, max_turns)` — the
+  LLM-agnostic self-play loop (greet → prospect↔agent until a terminal stage / goodbye / cap),
+  returning a `SimResult` (call_id, final stage, outcome, transcript). `make_prospect` is a Claude
+  self-play prospect (role-reversed history; agent lines are 'user'). `simulate` wires the real
+  engine (synthetic recorder, LLM extractor, Claude phrasing) + prospect. Records the same
+  Call/Turn/Decision/KPIEvent rows, `is_synthetic=True`, `channel="sim:<persona>"` (so synthetic
+  calls are identifiable on the dashboard and excludable from real-call metrics).
+- **Refactor:** moved `make_synthesizer` from `app/voice/bot.py` (which imports pipecat) to
+  pipecat-free `app/agent/synthesis.py` (stdlib logging) so the simulator reuses it without
+  pulling voice deps; `bot.py` re-imports it (test_bot unaffected).
+- **Live-validated:** a real Claude self-play (price-sensitive persona) ran end-to-end — agent
+  greeted, confirmed context, ran skip-known discovery with LLM-smoothed phrasing; prospect
+  answered consistently from its facts; all turns/decisions persisted. (Hit the turn cap
+  mid-discovery → outcome `abandoned`; the default `max_turns=12` reaches close.)
+- **Validation:** `ruff` clean; `pytest` 145 passed (4 new: records a synthetic call, goodbye
+  ends, escalation→escalated outcome, prospect persona/history) + a live self-play smoke.
+
+---
+
 ## KB content: pricing provided by operator (2026-05-27)
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).
