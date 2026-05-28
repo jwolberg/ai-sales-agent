@@ -489,6 +489,29 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 
 ---
 
+## P4.5-T3 — directive + render step (2026-05-27)
+
+- **Insight that simplified it:** the `NextAction.prompt` overload is narrow — every capability
+  already emits *final words* in `prompt` **except** a grounded KB answer, where `prompt` is an
+  LLM *instruction*. So `Directive` only needs two kinds: **SPEAK** (final words) and **GROUND**
+  (LLM-synthesize-or-fallback).
+- **`app/agent/render.py`:** `Directive(intent, kind, text|instruction|fallback, sources, style)`,
+  `to_directive(NextAction)` (grounded ANSWER_KNOWLEDGE → GROUND; everything else incl. the KB-4
+  fallback → SPEAK), and `render(directive, synthesize=None)` — returns SPEAK text directly;
+  for GROUND calls the injected `synthesize` (the LLM, present live) or degrades to the honest
+  KB-4 fallback rather than guessing. `render` is the single place words are produced → pure for
+  SPEAK, deterministic-fallback for GROUND-without-LLM, which is what makes it cacheable (P4.5-T6).
+- **Didn't refactor the capabilities** to emit Directives directly (kept `prompt`); `to_directive`
+  adapts at the boundary. The grounded GROUND instruction reuses the already-built `grounding_prompt`
+  (snippets baked in) via `prompt`, so no re-retrieval. A future cleanup could have capabilities
+  emit Directives natively.
+- **Deferred:** LLM *smoothing* of SPEAK text (rendering an authored question more naturally with
+  context, DF-4) — render returns SPEAK verbatim for now; smoothing is an opt-in enhancement.
+- **Validation:** `ruff` clean; `pytest` 94 passed (5 new: discovery SPEAK, grounded GROUND
+  synth+fallback, KB fallback is SPEAK, objection/escalation render, render purity).
+
+---
+
 ## KB content: pricing provided by operator (2026-05-27)
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).

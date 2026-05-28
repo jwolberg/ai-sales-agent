@@ -39,7 +39,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 4.5 — Conversation Integration & Latency
-- **Current ticket:** P4.5-T3 (next) — directive + render step
+- **Current ticket:** P4.5-T4 (next) — conversation engine (transport-agnostic)
 - **Blockers:** None
 - **DESIGN:** Phase 4.5 inserted per `docs/AGENT_INTEGRATION.md` — the Phases 2–4 agent layer
   is built but NOT wired into the live pipeline (which still runs raw Claude). This phase makes
@@ -264,7 +264,10 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `backend/app/agent/render.py`, `backend/app/agent/orchestrator.py`
   - Depends on: P4.5-T1
   - Acceptance criteria covered: VC-4 (consistent persona), DF-4; enabler for latency tiers
-  - Status: Todo
+  - Status: Complete (added `app/agent/render.py`: `Directive` (SPEAK vs GROUND), `to_directive`
+    adapter from NextAction, and pure `render(directive, synthesize=)` — deterministic for SPEAK,
+    LLM-synthesize-or-KB-4-fallback for GROUND. Resolves the prompt overload; render is the one
+    place words are produced. LLM smoothing of SPEAK is a later enhancement.)
 - P4.5-T4 — Conversation engine (transport-agnostic)
   - Objective: `run_turn` loop tying router → extraction → capability/decider → render →
     recorder + decision trace; independent of voice. Used by the simulator and live pipeline.
