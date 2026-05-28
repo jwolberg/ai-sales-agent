@@ -38,19 +38,21 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 7 — Recursive Improvement Loop (machinery complete)
-- **Current ticket:** P7 machinery complete — fire the measured run, then Phase 8
+- **Current phase:** Phase 7 — Recursive Improvement Loop (complete; real run fired)
+- **Current ticket:** Phase 7 done — next is Phase 8 (Hardening & Docs)
 
 ### ▶ RESUME HERE (next session)
-Phases 1–7 are built; Phase 7's recursive-improvement machinery (P7-T1..T4) is committed and
-validated offline (pushed: `b78d0c4`). Pick up with **one** of:
-1. **Fire the real Phase 7 run** (produces the real before/after evidence):
-   `cd backend && .venv/bin/python -m app.experiments --name price-rebuttal-v1 --report ../docs/recursive-improvement.md`
-   — makes ~60 Claude calls (6 variants × 5 personas self-play + LLM-judge), ~few min. Then review
-   `docs/recursive-improvement.md`, sanity-check the promote/retire decision, and commit it.
-   (`--offline` is a free no-LLM wiring smoke; it shows 0% recovery — not real numbers.)
-2. **Start Phase 8** (Hardening & Docs): P8-T1 human-trial calls & escalation tuning → P8-T2
-   failure-mode report → P8-T3 decision log → P8-T4 demo script.
+Phases 1–7 are complete. The real Phase 7 run was fired on 2026-05-28 (`docs/recursive-improvement.md`
+committed): **baseline held — no variant beat it** (all variants 0% objection-recovery; 3 regressed
+frustration). The 0% is a *real* result, not a broken metric (verified: KPI events fire, but the
+agent rarely reaches a close in self-play and never recovers a price objection within the 12-turn
+cap) — a known consequence of PLACEHOLDER rebuttal/KB content + short turn budget. The loop
+machinery itself is proven end-to-end. **To lift the numbers later:** supply approved rebuttal/KB
+copy (`docs/QandA_opens.md`) and/or raise `--max-turns`, then re-fire.
+
+Pick up with **Phase 8** (Hardening & Docs): P8-T1 human-trial calls & escalation tuning → P8-T2
+failure-mode report → P8-T3 decision log → P8-T4 demo script. (P8-T1 needs a browser/mic + funded
+keys for live human trials.)
 Also still open (non-blocking): live latency measurement + deferred Tier-1/Tier-2 latency tiers;
 KB content gaps (refund/matching/scheduling/competitive still placeholder — see `docs/QandA_opens.md`);
 latency/frustration KPIs not yet captured live; dashboard experiment view (P7-T4 "surface in
@@ -437,10 +439,10 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `backend/app/experiments/engine.py`, `docs/recursive-improvement.md`
   - Depends on: P7-T1, P6-T3, P4-T3
   - Acceptance criteria covered: §8 baseline, §11.2 Step 1; §21 (baseline documented)
-  - Status: Machinery complete (`run_experiment` + `experiment_personas` run the baseline against
-    a fixed 5-persona set; `evaluation.score_variant_calls`/`aggregate` record objection-recovery,
-    close, escalation, frustration, unsupported-claim per variant). Measured baseline numbers land
-    in `docs/recursive-improvement.md` when the real run is fired (`python -m app.experiments`).
+  - Status: Complete (real run fired 2026-05-28; `docs/recursive-improvement.md` committed). The
+    baseline ran against the fixed 5-persona set; measured baseline KPIs recorded (objection-recovery
+    0%, frustration 80%, unsupported-claim 0%). `run_experiment` + `experiment_personas` +
+    `evaluation.score_variant_calls`/`aggregate` produced the numbers.
 - P7-T3 — Generate & test variants (≥2)
   - Objective: Generate ≥2 price-rebuttal variants (§8 candidates) each with use/avoid/escalation/compliance specs; run controlled experiment with randomized ordering across personas (§11.2 Steps 2–3).
   - Files likely involved: `backend/app/experiments/variants.py`, `data/playbooks/objections.yaml`
@@ -454,11 +456,13 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `backend/app/experiments/engine.py`, `docs/recursive-improvement.md`, dashboard experiment view
   - Depends on: P7-T3, P5-T4
   - Acceptance criteria covered: §11.2 Steps 4–6; §21 (KPI comparison, promote/retire, before/after)
-  - Status: Machinery complete (`evaluation.py`: `aggregate` → KPI rates, `decide_promotion` →
-    §8 rule (improve recovery without regressing frustration/unsupported claims), `evaluate_experiment`
-    promotes the best passing candidate + retires the rest + marks the Experiment, `render_report`
-    writes the before/after Markdown. `python -m app.experiments` runs end-to-end. The real measured
-    run + committed `docs/recursive-improvement.md` is a deliberate fire-it step (~60 LLM calls).)
+  - Status: Complete (real run fired 2026-05-28; `docs/recursive-improvement.md` committed).
+    `evaluation.py`: `aggregate` → KPI rates, `decide_promotion` → §8 rule, `evaluate_experiment`
+    promotes/retires + marks the Experiment, `render_report` writes the before/after Markdown.
+    **Result: baseline held — no variant promoted** (all 0% objection-recovery; 3 regressed
+    frustration). Verified the 0% is real signal, not a dead metric (KPI events fire; agent rarely
+    reaches a close in self-play within the 12-turn cap — placeholder rebuttal/KB content). Loop
+    proven end-to-end. Dashboard experiment view still TODO — the report is the before/after evidence.
 
 ### Phase 8 — Hardening & Documentation
 **Goal**

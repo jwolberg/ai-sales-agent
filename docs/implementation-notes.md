@@ -816,3 +816,26 @@ runs on.
 - **Validation:** `ruff` clean; `pytest` 158 passed (4 new: aggregate rates, promotion rule 3
   scenarios, evaluate_experiment promotes best candidate + writes report, offline run_experiment
   runs all variants). Offline CLI smoke green.
+
+---
+
+## P7-T4 — real measured run fired (2026-05-28)
+
+- **Fired the real run:** `python -m app.experiments --name price-rebuttal-v1` (baseline + 5
+  candidates × 5 personas self-play + LLM judge). Wrote `docs/recursive-improvement.md`.
+  (One earlier attempt failed on an out-of-credit API key; re-run after the user topped up.)
+- **Outcome — baseline held (no promotion).** Every variant scored **0% objection-recovery**;
+  three candidates *regressed* frustration (80% → 100%), so the §8 rule correctly promoted none.
+- **Why 0% recovery is real, not a broken metric (verified):** recovery =
+  `objection_raised AND (close_attempt OR discovery_complete)`. DB check across the experiment
+  calls: `objection_raised` fires in 50 calls but `close_attempt` in only 3 and
+  `discovery_complete` in 7, and **zero** calls had an objection co-occur with a close/discovery.
+  The agent rarely reaches a close at all in self-play and never recovers a price objection
+  within the 12-turn cap. KPI events fire correctly — the absolute numbers are genuinely poor.
+- **Root cause = placeholder content + short budget (known).** Rebuttals/KB are PLACEHOLDERS
+  (see `docs/QandA_opens.md`); with no real rebuttal substance and `--max-turns 12`, conversations
+  end before a close. **Follow-up to lift the numbers:** supply approved rebuttal/KB copy and/or
+  raise the turn budget, then re-fire. The *loop mechanism* (variant gen → self-play → judge →
+  §8 promotion rule → before/after report) is proven end-to-end regardless of the flat scores.
+- **Validation:** report generated; `ruff` clean; `pytest` 158 passed (unchanged — fire-it run,
+  no code change).
