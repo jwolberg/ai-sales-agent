@@ -69,6 +69,21 @@ def guard_output(text: str) -> str:
     return text
 
 
+def _transcript_confidence(frame: TranscriptionFrame) -> float | None:
+    """Pull Deepgram's word confidence off a final transcript, if present.
+
+    ``TranscriptionFrame.result`` carries the raw Deepgram message; the top alternative's
+    ``confidence`` is what we use to gate acting on a possibly-misheard turn. Defensive: any
+    shape we don't recognize returns None (treated as "trust it").
+    """
+    result = getattr(frame, "result", None)
+    try:
+        alternatives = result.channel.alternatives
+        return float(alternatives[0].confidence) if alternatives else None
+    except (AttributeError, IndexError, TypeError, ValueError):
+        return None
+
+
 class EngineProcessor(FrameProcessor):
     """Drives the ConversationEngine from STT-final transcripts and speaks the result.
 
@@ -101,7 +116,10 @@ class EngineProcessor(FrameProcessor):
             # Speak a filler immediately so the call doesn't fall silent while we compute.
             if self._fillers is not None:
                 await self.push_frame(TTSSpeakFrame(self._fillers.pick(frame.text)))
-            result = await asyncio.to_thread(self._engine.run_turn, frame.text)
+            confidence = _transcript_confidence(frame)
+            result = await asyncio.to_thread(
+                self._engine.run_turn, frame.text, confidence=confidence
+            )
             spoken = guard_output(result.utterance)
             if spoken.strip():
                 await self.push_frame(TTSSpeakFrame(spoken))

@@ -83,6 +83,40 @@ def test_repeated_nonanswers_stop_looping(session):
     assert eng.state.pending_field != "relationship_to_student"
 
 
+def test_low_confidence_transcript_asks_to_repeat(session):
+    # Real call 8b72f75c acted on misheard transcripts. A low-confidence progress turn should
+    # ask the caller to repeat and NOT advance discovery state.
+    eng = _engine(session)
+    eng.open()
+    eng.run_turn("Hi there")  # agent asks first field; pending set
+    pending_before = eng.state.pending_field
+    turns_before = eng.state.user_turns
+
+    result = eng.run_turn("mumble mumble", confidence=0.2)
+    assert result.understood is False
+    assert result.action.modifier is Modifier.CLARIFY
+    assert "catch that" in result.utterance.lower()
+    # State did not advance: no extraction, same pending field, no extra ask counted.
+    assert eng.state.pending_field == pending_before
+    assert eng.state.user_turns == turns_before
+
+    # The misheard turn is still recorded with its confidence for the trace.
+    call_id = eng.orch.recorder.call_id
+    low = session.scalars(
+        select(Turn).where(Turn.call_id == call_id, Turn.detected_intent == "low_confidence")
+    ).all()
+    assert low and low[0].confidence == pytest.approx(0.2)
+
+
+def test_low_confidence_does_not_block_escalation(session):
+    # We err toward catching escalation even when STT confidence is low.
+    eng = _engine(session)
+    eng.open()
+    result = eng.run_turn("Can I talk to a human?", confidence=0.1)
+    assert result.route is Route.ESCALATE
+    assert result.action.action is Action.ESCALATE
+
+
 def test_objection_turn_is_handled(session):
     eng = _engine(session)
     eng.open()

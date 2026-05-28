@@ -12,6 +12,7 @@ from app.agent.guardrails import ESCALATION_MESSAGE  # noqa: E402
 from app.config import Settings  # noqa: E402
 from app.voice.bot import (  # noqa: E402
     EngineProcessor,
+    _transcript_confidence,
     build_engine,
     build_engine_pipeline_task,
     guard_output,
@@ -120,6 +121,33 @@ def test_engine_processor_filler_flag():
     engine = build_engine(settings)
     assert EngineProcessor(engine, fillers=True)._fillers is not None
     assert EngineProcessor(engine, fillers=False)._fillers is None
+
+
+class _Alt:
+    def __init__(self, confidence):
+        self.confidence = confidence
+
+
+class _Channel:
+    def __init__(self, alternatives):
+        self.alternatives = alternatives
+
+
+class _DeepgramMsg:
+    def __init__(self, confidence):
+        self.channel = _Channel([_Alt(confidence)])
+
+
+class _Frame:
+    def __init__(self, result):
+        self.result = result
+
+
+def test_transcript_confidence_parsing():
+    assert _transcript_confidence(_Frame(_DeepgramMsg(0.87))) == pytest.approx(0.87)
+    # Unrecognized / missing shapes are treated as "trust it" (None).
+    assert _transcript_confidence(_Frame(None)) is None
+    assert _transcript_confidence(_Frame(object())) is None  # no .channel
 
 
 def test_engine_processor_starts_not_ready():

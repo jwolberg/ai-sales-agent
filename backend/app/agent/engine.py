@@ -37,6 +37,13 @@ from app.kpis import events as kpi
 # Stages where the agent has just asked for a discovery value the next turn should fill.
 _PENDING_STAGES = (Stage.DISCOVERY, Stage.NEED_DEVELOPMENT)
 
+# Below this STT word confidence, don't trust a "progress"/"knowledge" transcript — ask the
+# caller to repeat rather than acting on a likely-misheard turn (real call 8b72f75c acted on
+# garbage like "Good early." / "Somebody who has a clue."). Escalations/refusals/objections are
+# still honored at low confidence (we err toward catching those).
+STT_CONFIDENCE_THRESHOLD = 0.6
+_TRUST_REQUIRED_ROUTES = (Route.PROGRESS, Route.KNOWLEDGE)
+
 
 @dataclass
 class TurnResult:
@@ -76,15 +83,29 @@ class ConversationEngine:
         self._emit_agent(greeting)
         return greeting
 
-    def run_turn(self, user_text: str) -> TurnResult:
+    def run_turn(self, user_text: str, *, confidence: float | None = None) -> TurnResult:
         state = self.state
 
         # 1. Classify the turn, then record the prospect turn tagged with the detected intent
         #    (the route) and objection (DE-2 trace).
         decision = self._classify(user_text)
         objection_key = decision.detail if decision.route is Route.OBJECTION else None
+
+        # 1b. Low STT confidence on a progress/knowledge turn: don't extract or advance on a
+        #     transcript we probably misheard — ask the caller to repeat (DE-2 trace records the
+        #     confidence). Escalations/refusals/objections fall through and are still handled.
+        if (
+            confidence is not None
+            and confidence < STT_CONFIDENCE_THRESHOLD
+            and decision.route in _TRUST_REQUIRED_ROUTES
+        ):
+            return self._handle_low_confidence(user_text, confidence)
+
         prospect_turn = self._record_prospect(
-            user_text, detected_intent=decision.route.value, detected_objection=objection_key
+            user_text,
+            detected_intent=decision.route.value,
+            detected_objection=objection_key,
+            confidence=confidence,
         )
 
         # 2. Extract fields + signals and fold them into state.
@@ -178,6 +199,32 @@ class ConversationEngine:
             ),
         )
 
+    def _handle_low_confidence(self, user_text: str, confidence: float) -> TurnResult:
+        """Record the misheard turn and ask the caller to repeat, without advancing state."""
+        prospect_turn = self._record_prospect(
+            user_text, detected_intent="low_confidence", confidence=confidence
+        )
+        action = NextAction(
+            stage=self.state.stage,  # don't advance; we didn't understand the turn
+            action=Action.ASK_REQUIRED_DISCOVERY,
+            modifier=Modifier.CLARIFY,
+            reason=f"low STT confidence {confidence:.2f}; asked caller to repeat",
+            confidence=confidence,
+            prompt="Sorry, I didn't quite catch that — could you say that again?",
+        )
+        directive = to_directive(action)
+        utterance = render(directive, synthesize=self.synthesize)
+        turn_id = prospect_turn.turn_id if prospect_turn is not None else None
+        self._record_decision(action, turn_id=turn_id)
+        self._emit_agent(utterance)
+        return TurnResult(
+            route=Route.PROGRESS,
+            action=action,
+            directive=directive,
+            utterance=utterance,
+            understood=False,
+        )
+
     def _clarify(self, field: str) -> NextAction:
         playbook = get_discovery_playbook()
         question = next(
@@ -211,13 +258,17 @@ class ConversationEngine:
         *,
         detected_intent: str | None = None,
         detected_objection: str | None = None,
+        confidence: float | None = None,
     ):
         """Record the prospect turn (tagged with detected intent/objection); returns the Turn,
         or None when there's no recorder."""
         self.state.history.append(("prospect", text))
         if self.orch.recorder is not None:
             return self.orch.recorder.record_prospect(
-                text, detected_intent=detected_intent, detected_objection=detected_objection
+                text,
+                detected_intent=detected_intent,
+                detected_objection=detected_objection,
+                confidence=confidence,
             )
         return None
 
