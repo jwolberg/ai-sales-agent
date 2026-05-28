@@ -626,6 +626,20 @@ turning on/tuning the deferred Tier-1/Tier-2 latency work.
 
 ---
 
+## P5-T1 — decision-trace enrichment (2026-05-27)
+
+- The engine already wrote a `Decision` per turn (`recorder.record_decision`); P5-T1 completes
+  DE-2. `engine.run_turn` now classifies first, records the prospect `Turn` tagged with
+  `detected_intent` (the router route — objection/knowledge/escalate/stop/progress) and
+  `detected_objection` (objection key when applicable), and links `Decision.turn_id` to that turn
+  — so the decision trace joins to the transcript. Stage/action/reason/confidence/missing_fields/
+  escalation_risk/kb_sources were already captured.
+- `sentiment` (Turn) left for §16/P5-T3 (frustration KPI), not DE-2.
+- **Validation:** `ruff` clean; `pytest` 123 passed (1 new: intent/objection on prospect turns,
+  decisions linked to turns, escalation risk recorded).
+
+---
+
 ## KB content: pricing provided by operator (2026-05-27)
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).

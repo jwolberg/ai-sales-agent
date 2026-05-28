@@ -76,9 +76,16 @@ class ConversationEngine:
 
     def run_turn(self, user_text: str) -> TurnResult:
         state = self.state
-        self._record_prospect(user_text)
 
-        # 1. Extract fields + signals and fold them into state.
+        # 1. Classify the turn, then record the prospect turn tagged with the detected intent
+        #    (the route) and objection (DE-2 trace).
+        decision = self._classify(user_text)
+        objection_key = decision.detail if decision.route is Route.OBJECTION else None
+        prospect_turn = self._record_prospect(
+            user_text, detected_intent=decision.route.value, detected_objection=objection_key
+        )
+
+        # 2. Extract fields + signals and fold them into state.
         extraction = self.extractor.extract(user_text, pending_field=state.pending_field)
         state.collected_fields.update(extraction.fields)
         if extraction.buying_intent:
@@ -86,8 +93,7 @@ class ConversationEngine:
         if extraction.disqualified:
             state.disqualified = True
 
-        # 2. Route, then 3. dispatch to a capability (or clarify a non-answer).
-        decision = self._classify(user_text)
+        # 3. Dispatch to a capability (or clarify a non-answer to the pending question).
         if (
             decision.route is Route.PROGRESS
             and state.pending_field
@@ -108,10 +114,11 @@ class ConversationEngine:
             action.question_key if action.stage in _PENDING_STAGES else None
         )
 
-        # 5. Render words, 6. record decision + agent turn.
+        # 5. Render words, 6. record the decision (linked to the prospect turn) + agent turn.
         directive = to_directive(action)
         utterance = render(directive, synthesize=self.synthesize)
-        self._record_decision(action)
+        turn_id = prospect_turn.turn_id if prospect_turn is not None else None
+        self._record_decision(action, turn_id=turn_id)
         self._emit_agent(utterance)
 
         return TurnResult(
@@ -177,16 +184,27 @@ class ConversationEngine:
             "How can I help today?"
         )
 
-    def _record_prospect(self, text: str) -> None:
+    def _record_prospect(
+        self,
+        text: str,
+        *,
+        detected_intent: str | None = None,
+        detected_objection: str | None = None,
+    ):
+        """Record the prospect turn (tagged with detected intent/objection); returns the Turn,
+        or None when there's no recorder."""
         self.state.history.append(("prospect", text))
         if self.orch.recorder is not None:
-            self.orch.recorder.record_prospect(text)
+            return self.orch.recorder.record_prospect(
+                text, detected_intent=detected_intent, detected_objection=detected_objection
+            )
+        return None
 
     def _emit_agent(self, text: str) -> None:
         self.state.history.append(("agent", text))
         if self.orch.recorder is not None:
             self.orch.recorder.record_agent(text)
 
-    def _record_decision(self, action: NextAction) -> None:
+    def _record_decision(self, action: NextAction, *, turn_id: str | None = None) -> None:
         if self.orch.recorder is not None:
-            self.orch.recorder.record_decision(action)
+            self.orch.recorder.record_decision(action, turn_id=turn_id)

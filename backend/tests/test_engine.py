@@ -122,3 +122,27 @@ def test_full_discovery_to_close_runs_and_is_traced(session):
     assert any(t.speaker == "agent" for t in turns) and any(t.speaker == "prospect" for t in turns)
     assert decisions  # at least one decision logged
     assert all(d.selected_action for d in decisions)
+
+
+def test_decision_trace_is_enriched_and_linked(session):
+    """P5-T1: prospect turns carry detected intent/objection; decisions link to them (DE-2)."""
+    eng = _engine(session)
+    eng.open()
+    eng.run_turn("Honestly this is too expensive.")  # objection
+    eng.run_turn("Can I speak to a human?")           # escalation
+
+    call_id = eng.orch.recorder.call_id
+    prospect_turns = session.scalars(
+        select(Turn).where(Turn.call_id == call_id, Turn.speaker == "prospect")
+    ).all()
+    by_intent = {t.detected_intent for t in prospect_turns}
+    assert "objection" in by_intent and "escalate" in by_intent
+    objection_turn = next(t for t in prospect_turns if t.detected_intent == "objection")
+    assert objection_turn.detected_objection == "price"
+
+    decisions = session.scalars(select(Decision).where(Decision.call_id == call_id)).all()
+    # Each decision links back to a recorded turn (DE-2 trace ↔ transcript).
+    turn_ids = {t.turn_id for t in session.scalars(select(Turn).where(Turn.call_id == call_id))}
+    assert decisions and all(d.turn_id in turn_ids for d in decisions)
+    # The escalation decision carries its risk.
+    assert any(d.escalation_risk == "high" for d in decisions)

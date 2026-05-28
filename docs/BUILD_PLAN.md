@@ -39,8 +39,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 5 — Decisioning Trace & Observability Dashboard (entering)
-- **Current ticket:** P5-T1 (next) — decision-trace logging *(the engine already writes a basic
-  Decision trace via `recorder.record_decision`; P5-T1 enriches it — intent/objection/sentiment)*
+- **Current ticket:** P5-T2 (next) — version attribution
 - **LIVE-VALIDATE (Phase 4.5):** the decider-led voice path (`app/voice/bot.py`) + latency layer
   (fillers, ambient bed) are construction/unit-validated only. A browser/mic/keys run (RUNBOOK
   §11) is still needed to confirm the live conversation and to measure latency vs VC-3.
@@ -330,7 +329,10 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `backend/app/agent/decisioning.py`
   - Depends on: P3-T3, P4-T2
   - Acceptance criteria covered: DE-2, §10.1; §21 Observability (decision trace)
-  - Status: Todo
+  - Status: Complete (the engine logs a Decision per turn via `recorder.record_decision`;
+    enriched in `engine.run_turn` to tag the prospect `Turn` with `detected_intent` (route) +
+    `detected_objection` and link `Decision.turn_id` to it. Stage/action/reason/confidence/
+    missing_fields/escalation_risk/kb_sources already captured.)
 - P5-T2 — Version attribution
   - Objective: Tag each call with agent prompt version, playbook version, KB version, model version, variant, and voice config (§10.4).
   - Files likely involved: `backend/app/agent/versioning.py`
