@@ -38,9 +38,10 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 8 — Hardening & Documentation
-- **Current ticket:** P8-T2 in progress (credit-free docs written); P8-T1 (live human trials)
-  and demo rehearsal (P8-T3) remain — both need a browser/mic + funded keys
+- **Current phase:** Phase 9 complete (demo phone-call intro); Phase 8 still open
+- **Current ticket:** Phase 9 done. Remaining: P8-T1 (live human trials), P8-T2 finalize
+  failure-modes, P8-T3 demo rehearsal — all need a browser/mic + funded keys. Phase 9's real
+  audio assets are user-provided (silent placeholders shipped).
 
 ### ▶ RESUME HERE (next session)
 Phases 1–7 are complete. The real Phase 7 run was fired on 2026-05-28 (`docs/recursive-improvement.md`
@@ -532,7 +533,12 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `frontend/client.js`
   - Depends on: P9-T1
   - Acceptance criteria covered: §26 (demo polish)
-  - Status: Todo
+  - Status: Complete (`client.js`: `startDialingSound` plays `dial.mp3` once then loops
+    `ring.mp3` on its `ended` event; connect runs in parallel; `onAnswered` (connectionState
+    `connected`, `ontrack` fallback) stops the ring and greets; `stopDialingSound` runs on
+    hang up / failure / mic denial; `answered` flag guards the answer-during-intro race.
+    Intro copy updated to "Click below to call 1-800-Nerdy-4-u (1-800-637-3948)". Browser-
+    verified: Dialing… → Ringing… loop, and graceful teardown on mic-deny — no console errors.)
 
 ---
 

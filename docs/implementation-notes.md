@@ -882,3 +882,29 @@ runs on.
   audio (their choice).
 - **Validation:** static frontend assets — no lint/tests apply (no Python touched). Browser
   behavior is wired in P9-T2; full manual verification (RUNBOOK §11) after T2.
+
+---
+
+## P9-T2 — phone-call intro playback + connect-on-answer (2026-05-28)
+
+- **Sequencing in `client.js`:** on Call click (after the `/voice/status` ready-check),
+  `startDialingSound` plays `dial.mp3` once and, on its `ended` event, loops `ring.mp3`; the
+  WebRTC connect runs in parallel so ringing covers setup latency. `onAnswered` (fired on
+  connectionState `connected`, with `ontrack` as a fallback) stops the ring and shows
+  "Connected — the agent will greet you." `stopDialingSound` resets both clips on hang up,
+  connection failure, and mic-permission denial. An `answered` flag guards the race where the
+  call connects *during* the dial intro (don't start the ring after the fact).
+- **Decision — drop the transient "Requesting microphone…/Connecting…" statuses.** They stomped
+  the "Dialing…/Ringing…" phone narrative; the browser's own mic prompt is enough signal and the
+  intro copy already tells the caller to allow the mic.
+- **Decision — don't claim "Connected" until the connection actually answers.** The old code set
+  "Connected — start talking" right after `setRemoteDescription` (before ICE completes); now
+  `onAnswered` owns that message so the status matches the real pickup moment.
+- **User copy change mid-build:** intro line is now "Click below to call 1-800-Nerdy-4-u
+  (1-800-637-3948)…".
+- **Validation:** `node --check` clean. Browser-verified (agent-browser, server on :8099):
+  click → "Dialing…" → after the dial clip → "Ringing…" (loops; getUserMedia stubbed to hang to
+  avoid a real credit-spending call); mic-deny path → graceful "Call ended." with the button
+  re-enabled and audio stopped; no console errors. Screenshot confirms the relabeled CTA + copy.
+  The answer-stops-ring path wasn't exercised live (needs a real connection / API credits) but is
+  straightforward reviewed code. No Python touched — `ruff`/`pytest` unaffected.
