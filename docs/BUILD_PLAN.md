@@ -38,8 +38,23 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 7 — Recursive Improvement Loop (entering)
+- **Current phase:** Phase 7 — Recursive Improvement Loop (machinery complete)
 - **Current ticket:** P7 machinery complete — fire the measured run, then Phase 8
+
+### ▶ RESUME HERE (next session)
+Phases 1–7 are built; Phase 7's recursive-improvement machinery (P7-T1..T4) is committed and
+validated offline (pushed: `b78d0c4`). Pick up with **one** of:
+1. **Fire the real Phase 7 run** (produces the real before/after evidence):
+   `cd backend && .venv/bin/python -m app.experiments --name price-rebuttal-v1 --report ../docs/recursive-improvement.md`
+   — makes ~60 Claude calls (6 variants × 5 personas self-play + LLM-judge), ~few min. Then review
+   `docs/recursive-improvement.md`, sanity-check the promote/retire decision, and commit it.
+   (`--offline` is a free no-LLM wiring smoke; it shows 0% recovery — not real numbers.)
+2. **Start Phase 8** (Hardening & Docs): P8-T1 human-trial calls & escalation tuning → P8-T2
+   failure-mode report → P8-T3 decision log → P8-T4 demo script.
+Also still open (non-blocking): live latency measurement + deferred Tier-1/Tier-2 latency tiers;
+KB content gaps (refund/matching/scheduling/competitive still placeholder — see `docs/QandA_opens.md`);
+latency/frustration KPIs not yet captured live; dashboard experiment view (P7-T4 "surface in
+dashboard") not built — the report is the before/after evidence.
 - **LIVE-VALIDATE (Phase 4.5):** the decider-led voice path (`app/voice/bot.py`) + latency layer
   (fillers, ambient bed) are construction/unit-validated only. A browser/mic/keys run (RUNBOOK
   §11) is still needed to confirm the live conversation and to measure latency vs VC-3.
