@@ -41,6 +41,10 @@ class Lead(Base):
     schedule_constraints: Mapped[str | None] = mapped_column(Text, nullable=True)
     decision_maker_status: Mapped[str | None] = mapped_column(String, nullable=True)
     budget_sensitivity: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Every discovery slot learned across calls, beyond the typed columns above (e.g. challenge,
+    # readiness, motivation — see data/playbooks/discovery.yaml). Keeps the full slot object so the
+    # next call can skip them instead of re-asking (P10-T3). Typed columns stay canonical.
+    collected_fields: Mapped[dict] = mapped_column(JSON, default=dict)
     prior_objections: Mapped[list] = mapped_column(JSON, default=list)
     prior_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String, default="new")

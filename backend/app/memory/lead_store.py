@@ -56,6 +56,18 @@ def known_fields(source: Lead | Mapping[str, Any]) -> dict[str, Any]:
     return {f: _value(source, f) for f in PROFILE_FIELDS if _value(source, f)}
 
 
+def all_known_fields(source: Lead | Mapping[str, Any]) -> dict[str, Any]:
+    """Every slot we know about the lead — the typed profile columns *and* the extra discovery
+    slots stored in ``collected_fields`` (P10-T3). Typed columns win on conflict (canonical).
+
+    This is what seeds a returning caller's state so the agent skips/confirms all previously
+    learned fields, not just the nine profile columns.
+    """
+    merged = dict(_value(source, "collected_fields") or {})
+    merged.update(known_fields(source))
+    return {k: v for k, v in merged.items() if v}
+
+
 def missing_required(source: Lead | Mapping[str, Any]) -> list[str]:
     """Return the required fields that are still unknown (in canonical order)."""
     return [f for f in REQUIRED_FIELDS if not _value(source, f)]
@@ -103,15 +115,22 @@ class LeadStore:
     ) -> Lead:
         """Write a finished call's results onto the lead so the next call has them (LM-4).
 
-        - ``collected``: newly learned profile fields (only non-empty values are applied).
+        - ``collected``: newly learned fields. Profile fields update their typed columns; *all*
+          non-empty slots (incl. challenge/readiness/etc.) are merged into ``collected_fields`` so
+          nothing learned in the call is lost before the next one (P10-T3).
         - ``objections``: appended to ``prior_objections``, de-duplicated.
         - ``summary``: replaces ``prior_summary`` (the running cross-call summary).
         - ``status``: the lead's next-step / lifecycle status.
         """
         if collected:
+            merged = dict(lead.collected_fields or {})
             for key, value in collected.items():
-                if key in PROFILE_FIELDS and value:
+                if not value:
+                    continue
+                if key in PROFILE_FIELDS:
                     setattr(lead, key, value)
+                merged[key] = value
+            lead.collected_fields = merged  # reassign so SQLAlchemy detects the JSON change
         if objections:
             merged = list(lead.prior_objections or [])
             for objection in objections:

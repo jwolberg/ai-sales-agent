@@ -17,7 +17,7 @@ See docs/AGENT_FLOW.md for the stage / action / modifier model this implements.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from app.agent.guardrails import ESCALATION_MESSAGE, detect_escalation, should_stop_selling
 from app.agent.knowledge import answer_question, grounding_prompt
@@ -27,7 +27,10 @@ from app.agent.recorder import CallRecorder
 from app.agent.stages import Action, Modifier, Stage
 from app.config import Settings, get_settings
 from app.kb.retriever import KBRetriever
-from app.memory.lead_store import missing_required
+from app.memory.lead_store import LeadStore, missing_required
+
+if TYPE_CHECKING:  # typing only; avoids importing the ORM into the pure decision layer
+    from app.db.models import Lead
 
 
 @dataclass
@@ -154,12 +157,19 @@ class Orchestrator:
         lead_id: str | None = None,
         retriever: KBRetriever | None = None,
         objection_overrides: dict[str, str] | None = None,
+        lead_store: LeadStore | None = None,
+        lead: Lead | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.decider = decider or StubDecider()
         # Optional: when set, prospect/agent turns are persisted as the call's
         # transcript (P2-T4). Left None for pure, DB-free decision testing.
         self.recorder = recorder
+        # Optional cross-call memory collaborators (P10-T3): when both are set, the call's
+        # collected fields are written back onto the lead at end() so the next call has them.
+        # Left None for DB-free tests, exactly like the recorder.
+        self._lead_store = lead_store
+        self._lead = lead
         # KB retriever for grounded answers (P4-T2); defaults to the shared one on demand.
         self._retriever = retriever
         # Per-objection rebuttal overrides (experiment variants, P7): {objection_key: rebuttal}.
@@ -277,6 +287,13 @@ class Orchestrator:
             self.recorder.record_agent(text)
 
     def end(self, *, outcome: str | None = None, summary: str | None = None) -> None:
-        """Finalize the call record, if one is being kept."""
+        """Finalize the call record, if one is being kept, and write what we learned back onto
+        the lead so the next call continues from it (LM-4 / P10-T3)."""
         if self.recorder is not None:
             self.recorder.end(outcome=outcome, summary=summary)
+        if self._lead_store is not None and self._lead is not None:
+            self._lead_store.apply_call_outcome(
+                self._lead,
+                collected=self.state.collected_fields,
+                summary=summary,
+            )

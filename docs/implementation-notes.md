@@ -995,3 +995,15 @@ structured layer existed but three seams were disconnected. Implementing each as
   frontend selector — smallest change that makes returning-caller memory real without a UI/offer
   change. Unset/unknown id ⇒ anonymous cold start, exactly as before. `build_engine` gained
   `known_fields`/`lead_id` params. A frontend/offer-driven lead picker is a later enhancement.
+- **P10-T3 — persist all discovery slots & auto-write on call end (`db/models.py`,
+  `memory/lead_store.py`, `agent/orchestrator.py`, `voice/bot.py`).** Added a `collected_fields`
+  JSON column on `Lead`; `apply_call_outcome` now merges *all* non-empty slots into it (typed
+  profile columns still update too), and `all_known_fields()` re-seeds the union (typed columns
+  canonical). The write fires automatically from `engine.end()` → `Orchestrator.end()` via two new
+  optional collaborators (`lead_store`, `lead`) — same pattern as the optional `recorder`, so the
+  decision layer stays DB-free in tests. Decisions/tradeoffs:
+  - No migration tool in the project (SQLite + `create_all`); **existing dev DBs must be recreated**
+    to get the new column. Fresh/in-memory/test DBs are fine.
+  - Only `collected` + `summary` are written back at end, not objections/status — `ConversationState`
+    has no raised-objection list (objections live in KPIEvents/Turns) and outcome→status mapping is
+    out of scope. Revisit if cross-call objection memory is needed.

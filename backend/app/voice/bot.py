@@ -46,7 +46,7 @@ from app.agent.synthesis import make_synthesizer
 from app.agent.versioning import compute_versions
 from app.config import Settings
 from app.db.session import SessionLocal, init_db
-from app.memory.lead_store import LeadStore, known_fields
+from app.memory.lead_store import LeadStore, all_known_fields
 from app.voice.fillers import FillerBank
 from app.voice.pipeline import (
     AUDIO_IN_SAMPLE_RATE,
@@ -171,12 +171,16 @@ def build_engine(
     recorder: CallRecorder | None = None,
     known_fields: dict[str, str] | None = None,
     lead_id: str | None = None,
+    lead_store: LeadStore | None = None,
+    lead: object | None = None,
 ) -> ConversationEngine:
     """Wire the conversation engine for the live path: DiscoveryDecider + LLM extraction + Claude
     phrasing, with an optional recorder for the transcript/decision trace.
 
     ``known_fields`` seeds the agent with what we already know about this lead (P10-T1) so it
     skips/confirms instead of re-asking (LM-1/LM-3); ``lead_id`` ties the call to that lead.
+    ``lead_store``/``lead`` (P10-T3) let the engine write everything learned back onto the lead
+    when the call ends, so the next call continues from it.
     """
     orchestrator = Orchestrator(
         settings=settings,
@@ -184,6 +188,8 @@ def build_engine(
         recorder=recorder,
         known_fields=known_fields,
         lead_id=lead_id,
+        lead_store=lead_store,
+        lead=lead,
     )
     return ConversationEngine(
         orchestrator,
@@ -201,15 +207,25 @@ async def run_bot(connection: SmallWebRTCConnection, settings: Settings) -> None
     db = SessionLocal()
     # Continue from a known lead's prior-call memory when one is configured (P10-T1). Anonymous
     # web sessions (no demo_lead_id, or an unknown id) start cold, as before.
-    lead = LeadStore(db).load(settings.demo_lead_id) if settings.demo_lead_id else None
+    lead_store = LeadStore(db)
+    lead = lead_store.load(settings.demo_lead_id) if settings.demo_lead_id else None
     lead_id = lead.lead_id if lead is not None else None
-    seeded = known_fields(lead) if lead is not None else None
+    # Seed *all* prior slots (typed columns + extra discovery slots), not just the nine profile
+    # columns, so nothing learned earlier gets re-asked (P10-T3).
+    seeded = all_known_fields(lead) if lead is not None else None
     if lead is not None:
         logger.info(f"continuing lead {lead_id} with known fields: {sorted(seeded)}")
     recorder = CallRecorder(
         db, lead_id=lead_id, channel="web", **compute_versions(settings).as_dict()
     )
-    engine = build_engine(settings, recorder=recorder, known_fields=seeded, lead_id=lead_id)
+    engine = build_engine(
+        settings,
+        recorder=recorder,
+        known_fields=seeded,
+        lead_id=lead_id,
+        lead_store=lead_store,
+        lead=lead,
+    )
     processor = EngineProcessor(engine, fillers=settings.fillers)
     transport = build_transport(connection, settings)
     task = build_engine_pipeline_task(

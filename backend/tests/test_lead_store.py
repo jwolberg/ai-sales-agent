@@ -16,6 +16,7 @@ from app.memory.lead_store import (
     INFO_NONE,
     INFO_PARTIAL,
     LeadStore,
+    all_known_fields,
     info_level,
     known_fields,
     missing_required,
@@ -99,6 +100,45 @@ def test_apply_call_outcome_dedupes_objections_and_skips_empty(session):
     assert full.subject == "Algebra I"  # unchanged
     # Only the genuinely new objection is appended.
     assert full.prior_objections == before + ["needs to discuss with spouse"]
+
+
+def test_non_profile_slots_persist_and_all_known_fields_merges(session):
+    # P10-T3: slots without a typed column (challenge, readiness, …) must survive the call so the
+    # next one doesn't re-ask them. Profile fields still update their typed columns.
+    store = LeadStore(session)
+    none = store.load("seed-none-003")
+    store.apply_call_outcome(
+        none,
+        collected={
+            "subject": "Algebra II",        # typed profile column
+            "challenge": "word problems",   # no column -> collected_fields JSON
+            "readiness": "ready to start",  # no column -> collected_fields JSON
+            "blank": "",                    # empty -> skipped entirely
+        },
+    )
+    reloaded = LeadStore(session).load("seed-none-003")
+    assert reloaded.subject == "Algebra II"
+    assert reloaded.collected_fields["challenge"] == "word problems"
+    assert reloaded.collected_fields["readiness"] == "ready to start"
+    assert "blank" not in reloaded.collected_fields
+    # all_known_fields surfaces both the typed columns and the JSON slots for re-seeding.
+    merged = all_known_fields(reloaded)
+    assert merged["subject"] == "Algebra II"
+    assert merged["challenge"] == "word problems"
+
+
+def test_orchestrator_end_writes_collected_fields_back_to_lead(session):
+    # P10-T3: ending a call auto-persists everything learned (typed + extra slots) onto the lead.
+    store = LeadStore(session)
+    lead = store.load("seed-none-003")
+    orch = Orchestrator(settings=Settings(_env_file=None), lead_store=store, lead=lead)
+    orch.state.collected_fields.update({"subject": "Geometry", "challenge": "test anxiety"})
+    orch.end(summary="Explored options; will follow up.")
+
+    reloaded = LeadStore(session).load("seed-none-003")
+    assert reloaded.subject == "Geometry"  # typed column written
+    assert reloaded.collected_fields["challenge"] == "test anxiety"  # extra slot written
+    assert reloaded.prior_summary == "Explored options; will follow up."
 
 
 def test_orchestrator_seeds_known_fields_and_reports_gaps(session):
