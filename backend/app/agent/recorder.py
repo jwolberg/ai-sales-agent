@@ -21,6 +21,7 @@ from app.agent.closing import CloseAttempt
 from app.db.models import Call, Decision, KPIEvent, Turn
 
 if TYPE_CHECKING:  # avoid a runtime import cycle (orchestrator imports CallRecorder)
+    from app.agent.contract import BrainDecision
     from app.agent.orchestrator import NextAction
 
 # Turn.speaker values (PRD §15).
@@ -130,6 +131,33 @@ class CallRecorder:
         self._session.add(decision)
         self._session.commit()
         return decision
+
+    def record_brain_decision(
+        self, decision: BrainDecision, *, turn_id: str | None = None, missing: list | None = None
+    ) -> Decision:
+        """Log the intent-router decision trace (IR2-T3) from a BrainDecision."""
+        row = Decision(
+            call_id=self._call.call_id,
+            turn_id=turn_id,
+            stage=decision.action.value,
+            selected_action=decision.action.value,
+            reason=decision.reason,
+            confidence=decision.confidence,
+            missing_fields=list(missing or []),
+            kb_sources_used=list(decision.kb_sources),
+            slots=dict(decision.slots),
+            leaf=decision.leaf,
+        )
+        self._session.add(row)
+        self._session.commit()
+        return row
+
+    def record_result(self, *, reached_leaf: str | None, quoted_price: float | None) -> Call:
+        """Stamp the call-level intent-router result (IR2-T3)."""
+        self._call.reached_leaf = reached_leaf
+        self._call.quoted_price = quoted_price
+        self._session.commit()
+        return self._call
 
     def record_event(
         self, event_type: str, *, value: float | None = None, metadata: dict | None = None

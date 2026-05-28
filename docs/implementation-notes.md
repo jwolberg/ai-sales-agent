@@ -1158,3 +1158,21 @@ Two brains behind a `Brain` protocol; `get_brain()` picks by `settings.openai_en
   ambiguous input ("struggling in school") -> category question (no guess).
 Tests: `tests/test_brain.py` (8), incl. a fake-client OpenAIBrain tool loop + the premature-quote
 gate. `ruff` clean.
+
+## 2026-05-28 — IR2-T3: intent-router engine
+
+New `app/agent/intent_engine.py` (`IntentRouterEngine`) drives the brain through the per-turn loop:
+record prospect turn -> `brain.decide` -> mis-quote guard -> advance slots/leaf/price -> emit KPI
+events -> record decision trace -> record agent turn. **Decision:** added a NEW engine alongside the
+legacy `ConversationEngine` rather than mutating it in place, so the old machinery + its tests stay
+green until the IR-6 teardown (per the build plan sequencing rule). IR-4 points voice + simulator at
+this engine.
+- **Schema (migration-recreate caution):** added `Decision.slots`/`Decision.leaf` and
+  `Call.reached_leaf`/`Call.quoted_price` (additive, nullable). Existing dev DB must be recreated;
+  tests create tables fresh so unaffected.
+- **Recorder:** added `record_brain_decision()` and `record_result()`.
+- **Mis-quote enforcement (R6):** if `check_mis_quote` fires (a price with no authorized amount, or
+  a mismatch), the engine substitutes the safe handoff, flips the action to ESCALATE, and emits
+  `MIS_QUOTE_BLOCKED`. `LEAF_REACHED` fires once per call; `CLARIFY_ASKED` on ASK turns.
+- Low-confidence STT turns ask the caller to repeat without invoking the brain (parity w/ old engine).
+Tests: `tests/test_intent_engine.py` (4). Full suite **216 passed**; `ruff` clean.

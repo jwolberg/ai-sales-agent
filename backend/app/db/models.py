@@ -83,6 +83,9 @@ class Call(Base):
     outcome: Mapped[str | None] = mapped_column(String, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     recording_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Intent-router result (IR2-T3): the leaf the call resolved to and the price quoted, if any.
+    reached_leaf: Mapped[str | None] = mapped_column(String, nullable=True)
+    quoted_price: Mapped[float | None] = mapped_column(Float, nullable=True)
     # True for simulated/self-play calls; keeps them out of real-call metrics (PRD §13.3).
     is_synthetic: Mapped[bool] = mapped_column(Boolean, default=False)
 
@@ -133,6 +136,9 @@ class Decision(Base):
     missing_fields: Mapped[list] = mapped_column(JSON, default=list)
     escalation_risk: Mapped[str | None] = mapped_column(String, nullable=True)
     kb_sources_used: Mapped[list] = mapped_column(JSON, default=list)
+    # Intent-router trace (IR2-T3): cumulative slot state + the resolved leaf at this turn.
+    slots: Mapped[dict] = mapped_column(JSON, default=dict)
+    leaf: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
     call: Mapped["Call"] = relationship(back_populates="decisions")
