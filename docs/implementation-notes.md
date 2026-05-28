@@ -1094,3 +1094,14 @@ Added `openai_api_key`, `openai_chat_model` (default `gpt-4o`), `openai_embeddin
 app + test suite boot without it — the brain (IR-2) and KB retriever (IR-3) fall back to an offline
 path when unset. `missing_voice_keys()` left unchanged (OpenAI isn't a voice key). Tests:
 `tests/test_config.py`. `ruff` clean; 3 passed.
+
+## 2026-05-28 — IR0-T3: taxonomy module
+
+`app/agent/taxonomy.py` — the pure classification target: the 8-leaf tree as data, slot fields
+(`category`/`test`/`subject_area`/`subject`), light value normalization, and leaf resolution.
+**Decision:** children imply parents — `test=SAT` ⇒ `category=test_prep`; `subject=chemistry` ⇒
+`subject_area=science` ⇒ `category=tutoring` — so the brain can slot whatever the caller volunteers
+and `resolve_leaf` completes the path. Contradictions (a `test` under tutoring, a subject that
+doesn't match its area) are dropped rather than erroring. `next_unfilled` encodes the
+disambiguation order (R8). Leaf ids (`test_prep/SAT`, `tutoring/science/chemistry`) are the price
+keys for IR-1. Tests: `tests/test_taxonomy.py` (9). `ruff` clean.
