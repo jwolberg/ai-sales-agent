@@ -62,7 +62,7 @@ Real demo calls (web/mic) are now being run, surfacing issues the construction t
   nothing, so the agent deferred to a specialist on turn one. Fix: `is_social_pleasantry` excludes
   greetings/pleasantries/connectivity checks from `is_knowledge_question`, so they fall through to
   PROGRESS (acknowledge + advance discovery); extraction won't store a pleasantry as a slot value.
-  Real questions still route to KNOWLEDGE. Commit `e687566`.
+  Real questions still route to KNOWLEDGE. Commit `90cbbf7`.
 - **Still to confirm live:** that the agent now waits for full user turns and that latency meets
   VC-3. The real `dial.mp3` is in place; `ring.mp3` is still a silent placeholder.
 
