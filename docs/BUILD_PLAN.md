@@ -1,5 +1,10 @@
 # Build Plan
 
+> **Superseded scope (2026-05-28):** the project narrowed from discovery-to-close to a two-option
+> voice **intent router** (test prep vs. tutoring → leaf → price quote). This document is retained
+> as history of the original scope. The active plan is **`docs/BUILD_PLAN_INTENT_ROUTER.md`**,
+> driven by `docs/brainstorms/intent-router-agent-requirements.md`.
+
 ## Project
 - **Name:** Autonomous AI Sales Agent
 - **Summary:** A real-time voice AI sales agent for Nerdy / Varsity Tutors that runs a full discovery-to-close tutoring sales conversation — gathering missing info, using prior call memory, answering from a grounded knowledge base, handling objections, deciding when to close or escalate — while capturing transcripts, decisions, and KPIs, and improving itself through a recursive experiment loop against synthetic prospects.

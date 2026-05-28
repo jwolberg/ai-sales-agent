@@ -157,3 +157,74 @@ Planning Assumptions or Architecture Notes, it is cross-referenced.
 - **Tradeoffs:** No promoted variant to demo yet. Lifting the numbers needs approved
   rebuttal/KB copy (`docs/QandA_opens.md`) and/or a larger turn budget, then a re-fire.
 - **Date:** 2026-05-28 · **Owner:** Jay Wolberg
+
+## D-13 — Narrow scope to a two-option intent router
+
+- **Context:** The discovery-to-close build implemented every requirement but the
+  conversation core didn't respond to what the caller said (gagged LLM; see
+  `docs/brainstorms/llm-driven-conversation-core-requirements.md`), and "did the agent sell
+  well?" had no objective metric. A new direction was needed.
+- **Options Considered:** (a) rebuild a fluent discovery-to-close brain; (b) narrow the job
+  to a fixed classification the brain can do reliably and we can grade objectively.
+- **Chosen Approach:** (b) — a voice **intent router**: classify the caller into test prep
+  (SAT/ACT/PSAT) vs. tutoring (math/science → subject), then quote that leaf's price.
+  Modify, not rebuild: reuse voice/persistence/dashboard/simulator; delete the
+  discovery-to-close machinery. Driven by `docs/brainstorms/intent-router-agent-requirements.md`,
+  planned in `docs/BUILD_PLAN_INTENT_ROUTER.md`.
+- **Reason:** A fixed 8-leaf tree is something a fluent LLM brain does reliably, removes the
+  old design's unsolved problems (when to close, objection recovery), and yields a hard
+  **Classification Accuracy** benchmark that turns the recursive-improvement loop into a real
+  number instead of fuzzy scoring.
+- **Tradeoffs:** Drops the broader "carry a whole sale" ambition; the agent classifies and
+  quotes, then hands off. Accepted for reliability + demo-ability + a gradeable metric.
+- **Date:** 2026-05-28 · **Owner:** Jay Wolberg
+
+## D-14 — Price = deterministic table keyed by leaf, never retrieval
+
+- **Context:** The router's endpoint is quoting a price. Retrieval (TF-IDF or vector) is
+  fuzzy by design; the build promises it never invents/misstates a price (§18 guardrail).
+- **Options Considered:** (a) retrieve price from the KB like any other content; (b) exact
+  lookup in a structured table keyed by the classification leaf.
+- **Chosen Approach:** (b) — `quote_price(leaf)` does an exact lookup; the agent may only
+  state a price returned by that tool, and only once the leaf is confident. The KB/vector
+  store is for explanatory Q&A only.
+- **Reason:** Fuzzy retrieval of a price = quoting the wrong number, the one guardrail we
+  promise never to break. An exact table keeps prices correct while retrieval stays fuzzy
+  where fuzzy is fine. A `MIS_QUOTE_BLOCKED` guardrail enforces it at the output boundary.
+- **Tradeoffs:** Prices must be authored as structured data per leaf (placeholder until
+  approved content lands); no "smart" price synthesis. Accepted — correctness is the point.
+- **Date:** 2026-05-28 · **Owner:** Jay Wolberg
+
+## D-15 — KB on OpenAI text-embedding-3-small + sqlite-vec
+
+- **Context:** Informational Q&A ("SAT vs ACT?") needs semantic retrieval over a small
+  corpus; the current retriever is dependency-free TF-IDF. The work is also evaluated
+  against a stack that expects OpenAI.
+- **Options Considered:** (a) keep TF-IDF; (b) local sentence-transformers + FAISS/Chroma;
+  (c) OpenAI `text-embedding-3-small` + `sqlite-vec` in the existing SQLite DB.
+- **Chosen Approach:** (c) — OpenAI embeddings stored/searched via `sqlite-vec` next to the
+  transcripts/KPIs; TF-IDF kept as the offline/no-key fallback so tests run without OpenAI.
+- **Reason:** Semantic match for paraphrased questions, no new datastore/service, aligns
+  with the evaluated stack. Corpus is tiny so cost/latency are negligible.
+- **Tradeoffs:** Adds an OpenAI dependency + key; `sqlite-vec` extension must load in the
+  runtime (verified early in IR3-T1). Accepted.
+- **Date:** 2026-05-28 · **Owner:** Jay Wolberg
+
+## D-16 — Live call-center dashboard: observe-only, React, SSE
+
+- **Context:** The front end becomes the focus — a call-center dashboard where an operator
+  watches calls arrive, reads the live agent/prospect transcript, and sees turn latency +
+  insights. The current frontend is static HTML/JS that polls REST; there's no live push and
+  turn latency is never measured (`metrics.py` returns `average_latency_seconds = None`).
+- **Options Considered:** (a) observe-only vs. full console with operator takeover;
+  (b) React (per R13) vs. extend the vanilla dashboard; (c) SSE vs. WebSocket for live push.
+- **Chosen Approach:** **Observe-only v1**, **React** (Vite SPA per R13), live updates over
+  **SSE**. Simulated calls drive it first (`POST /api/sim/start`); Twilio Media Streams inbound
+  is a deferred sub-ticket (IR7-T7). Planned as Phase IR-7 in `docs/BUILD_PLAN_INTENT_ROUTER.md`.
+- **Reason:** Observe-only is the smallest thing that delivers the demo and avoids bidirectional
+  control + barge-into-engine complexity. SSE (one-way, auto-reconnect, plain HTTP) is the
+  textbook fit for a read-only board; React aligns with the evaluated stack and the real-time UI.
+  A simulated live feed makes the whole dashboard demoable with no audio hardware or Twilio.
+- **Tradeoffs:** No operator takeover yet (deferred); WebSocket is the documented upgrade path
+  when takeover lands. Adds React build tooling and turn-latency instrumentation work.
+- **Date:** 2026-05-28 · **Owner:** Jay Wolberg

@@ -1044,3 +1044,44 @@ heuristic over-fired on punctuation, (2) a pleasantry had no route other than KN
 - **Known remaining edge:** non-social rhetorical questions ("Right?") still route to KNOWLEDGE;
   out of scope for this fix. **Validation:** `ruff` clean; `pytest` **178 passed**. Live re-test of
   the opening turn still pending (RUNBOOK §11).
+
+## 2026-05-28 — Direction change: narrow to a 2-option voice intent-router
+
+Strategic pivot (user-driven). The agent is being narrowed from a full discovery-to-close sales
+agent to a **two-option intent router**: converse to determine **test prep vs. tutoring**, drill to
+the specific test/subject leaf, **quote that leaf's price**, and answer informational questions from
+a grounded KB. Rationale: it removes the old design's unsolved problems (when to close, objection
+recovery) and buys an objective, gradeable metric (classification accuracy vs. synthetic
+ground-truth leaves).
+
+- **Decision — modify, not rebuild.** Reuse voice pipeline, transcript/decision-trace/KPI
+  persistence, dashboard, and the synthetic self-play simulator. Delete the discovery-to-close
+  playbook, objection/close logic, and the "rephrase only" rendering gag. Change is concentrated in
+  the conversation core + a small price table.
+- **Decision — price is a deterministic table keyed by the classification leaf, never retrieval.**
+  Fuzzy retrieval of a price = wrong number = the one guardrail we promise never to break. The
+  `quote_price(leaf)` tool does an exact lookup, gated on a confident leaf.
+- **Decision — KB on OpenAI `text-embedding-3-small` + `sqlite-vec`** (in the existing SQLite file)
+  for explanatory Q&A only. Accepts an OpenAI dependency (aligns with the evaluated stack) over the
+  current TF-IDF/offline retriever.
+- **Artifacts.** New requirements doc `docs/brainstorms/intent-router-agent-requirements.md`;
+  prior `llm-driven-conversation-core-requirements.md` marked superseded. Build plan not yet
+  written; STRATEGY.md / PRD / BUILD_PLAN still describe the old scope and need reconciling.
+
+## 2026-05-28 — Added Phase IR-7: live call-center dashboard
+
+The front end becomes a focus. Added **Phase IR-7** to `docs/BUILD_PLAN_INTENT_ROUTER.md`: an
+observe-only **React** call-center dashboard where the operator watches calls arrive and stream
+live (transcript, decision trace, turn latency, insights).
+
+- **Decisions (D-16).** Observe-only v1 (no operator takeover yet); React/Vite per R13; live push
+  over **SSE** (one-way, fits a read-only board; WebSocket is the upgrade path for takeover).
+  Simulated calls drive it first (`POST /api/sim/start`); **Twilio Media Streams inbound is a
+  deferred sub-ticket (IR7-T7)**.
+- **Two gaps the phase must close.** (1) No live push today — the dashboard polls REST; IR7-T2 adds
+  a recorder-fed event bus + SSE stream. (2) Turn latency is never measured (`metrics.py` returns
+  `average_latency_seconds = None`); IR7-T1 instruments it (STT-final → first TTS audio; brain/tool
+  time) and adds `Turn.latency_ms` (+ migration-recreate caution).
+- **Scope reconciliation.** The old IR6-T2 was "update the dashboard UI"; it's now **API-only** (read
+  endpoints), with all UI moved into IR-7. STRATEGY.md observability track updated to make the live
+  dashboard the operator's primary surface.
