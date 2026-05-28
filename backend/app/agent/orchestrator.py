@@ -70,6 +70,9 @@ class ConversationState:
     # an unresolved high-risk objection is on the table.
     buying_intent: bool = False
     open_high_risk_objection: bool = False
+    # The discovery field we just asked about (so the next turn's answer fills it). Engine-managed.
+    pending_field: str | None = None
+    disqualified: bool = False
 
 
 @runtime_checkable

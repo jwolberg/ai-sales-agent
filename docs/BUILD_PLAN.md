@@ -39,7 +39,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 4.5 — Conversation Integration & Latency
-- **Current ticket:** P4.5-T4 (next) — conversation engine (transport-agnostic)
+- **Current ticket:** P4.5-T5 (next) — live voice wiring
 - **Blockers:** None
 - **DESIGN:** Phase 4.5 inserted per `docs/AGENT_INTEGRATION.md` — the Phases 2–4 agent layer
   is built but NOT wired into the live pipeline (which still runs raw Claude). This phase makes
@@ -274,7 +274,10 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `backend/app/agent/engine.py`
   - Depends on: P4.5-T1, P4.5-T2, P4.5-T3, P2-T4
   - Acceptance criteria covered: §21 (discovery-to-close runs end-to-end); enabler for P5/P6
-  - Status: Todo
+  - Status: Complete (added `app/agent/engine.py` `ConversationEngine.run_turn`: extract → route
+    → dispatch (escalate/stop/objection/knowledge/clarify/progress) → advance state → render →
+    record transcript + decision trace (`recorder.record_decision`). Verified end-to-end
+    discovery→close with persisted Turns + Decisions. Transport-agnostic; drives P4.5-T5 & P6.)
 - P4.5-T5 — Live voice wiring
   - Objective: replace the raw-Claude path in `run_bot` with the engine (STT final →
     `run_turn` → render → TTS); persist turns/decisions; enforce `check_agent_output` (§18) on

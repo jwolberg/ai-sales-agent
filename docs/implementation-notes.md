@@ -512,6 +512,30 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 
 ---
 
+## P4.5-T4 — conversation engine (2026-05-27)
+
+- **`app/agent/engine.py` `ConversationEngine`** wraps an `Orchestrator` (state + persona +
+  recorder + capabilities) and owns the per-turn loop: `run_turn(text)` → record prospect →
+  extract & fold into state → `classify_turn` → dispatch (escalate→`check_escalation`,
+  stop→graceful end, objection→`handle_objection`, knowledge→`answer_knowledge`, unclear PROGRESS→
+  `_clarify`, else→decider) → advance state (stage/flags/`pending_field`) → `render` → record
+  decision + agent turn. `open()` greets. `synthesize` (the LLM) is injected for GROUND; omitted
+  in text mode (GROUND → KB-4 fallback). Returns a `TurnResult`.
+- **Added** `recorder.record_decision(NextAction)` (DE-2 trace row; TYPE_CHECKING import to dodge
+  the cycle) and `ConversationState.pending_field` / `disqualified`.
+- **Known limitations (rule-based v1, to revisit with the LLM extractor / live wiring):**
+  - **Only the pending slot is filled** — info volunteered before the agent asks (e.g. "it's for
+    my son" right after the greeting) is *not* captured, so the decider may re-ask. The LLM
+    extractor (P4.5-T2 successor) fixes this by extracting all fields from any utterance.
+  - **Context-confirm after first field:** once the first field is learned the decider does a
+    one-time CONTEXT_CONFIRMATION (it sees a "known" field) — a minor UX wrinkle, fires once.
+  - Engine duplicates a little flag-flipping that `Orchestrator.on_user_turn` also does; the
+    engine is the real loop now (on_user_turn kept for the older P2-T3 tests).
+- **Validation:** `ruff` clean; `pytest` 101 passed (7 new: greet, progress+extract, clarify,
+  objection, escalation, knowledge synth, full discovery→close with persisted turns + decisions).
+
+---
+
 ## KB content: pricing provided by operator (2026-05-27)
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).

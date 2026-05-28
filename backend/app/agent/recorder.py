@@ -13,11 +13,15 @@ observability is the whole point of capturing them.
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
 from app.agent.closing import CloseAttempt
-from app.db.models import Call, KPIEvent, Turn
+from app.db.models import Call, Decision, KPIEvent, Turn
+
+if TYPE_CHECKING:  # avoid a runtime import cycle (orchestrator imports CallRecorder)
+    from app.agent.orchestrator import NextAction
 
 # Turn.speaker values (PRD §15).
 SPEAKER_AGENT = "agent"
@@ -93,6 +97,23 @@ class CallRecorder:
     def record_prospect(self, text: str, **kwargs) -> Turn:
         """Record something the caller said."""
         return self.record_turn(SPEAKER_PROSPECT, text, **kwargs)
+
+    def record_decision(self, action: NextAction, *, turn_id: str | None = None) -> Decision:
+        """Log the per-turn decision trace (PRD DE-2) from a NextAction."""
+        decision = Decision(
+            call_id=self._call.call_id,
+            turn_id=turn_id,
+            stage=action.stage.value if action.stage is not None else None,
+            selected_action=action.action.value,
+            reason=action.reason,
+            confidence=action.confidence,
+            missing_fields=list(action.missing_fields),
+            escalation_risk=action.escalation_risk,
+            kb_sources_used=list(action.kb_sources),
+        )
+        self._session.add(decision)
+        self._session.commit()
+        return decision
 
     def record_close_attempt(self, attempt: CloseAttempt) -> KPIEvent:
         """Log a close attempt (CF-3) as a KPIEvent; ``created_at`` captures the timing."""
