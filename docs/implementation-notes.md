@@ -1136,3 +1136,25 @@ enum (greet/ask/answer/quote/escalate/end), and `BrainDecision` (action, utteran
 confidence, slots, leaf, kb_sources, quoted_amount) with a `.trace()` that flattens to the
 `Decision` row fields (R9). `quote_price.leaf` is optional — the engine will authoritatively
 resolve the leaf from slots. Tests: `tests/test_contract.py` (3). `ruff` clean.
+
+## 2026-05-28 — IR2-T2: the classifier brain (agent/brain.py)
+
+Two brains behind a `Brain` protocol; `get_brain()` picks by `settings.openai_enabled`:
+- **OpenAIBrain** — bounded tool-calling loop (MAX_TOOL_ROUNDS=5). The model calls
+  slot_fill/kb_lookup/quote_price/escalate; engine-side executors enforce rails.
+- **RuleBrain** — deterministic keyword slot-fill + next-question; no network. Drives tests +
+  offline self-play so the suite runs without an OpenAI key.
+
+**Decisions:**
+- **Quote gate is deterministic (R5b/R6), not model-confidence.** `quote_price` only returns a
+  price when `resolve_leaf(slots)` is non-None; a premature call returns `NOT_READY` so the model
+  asks instead. This makes "never quote before the leaf is known" a server-side guarantee
+  independent of model behavior.
+- **kb_lookup goes through `knowledge.answer_question`** (TF-IDF today) so IR-3 can swap the
+  retriever underneath without touching the brain. Returns `NO_APPROVED_CONTENT` to the model when
+  ungrounded, so it gives the honest fallback rather than inventing.
+- RuleBrain folds caller-volunteered subjects/tests directly to a leaf (e.g. "chemistry" ->
+  tutoring/science/chemistry -> quote), and asks the next disambiguating question otherwise;
+  ambiguous input ("struggling in school") -> category question (no guess).
+Tests: `tests/test_brain.py` (8), incl. a fake-client OpenAIBrain tool loop + the premature-quote
+gate. `ruff` clean.
