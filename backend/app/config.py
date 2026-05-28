@@ -49,6 +49,16 @@ class Settings(BaseSettings):
     deepgram_api_key: str | None = None   # STT
     anthropic_api_key: str | None = None  # LLM (Claude)
     cartesia_api_key: str | None = None   # TTS
+
+    # --- OpenAI (intent-router brain + KB embeddings, IR-0..IR-3) ---
+    # Optional so the core app + tests boot without it; the brain and KB retriever fall back to
+    # an offline path (scripted brain stub / TF-IDF) when this is unset.
+    openai_api_key: str | None = None
+    # The classifier brain (tool-calling). gpt-4o is a capable default; switch to gpt-4o-mini
+    # for lower cost/latency once classification accuracy holds.
+    openai_chat_model: str = "gpt-4o"
+    # KB embeddings for the sqlite-vec retriever (D-15). Small + cheap; corpus is tiny.
+    openai_embedding_model: str = "text-embedding-3-small"
     # Tunables (override via env). Default to a capable Claude model; switch to
     # claude-haiku-4-5 for lower latency if needed.
     anthropic_model: str = "claude-sonnet-4-6"
@@ -89,6 +99,11 @@ class Settings(BaseSettings):
             "CARTESIA_API_KEY": self.cartesia_api_key,
         }
         return [name for name, value in required.items() if not value]
+
+    @property
+    def openai_enabled(self) -> bool:
+        """True when an OpenAI key is configured (brain + embeddings use the live path)."""
+        return bool(self.openai_api_key)
 
 
 @lru_cache

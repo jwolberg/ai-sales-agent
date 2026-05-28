@@ -1085,3 +1085,12 @@ live (transcript, decision trace, turn latency, insights).
 - **Scope reconciliation.** The old IR6-T2 was "update the dashboard UI"; it's now **API-only** (read
   endpoints), with all UI moved into IR-7. STRATEGY.md observability track updated to make the live
   dashboard the operator's primary surface.
+
+## 2026-05-28 — IR0-T2: OpenAI config + dependency
+
+Added `openai_api_key`, `openai_chat_model` (default `gpt-4o`), `openai_embedding_model` (default
+`text-embedding-3-small`) to `app/config.py`, plus an `openai_enabled` property. Declared
+`openai>=1.40` in `pyproject.toml` core deps. **Decision:** OpenAI key stays optional so the core
+app + test suite boot without it — the brain (IR-2) and KB retriever (IR-3) fall back to an offline
+path when unset. `missing_voice_keys()` left unchanged (OpenAI isn't a voice key). Tests:
+`tests/test_config.py`. `ruff` clean; 3 passed.
