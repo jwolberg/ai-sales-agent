@@ -104,6 +104,14 @@ def test_engine_pipeline_constructs():
     task = build_engine_pipeline_task(transport, stt, tts, processor)
     assert isinstance(task, PipelineTask)
 
+    # The mic must be muted while the agent speaks so it never transcribes its own voice.
+    from pipecat.pipeline.pipeline import Pipeline
+
+    inner = next(p for p in task._pipeline._processors if isinstance(p, Pipeline))
+    names = [type(p).__name__ for p in inner._processors]
+    assert "STTMuteFilter" in names, names
+    assert names.index("STTMuteFilter") < names.index("_DeepgramSTTService"), names
+
 
 def test_engine_processor_filler_flag():
     settings = Settings(

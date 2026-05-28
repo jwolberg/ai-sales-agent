@@ -927,3 +927,26 @@ runs on.
   no longer answers early (ring persists with `getUserMedia` stubbed to hang; no console errors).
 - **Validation:** `node --check` clean; browser smoke (server :8099) — Dialing… → Ringing… with
   no early answer. No Python touched.
+
+### Live voice fix — agent was listening to itself (2026-05-28)
+
+- **Symptom (from call `58d32393` logs):** the agent fired 3 questions in ~8s, never advancing
+  past `relationship_to_student`; the "prospect" turns were short fragments ("Alright. Bye.",
+  "Some things.") timestamped 3–143ms after each agent turn — i.e. the agent's own TTS / echo was
+  being transcribed and fed back as new user turns. Root cause: `EngineProcessor` ran the engine
+  on every STT final with no gating, and STT stayed live while the agent spoke.
+- **Fix:** insert a Pipecat `STTMuteFilter(STTMuteStrategy.ALWAYS)` right after `transport.input()`
+  in `build_engine_pipeline_task` (before STT). It mutes the mic input (suppresses inbound audio +
+  VAD + transcripts) whenever the agent is speaking, driven by Bot{Started,Stopped}SpeakingFrame —
+  so Deepgram never transcribes the agent's own voice. Goal: "listen to the user, not itself."
+- **Defense in depth:** `client.js` now requests `getUserMedia({audio:{echoCancellation,
+  noiseSuppression, autoGainControl}})` (browser default is on, but explicit) so the speaker's
+  audio isn't captured back into the mic.
+- **Trade-off:** with STT muted during agent speech, mid-sentence barge-in is effectively off
+  while the agent talks (turn-taking resumes the instant it stops). That's the desired behavior
+  for a sales call and matches the goal. `STTMuteFilter` is deprecated in pipecat 0.0.108 (favoring
+  `LLMUserAggregator.user_mute_strategies`) but we use a custom `EngineProcessor`, not that
+  aggregator, so the filter remains the right tool; deprecation is a one-time warning.
+- **Validation:** `ruff` clean; `pytest` 158 passed; `test_engine_pipeline_constructs` strengthened
+  to assert `STTMuteFilter` is wired **before** `_DeepgramSTTService`. The actual mute behavior
+  needs a live mic call to confirm (can't be exercised headlessly).

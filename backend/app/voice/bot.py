@@ -20,6 +20,11 @@ from pipecat.frames.frames import Frame, TranscriptionFrame, TTSSpeakFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
+from pipecat.processors.filters.stt_mute_filter import (
+    STTMuteConfig,
+    STTMuteFilter,
+    STTMuteStrategy,
+)
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.services.cartesia.tts import CartesiaTTSService
 from pipecat.services.deepgram.stt import DeepgramSTTService
@@ -104,8 +109,19 @@ def build_engine_pipeline_task(
     *,
     voice_debug: bool = False,
 ) -> PipelineTask:
-    """Assemble the decider-led pipeline: mic -> STT -> engine -> TTS -> speaker."""
+    """Assemble the decider-led pipeline: mic -> mute-while-speaking -> STT -> engine -> TTS ->
+    speaker.
+
+    The STTMuteFilter mutes the mic input whenever the *agent* is speaking (STTMuteStrategy.ALWAYS,
+    driven by Bot{Started,Stopped}SpeakingFrame). This stops the agent from transcribing its own
+    TTS output (and echo) and treating it as a new user turn — the root cause of the "agent talks
+    to itself / keeps launching new prompts" failure. It must sit before STT so the agent's audio
+    never reaches Deepgram.
+    """
     processors: list = [transport.input()]
+    processors.append(
+        STTMuteFilter(config=STTMuteConfig(strategies={STTMuteStrategy.ALWAYS}))
+    )
     if voice_debug:
         processors.append(DebugTurnLogger("input"))
     processors.append(stt)

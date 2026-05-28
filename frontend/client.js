@@ -158,7 +158,12 @@ async function startCall() {
 
     // Mic is requested in parallel with the dialing sound; the browser shows its own permission
     // prompt, so we keep the on-screen status on the "Dialing…/Ringing…" phone narrative.
-    localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Request echo cancellation/noise suppression so the agent's own voice from the speaker
+    // isn't captured back into the mic (defense in depth; the server also mutes STT while the
+    // agent speaks).
+    localStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    });
     localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
     // Diagnostic: confirm the mic track is captured, live, and not muted.
     localStream.getAudioTracks().forEach((t) =>
