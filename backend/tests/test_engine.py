@@ -142,7 +142,7 @@ def test_knowledge_turn_grounds_or_falls_back(session):
         decider=DiscoveryDecider(),
         recorder=CallRecorder(session, channel="text"),
     )
-    eng = ConversationEngine(orch, synthesize=lambda instruction: "SYNTHESIZED")
+    eng = ConversationEngine(orch, synthesize=lambda instruction, history=None: "SYNTHESIZED")
     eng.open()
     result = eng.run_turn("How does tutor matching work?")
     assert result.route is Route.KNOWLEDGE
@@ -158,7 +158,7 @@ def test_knowledge_answer_bridges_back_to_pending_question(session):
         decider=DiscoveryDecider(),
         recorder=CallRecorder(session, channel="text"),
     )
-    eng = ConversationEngine(orch, synthesize=lambda instruction: "Here's the info.")
+    eng = ConversationEngine(orch, synthesize=lambda instruction, history=None: "Here's the info.")
     eng.open()
     eng.run_turn("Hi there")  # agent asks the first required field
     assert eng.state.pending_field == "relationship_to_student"
@@ -176,7 +176,7 @@ def test_knowledge_answer_without_pending_question_has_no_bridge(session):
         decider=DiscoveryDecider(),
         recorder=CallRecorder(session, channel="text"),
     )
-    eng = ConversationEngine(orch, synthesize=lambda instruction: "Here's the info.")
+    eng = ConversationEngine(orch, synthesize=lambda instruction, history=None: "Here's the info.")
     eng.open()
     # First turn is a KB question with no pending discovery field yet -> no bridge appended.
     result = eng.run_turn("How does tutor matching work?")

@@ -74,6 +74,37 @@ def test_synthesizer_returns_text_and_uses_configured_model():
     assert messages.calls[0]["system"][0]["cache_control"] == {"type": "ephemeral"}
 
 
+def test_synthesizer_replays_transcript_history():
+    # P10-T2: when given the running transcript, the synthesizer replays it as prior messages so
+    # the model phrases with context. Must produce a valid Claude message list: first turn is the
+    # user's, roles alternate (consecutive same-role turns coalesced), instruction is the last turn.
+    settings = Settings(_env_file=None, anthropic_model="claude-sonnet-4-6")
+    messages = _Messages(text="Sure.")
+    synth = make_synthesizer(settings, client=_Client(messages))
+    history = [
+        ("agent", "Hi, how can I help?"),       # leading assistant turn -> must be dropped
+        ("prospect", "It's for my son in 9th grade"),
+        ("agent", "Great."),
+    ]
+    synth("Rephrase: what subject?", history)
+
+    sent = messages.calls[0]["messages"]
+    assert sent[0]["role"] == "user"           # Anthropic requires the first message be the user's
+    assert sent[-1]["role"] == "user"
+    assert "Rephrase: what subject?" in sent[-1]["content"]
+    assert any("my son in 9th grade" in m["content"] for m in sent)
+    roles = [m["role"] for m in sent]
+    assert all(roles[i] != roles[i + 1] for i in range(len(roles) - 1))  # alternating/coalesced
+
+
+def test_synthesizer_without_history_sends_single_user_message():
+    settings = Settings(_env_file=None)
+    messages = _Messages(text="ok")
+    synth = make_synthesizer(settings, client=_Client(messages))
+    synth("just the instruction")  # 1-arg call path unchanged
+    assert messages.calls[0]["messages"] == [{"role": "user", "content": "just the instruction"}]
+
+
 def test_synthesizer_returns_none_on_error():
     settings = Settings(_env_file=None)
     synth = make_synthesizer(settings, client=_Client(_Messages(error=RuntimeError("boom"))))

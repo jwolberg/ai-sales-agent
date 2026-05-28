@@ -79,8 +79,9 @@ def to_directive(action: NextAction) -> Directive:
     )
 
 
-# An LLM phrasing function: instruction -> spoken text (or None on failure). Injected live.
-Synthesize = Callable[[str], "str | None"]
+# An LLM phrasing function: (instruction, history?) -> spoken text (or None on failure). Injected
+# live. ``history`` (the running transcript) is optional so 1-arg callables still satisfy it.
+Synthesize = Callable[..., "str | None"]
 
 
 def _smoothing_instruction(text: str) -> str:
@@ -91,7 +92,13 @@ def _smoothing_instruction(text: str) -> str:
     )
 
 
-def render(directive: Directive, *, synthesize: Synthesize | None = None) -> str:
+def _synthesize(synthesize: Synthesize, instruction: str, history) -> str | None:
+    """Call the phrasing fn, passing the transcript only when we have one — so a plain
+    ``(instruction)`` callable (tests, text-mode) keeps working unchanged."""
+    return synthesize(instruction, history) if history else synthesize(instruction)
+
+
+def render(directive: Directive, *, synthesize: Synthesize | None = None, history=None) -> str:
     """Produce the final utterance for a directive (Hybrid rendering).
 
     - GROUND: synthesize from the instruction via ``synthesize``; degrade to the honest KB-4
@@ -99,13 +106,18 @@ def render(directive: Directive, *, synthesize: Synthesize | None = None) -> str
     - SPEAK + smoothable: LLM-rephrase the authored text for natural delivery, falling back to
       the verbatim text if there's no LLM or it fails.
     - SPEAK otherwise: the words verbatim (approved fixed language).
+
+    ``history`` (the running transcript) is forwarded to ``synthesize`` so the LLM phrases with
+    conversational context (P10-T2); it never affects the deterministic SPEAK paths.
     """
     if directive.kind is ContentKind.GROUND:
         if synthesize is not None and directive.instruction:
-            return synthesize(directive.instruction) or (directive.fallback or FALLBACK_MESSAGE)
+            return _synthesize(synthesize, directive.instruction, history) or (
+                directive.fallback or FALLBACK_MESSAGE
+            )
         return directive.fallback or FALLBACK_MESSAGE
 
     text = directive.text or ""
     if text and directive.smoothable and synthesize is not None:
-        return synthesize(_smoothing_instruction(text)) or text
+        return _synthesize(synthesize, _smoothing_instruction(text), history) or text
     return text

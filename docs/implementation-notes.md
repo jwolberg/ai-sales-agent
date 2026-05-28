@@ -1007,3 +1007,19 @@ structured layer existed but three seams were disconnected. Implementing each as
   - Only `collected` + `summary` are written back at end, not objections/status — `ConversationState`
     has no raised-objection list (objections live in KPIEvents/Turns) and outcome→status mapping is
     out of scope. Revisit if cross-call objection memory is needed.
+- **P10-T2 — feed the running transcript into the synthesizer (`agent/synthesis.py`,
+  `agent/render.py`, `agent/engine.py`).** The phrasing call was stateless (one `user` message +
+  cached persona); now `make_synthesizer`'s callable takes an optional `history`, replayed as prior
+  `messages` so the LLM phrases the next line with the whole conversation in view (won't re-ask,
+  can smooth a correction). `_history_messages` maps turns → user/assistant, coalesces consecutive
+  same-role turns, drops a leading assistant turn (Anthropic needs a user-first list), and appends
+  the instruction as the final user turn. Decisions/tradeoffs:
+  - Kept the `Synthesize` contract backward-compatible: `render` forwards `history` only when present
+    (`synthesize(instruction, history)` vs `synthesize(instruction)`), so the deterministic SPEAK
+    paths and all 1-arg test/text-mode callables are unchanged. Updated the 3 `test_engine` lambdas
+    to accept the optional arg.
+  - Capped replay at `MAX_HISTORY_TURNS = 20` (latency/token bound); untuned.
+- **Validation (Phase 10):** `ruff` clean; `pytest` **174 passed**. The live conversational effect
+  (no re-asking across/within calls) still needs a browser/mic/keys run per RUNBOOK §11; the unit
+  tests prove the wiring (memory seeded, slots persisted/round-tripped, transcript replayed as a
+  valid message list).

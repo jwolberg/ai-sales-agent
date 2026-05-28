@@ -161,8 +161,10 @@ class ConversationEngine:
             self._emit_kpi(kpi.DISCOVERY_COMPLETE)
 
         # 5. Render words, 6. record the decision (linked to the prospect turn) + agent turn.
+        #    Pass the running transcript so the LLM phrases with conversational context — it won't
+        #    re-ask what was answered and can smooth over a correction (P10-T2).
         directive = to_directive(action)
-        utterance = render(directive, synthesize=self.synthesize)
+        utterance = render(directive, synthesize=self.synthesize, history=self.state.history)
         if bridge_field is not None:
             utterance = self._bridge_back(utterance, bridge_field)
             state.pending_field = bridge_field  # keep the discovery thread open
@@ -221,7 +223,7 @@ class ConversationEngine:
             prompt="Sorry, I didn't quite catch that — could you say that again?",
         )
         directive = to_directive(action)
-        utterance = render(directive, synthesize=self.synthesize)
+        utterance = render(directive, synthesize=self.synthesize, history=self.state.history)
         turn_id = prospect_turn.turn_id if prospect_turn is not None else None
         self._record_decision(action, turn_id=turn_id)
         self._emit_agent(utterance)

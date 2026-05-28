@@ -70,6 +70,25 @@ def test_smoothable_speak_is_llm_rephrased(monkeypatch=None):
     assert render(directive, synthesize=lambda instruction: None) == action.prompt
 
 
+def test_history_is_forwarded_to_synthesize_only_when_present():
+    # P10-T2: render passes the running transcript to the LLM so it phrases with context, but a
+    # 1-arg / no-history call path stays exactly as before (deterministic SPEAK unaffected).
+    action = DiscoveryDecider().decide(ConversationState(), "")  # smoothable discovery question
+    directive = to_directive(action)
+    seen = {}
+
+    def synth(instruction, history=None):
+        seen["history"] = history
+        return "ok"
+
+    assert render(directive, synthesize=synth) == "ok"
+    assert seen["history"] is None  # no history -> called the old 1-arg way
+
+    transcript = [("prospect", "Hi"), ("agent", "Hello — who's the tutoring for?")]
+    assert render(directive, synthesize=synth, history=transcript) == "ok"
+    assert seen["history"] == transcript  # forwarded when present
+
+
 def test_fixed_lines_are_not_smoothed():
     # An objection rebuttal is approved language — spoken verbatim even with an LLM available.
     action = _orch().handle_objection("it's too expensive")
