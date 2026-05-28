@@ -54,6 +54,8 @@ class CallRecorder:
         playbook_version: str | None = None,
         kb_version: str | None = None,
         model_version: str | None = None,
+        experiment_id: str | None = None,
+        variant_id: str | None = None,
     ) -> None:
         self._session = session
         self._call = Call(
@@ -64,6 +66,8 @@ class CallRecorder:
             playbook_version=playbook_version,
             kb_version=kb_version,
             model_version=model_version,
+            experiment_id=experiment_id,  # variant attribution (P7)
+            variant_id=variant_id,
         )
         session.add(self._call)
         session.flush()  # assign call_id without ending the surrounding transaction

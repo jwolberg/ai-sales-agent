@@ -150,6 +150,7 @@ class Orchestrator:
         known_fields: dict[str, str] | None = None,
         lead_id: str | None = None,
         retriever: KBRetriever | None = None,
+        objection_overrides: dict[str, str] | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.decider = decider or StubDecider()
@@ -158,6 +159,8 @@ class Orchestrator:
         self.recorder = recorder
         # KB retriever for grounded answers (P4-T2); defaults to the shared one on demand.
         self._retriever = retriever
+        # Per-objection rebuttal overrides (experiment variants, P7): {objection_key: rebuttal}.
+        self.objection_overrides = objection_overrides or {}
         # Built once and reused every turn — this is what keeps the persona consistent.
         self.system_prompt = build_system_prompt(self.settings)
         self.state = ConversationState(lead_id=lead_id)
@@ -250,6 +253,8 @@ class Orchestrator:
         response = respond_to_objection(objection, retriever=self._retriever)
         if response.high_risk:
             self.state.open_high_risk_objection = True
+        # An experiment variant may override the rebuttal for this objection (P7).
+        rebuttal = self.objection_overrides.get(objection.key, response.rebuttal)
         risk = " (high-risk)" if response.high_risk else ""
         return NextAction(
             stage=Stage.OBJECTION_HANDLING,
@@ -257,7 +262,7 @@ class Orchestrator:
             reason=f"detected objection '{objection.key}'{risk}",
             confidence=0.6,
             question_key=objection.key,
-            prompt=response.rebuttal,
+            prompt=rebuttal,
             kb_sources=response.kb_sources,
         )
 

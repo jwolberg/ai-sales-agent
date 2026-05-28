@@ -39,7 +39,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 7 — Recursive Improvement Loop (entering)
-- **Current ticket:** P7-T1 (next) — experiment & variant infrastructure
+- **Current ticket:** P7-T2/T3 (next) — establish baseline + generate & test variants
 - **LIVE-VALIDATE (Phase 4.5):** the decider-led voice path (`app/voice/bot.py`) + latency layer
   (fillers, ambient bed) are construction/unit-validated only. A browser/mic/keys run (RUNBOOK
   §11) is still needed to confirm the live conversation and to measure latency vs VC-3.
@@ -412,7 +412,11 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `backend/app/experiments/engine.py`, `backend/app/experiments/variants.py`
   - Depends on: P5-T2, P6-T2
   - Acceptance criteria covered: §11; §10.4 (variant attribution)
-  - Status: Todo
+  - Status: Complete (added `app/experiments/variants.py` — the §8 baseline + 5 candidate price
+    rebuttals (PriceVariant: rebuttal/when/escalation/compliance, all guardrail-safe) — and
+    `app/experiments/engine.py` `create_experiment` (Experiment + Variant records, rebuttal in
+    playbook_delta) + `run_variant` (tagged self-play applying the variant's rebuttal). Variant
+    application seam: `Orchestrator.objection_overrides`. Offline mode for tests.)
 - P7-T2 — Establish documented baseline
   - Objective: Run the baseline price-objection rebuttal against a fixed synthetic set; record objection recovery, close success, escalation, frustration, unsupported-claim (§11.2 Step 1).
   - Files likely involved: `backend/app/experiments/engine.py`, `docs/recursive-improvement.md`

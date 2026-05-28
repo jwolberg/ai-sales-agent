@@ -37,6 +37,9 @@ from app.simulator.personas import Persona, persona_system_prompt
 # Given the agent's last line, return the prospect's next line.
 Prospect = Callable[[str], str]
 
+# Sentinel so callers can pass synthesize=None (no LLM phrasing) distinctly from "use the default".
+_DEFAULT_SYNTH = object()
+
 _TERMINAL_STAGES = {Stage.WRAP_UP, Stage.ESCALATION, Stage.DISQUALIFIED}
 _GOODBYE = ("bye", "goodbye", "take care", "talk later", "that's all", "have a good")
 
@@ -128,19 +131,38 @@ def make_prospect(
 
 
 def build_simulation_engine(
-    session: Session, persona: Persona, settings: Settings
+    session: Session,
+    persona: Persona,
+    settings: Settings,
+    *,
+    experiment_id: str | None = None,
+    variant_id: str | None = None,
+    objection_overrides: dict[str, str] | None = None,
+    extractor=None,
+    synthesize=_DEFAULT_SYNTH,
 ) -> ConversationEngine:
-    """A full engine for self-play: synthetic recorder (tagged with the persona) + LLM extraction
-    + Claude phrasing."""
+    """A full engine for self-play: synthetic recorder (tagged with the persona, and the
+    experiment/variant when running an experiment) + LLM extraction + Claude phrasing.
+    ``objection_overrides`` applies a variant's rebuttal (P7). ``extractor``/``synthesize`` can be
+    overridden (e.g. rule-based + None) to run fully offline in tests."""
     recorder = CallRecorder(
         session,
         channel=f"sim:{persona.key}",
         is_synthetic=True,
+        experiment_id=experiment_id,
+        variant_id=variant_id,
         **compute_versions(settings).as_dict(),
     )
-    orch = Orchestrator(settings=settings, decider=DiscoveryDecider(), recorder=recorder)
+    orch = Orchestrator(
+        settings=settings,
+        decider=DiscoveryDecider(),
+        recorder=recorder,
+        objection_overrides=objection_overrides,
+    )
     return ConversationEngine(
-        orch, extractor=LLMExtractor(settings=settings), synthesize=make_synthesizer(settings)
+        orch,
+        extractor=extractor or LLMExtractor(settings=settings),
+        synthesize=make_synthesizer(settings) if synthesize is _DEFAULT_SYNTH else synthesize,
     )
 
 

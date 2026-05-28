@@ -754,6 +754,24 @@ runs on.
 
 ---
 
+## P7-T1 — experiment & variant infrastructure (2026-05-27)
+
+- **Variant-application seam:** `Orchestrator.objection_overrides` ({objection_key: rebuttal}) —
+  `handle_objection` uses the override for the matched objection. This is how a variant changes
+  behavior with no other difference. `CallRecorder` now stamps `experiment_id`/`variant_id`;
+  `build_simulation_engine` threads both + the overrides (and accepts injectable extractor/
+  synthesize so experiment runs are offline-testable).
+- **`app/experiments/variants.py`:** the §8 BASELINE (generic value statement) + 5 candidate
+  styles (empathy-first, outcome-cost, risk-reversal, comparison, diagnostic) as `PriceVariant`
+  (rebuttal + when-to-use/not + escalation trigger + compliance, all §18-safe).
+- **`app/experiments/engine.py`:** `create_experiment` (Experiment + a Variant row per rebuttal,
+  rebuttal stored in `playbook_delta`, `baseline_variant_id` set) and `run_variant` (a tagged
+  synthetic self-play applying the variant's price rebuttal; `offline=True` → no-LLM engine).
+- **Validation:** `ruff` clean; `pytest` 154 passed (4 new: catalog ≥2 + guardrail-safe, override
+  seam, records persisted, offline run applies override + tags the call).
+
+---
+
 ## KB content: pricing provided by operator (2026-05-27)
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).
