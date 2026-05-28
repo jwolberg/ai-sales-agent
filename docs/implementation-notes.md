@@ -695,6 +695,23 @@ the Phase 6 simulator and Phase 7 experiment loop build on. (Latency/frustration
 
 ---
 
+## P6-T1 — synthetic persona definitions (2026-05-27)
+
+- **`data/personas/personas.yaml`:** the 6 §12.2 personas (motivated, skeptical, price-sensitive,
+  busy, competitive-shopper, poor-fit). Each carries ground-truth `facts` (keyed by the discovery
+  field names so P6-T3 can score what the agent extracted), behavior `traits`, `objections` (in
+  natural language the agent's cue detector should catch), and `converts`/`disqualifies` flags.
+- **`app/simulator/personas.py`:** `PersonaLibrary` loader + `persona_system_prompt(persona)` that
+  composes the persona with the universal §12.3 behavior rules (hesitate, partial answers, raise
+  objections, resist pushiness, occasionally disqualify, reward consultative selling, stay in
+  character). The runner (P6-T2) feeds this to a Claude self-play prospect.
+- **Designed to reveal weaknesses, not flatter** (§12.1): the poor-fit persona explicitly tests
+  that the agent won't force a close; the skeptical/price personas push proof/discounts.
+- **Validation:** `ruff` clean; `pytest` 141 passed (6 new: ≥6 personas + required types, facts/
+  flags, objection personas, prompt content, disqualified prompt resists close, custom load).
+
+---
+
 ## KB content: pricing provided by operator (2026-05-27)
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).

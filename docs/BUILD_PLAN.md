@@ -39,7 +39,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 6 — Synthetic Prospect Simulator (entering)
-- **Current ticket:** P6-T1 (next) — synthetic persona definitions (≥6)
+- **Current ticket:** P6-T2 (next) — simulated call runner (LLM self-play)
 - **LIVE-VALIDATE (Phase 4.5):** the decider-led voice path (`app/voice/bot.py`) + latency layer
   (fillers, ambient bed) are construction/unit-validated only. A browser/mic/keys run (RUNBOOK
   §11) is still needed to confirm the live conversation and to measure latency vs VC-3.
@@ -374,7 +374,10 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `backend/app/simulator/personas.py`, `data/personas/*.yaml`
   - Depends on: P1-T1
   - Acceptance criteria covered: §12.2, §12.3
-  - Status: Todo
+  - Status: Complete (added `data/personas/personas.yaml` — the 6 §12.2 personas with ground-truth
+    `facts`, traits, objections, and converts/disqualifies flags — and `app/simulator/personas.py`
+    `PersonaLibrary` + `persona_system_prompt` (composes §12.3 behavior rules + persona for the
+    self-play prospect). Facts use the discovery field keys so P6-T3 can score extraction.)
 - P6-T2 — Simulated call runner (LLM self-play)
   - Objective: Run agent vs. synthetic prospect as text-mode self-play, writing the same records as live calls and labeling them synthetic.
   - Files likely involved: `backend/app/simulator/runner.py`

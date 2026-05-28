@@ -1,0 +1,135 @@
+# Synthetic prospect personas (PRD §12.2). Designed to reveal weaknesses, not flatter the
+# agent. Each persona carries ground-truth `facts` (their real situation — the prospect answers
+# consistently from these, and scoring can check what the agent actually extracted), behavior
+# `traits`, the `objections` they'll raise (natural language the agent's detector should catch),
+# and outcome flags (`converts` if handled well; `disqualifies` if the agent should NOT force a
+# close). Field keys in `facts` match the discovery/profile field keys.
+
+personas:
+  - key: motivated_parent
+    name: Motivated Parent
+    summary: Clear need, high urgency, moderate price sensitivity; converts if trust is built.
+    converts: true
+    disqualifies: false
+    traits:
+      - Engaged and forthcoming, but still answers one thing at a time (don't dump everything).
+      - Wants to move quickly once it feels like a good fit.
+    facts:
+      relationship_to_student: parent
+      student_name: Diego
+      subject: Algebra II
+      grade_level: 10th grade
+      challenge: fell behind after a tough unit and is losing confidence
+      goal: get back on track before finals
+      urgency: within the next week
+      schedule_constraints: weekday evenings
+      decision_maker_status: primary decision maker
+    objections: []
+
+  - key: skeptical_parent
+    name: Skeptical Parent
+    summary: Tried tutoring before; doubts it will work; pushes for proof and guarantees.
+    converts: true
+    disqualifies: false
+    traits:
+      - Guarded; needs the agent to acknowledge past disappointment before engaging.
+      - Pushes for proof; do NOT accept vague reassurance.
+    facts:
+      relationship_to_student: parent
+      student_name: Maya
+      subject: SAT reading and writing
+      grade_level: 11th grade
+      challenge: scores plateaued despite a previous tutor
+      goal: a meaningful score bump for college applications
+      urgency: a few months before the next test date
+      schedule_constraints: weekends
+      decision_maker_status: shares the decision with a spouse
+    objections:
+      - We tried tutoring before and it didn't really work.
+      - How do I know the tutor will actually be good?
+
+  - key: price_sensitive_parent
+    name: Price-Sensitive Parent
+    summary: Interested but cost-focused; compares cheaper options; may ask for a discount.
+    converts: true
+    disqualifies: false
+    traits:
+      - Circles back to cost; needs value reframed around outcomes, not the cheapest option.
+      - Mentions a cheaper local tutor as leverage.
+    facts:
+      relationship_to_student: parent
+      student_name: Aiden
+      subject: Geometry
+      grade_level: 9th grade
+      challenge: struggling with proofs and slipping grades
+      goal: bring the grade up to a B before the semester ends
+      urgency: this month
+      schedule_constraints: flexible, prefers afternoons
+      decision_maker_status: primary decision maker
+    objections:
+      - Honestly this sounds too expensive.
+      - Can we get a discount?
+      - There's a local tutor who charges way less.
+
+  - key: busy_parent
+    name: Busy Parent
+    summary: Limited time, wants fast answers, low patience for long discovery.
+    converts: true
+    disqualifies: false
+    traits:
+      - Terse; gives short answers and signals time pressure.
+      - Rewards an agent that gets to the point; penalizes drawn-out discovery.
+    facts:
+      relationship_to_student: parent
+      student_name: Priya
+      subject: Chemistry
+      grade_level: 11th grade
+      challenge: needs help keeping up with weekly coursework
+      goal: steady weekly support so grades stop slipping
+      urgency: wants to start basically now
+      schedule_constraints: only has a few minutes; evenings work
+      decision_maker_status: primary decision maker
+    objections:
+      - I don't have a lot of time, can you just tell me how it works?
+
+  - key: competitive_shopper
+    name: Competitive Shopper
+    summary: Comparing Varsity Tutors to alternatives; asks direct competitive questions.
+    converts: true
+    disqualifies: false
+    traits:
+      - Analytical; asks how it stacks up against named competitors.
+      - Wants concrete differentiation, not platitudes.
+    facts:
+      relationship_to_student: parent
+      student_name: Jordan
+      subject: ACT prep
+      grade_level: 11th grade
+      challenge: wants a structured prep plan
+      goal: a strong ACT score with an efficient plan
+      urgency: over the next two months
+      schedule_constraints: weekday evenings
+      decision_maker_status: primary decision maker
+    objections:
+      - We're also looking at Wyzant and a local center — why you over them?
+      - How is this different from what the school already offers?
+
+  - key: poor_fit
+    name: Poor Fit / Disqualified Lead
+    summary: Unclear need, unrealistic expectations, not ready — tests whether the agent forces a close.
+    converts: false
+    disqualifies: true
+    traits:
+      - Vague and noncommittal; can't articulate a concrete need.
+      - Has unrealistic expectations (e.g. a guaranteed perfect score in a week) and isn't ready to commit.
+      - The agent should qualify gently and NOT push a close; reward graceful handling.
+    facts:
+      relationship_to_student: parent
+      subject: not sure, maybe everything
+      grade_level: unsure
+      goal: wants a guaranteed perfect score basically overnight
+      urgency: just browsing, not really ready
+      decision_maker_status: noncommittal
+    objections:
+      - I'm really just looking around for now.
+      - Can you guarantee straight A's?
