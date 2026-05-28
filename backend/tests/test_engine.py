@@ -150,6 +150,40 @@ def test_knowledge_turn_grounds_or_falls_back(session):
     assert result.action.kb_sources  # source attribution recorded
 
 
+def test_knowledge_answer_bridges_back_to_pending_question(session):
+    # Real call 8b72f75c answered a question and dropped the discovery thread. A KB answer while
+    # a discovery question is open should bridge back to it and keep the thread open (T5).
+    orch = Orchestrator(
+        settings=Settings(_env_file=None),
+        decider=DiscoveryDecider(),
+        recorder=CallRecorder(session, channel="text"),
+    )
+    eng = ConversationEngine(orch, synthesize=lambda instruction: "Here's the info.")
+    eng.open()
+    eng.run_turn("Hi there")  # agent asks the first required field
+    assert eng.state.pending_field == "relationship_to_student"
+
+    result = eng.run_turn("How does tutor matching work?")  # KNOWLEDGE while a question is open
+    assert result.route is Route.KNOWLEDGE
+    assert "back to what i asked" in result.utterance.lower()
+    # The discovery thread stays open so the next answer fills it.
+    assert eng.state.pending_field == "relationship_to_student"
+
+
+def test_knowledge_answer_without_pending_question_has_no_bridge(session):
+    orch = Orchestrator(
+        settings=Settings(_env_file=None),
+        decider=DiscoveryDecider(),
+        recorder=CallRecorder(session, channel="text"),
+    )
+    eng = ConversationEngine(orch, synthesize=lambda instruction: "Here's the info.")
+    eng.open()
+    # First turn is a KB question with no pending discovery field yet -> no bridge appended.
+    result = eng.run_turn("How does tutor matching work?")
+    assert result.route is Route.KNOWLEDGE
+    assert "back to what i asked" not in result.utterance.lower()
+
+
 def test_full_discovery_to_close_runs_and_is_traced(session):
     eng = _engine(session)
     eng.open()

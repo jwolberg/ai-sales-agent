@@ -129,6 +129,10 @@ class ConversationEngine:
         else:
             action = self._dispatch(decision, user_text)
 
+        # Remember an open discovery question so a KB answer can bridge back to it (T5):
+        # in real call 8b72f75c the agent answered a question and dropped the discovery thread.
+        bridge_field = state.pending_field if decision.route is Route.KNOWLEDGE else None
+
         # 4. Advance state.
         was_summarized = state.fit_summarized
         state.user_turns += 1
@@ -159,6 +163,10 @@ class ConversationEngine:
         # 5. Render words, 6. record the decision (linked to the prospect turn) + agent turn.
         directive = to_directive(action)
         utterance = render(directive, synthesize=self.synthesize)
+        if bridge_field is not None:
+            utterance = self._bridge_back(utterance, bridge_field)
+            state.pending_field = bridge_field  # keep the discovery thread open
+            state.ask_attempts[bridge_field] = state.ask_attempts.get(bridge_field, 0) + 1
         turn_id = prospect_turn.turn_id if prospect_turn is not None else None
         self._record_decision(action, turn_id=turn_id)
         self._emit_agent(utterance)
@@ -225,12 +233,20 @@ class ConversationEngine:
             understood=False,
         )
 
-    def _clarify(self, field: str) -> NextAction:
+    @staticmethod
+    def _question_prompt(field: str) -> str:
         playbook = get_discovery_playbook()
         question = next(
             (q for q in playbook.required + playbook.leading if q.key == field), None
         )
-        ask = question.prompt if question else "could you tell me a bit more about that?"
+        return question.prompt if question else "could you tell me a bit more about that?"
+
+    def _bridge_back(self, answer: str, field: str) -> str:
+        """Append a redirect from a KB answer back to the open discovery question (T5)."""
+        return f"{answer} Anyway — back to what I asked: {self._question_prompt(field)}"
+
+    def _clarify(self, field: str) -> NextAction:
+        ask = self._question_prompt(field)
         return NextAction(
             stage=self.state.stage,  # stay where we are
             action=Action.ASK_REQUIRED_DISCOVERY,
