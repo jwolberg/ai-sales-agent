@@ -839,3 +839,26 @@ runs on.
   §8 promotion rule → before/after report) is proven end-to-end regardless of the flat scores.
 - **Validation:** report generated; `ruff` clean; `pytest` 158 passed (unchanged — fire-it run,
   no code change).
+
+---
+
+## P8-T2 — credit-free documentation set (2026-05-28)
+
+- **Wrote the docs that don't need live LLM calls:** `docs/decision-log.md` (§23, 12 decisions),
+  `docs/research-notes.md` (§24), `docs/limitations.md` (§25), and top-level `README.md`
+  (overview + architecture + setup/demo, pointing at `docs/RUNBOOK.md`).
+- **Failure-mode report = draft from real synthetic evidence.** `docs/failure-modes.md` covers
+  all 14 §19 modes. Modes OBSERVED in the 2026-05-28 run use **real transcript excerpts pulled
+  from the DB** (not fabricated) — notably the thrice-repeated KB fallback (rigid script),
+  a deflected buying signal (failure to close), and an objection mis-extracted as a discovery
+  answer (incorrect carryover). Modes needing live trials (latency, barge-in, skeptical humans)
+  are marked **PENDING LIVE** with excerpts deliberately omitted rather than invented.
+- **Decision — don't fabricate evidence.** Where a §19 mode had no real transcript, left the
+  example as "pending live trial." Honest gaps over plausible-looking fiction.
+- **Cross-cutting finding (recorded in failure-modes):** the dominant root cause behind weak
+  objection handling / failure-to-close / competitive mishandling / rigid script is the
+  **placeholder KB+rebuttal content + 12-turn cap**, not broken logic — same story as the P7 run.
+- **P8-T2 status: In Progress.** Remaining work depends on P8-T1 (live human trials): finalize
+  the PENDING-LIVE failure modes and refresh `docs/limitations.md` once humans test.
+- **Validation:** docs-only change — no lint/tests to run (no code touched). `README.md`/limitations
+  cite `docs/failure-modes.md`, which now exists (no dangling links).

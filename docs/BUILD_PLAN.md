@@ -38,8 +38,9 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 7 — Recursive Improvement Loop (complete; real run fired)
-- **Current ticket:** Phase 7 done — next is Phase 8 (Hardening & Docs)
+- **Current phase:** Phase 8 — Hardening & Documentation
+- **Current ticket:** P8-T2 in progress (credit-free docs written); P8-T1 (live human trials)
+  and demo rehearsal (P8-T3) remain — both need a browser/mic + funded keys
 
 ### ▶ RESUME HERE (next session)
 Phases 1–7 are complete. The real Phase 7 run was fired on 2026-05-28 (`docs/recursive-improvement.md`
@@ -50,9 +51,12 @@ cap) — a known consequence of PLACEHOLDER rebuttal/KB content + short turn bud
 machinery itself is proven end-to-end. **To lift the numbers later:** supply approved rebuttal/KB
 copy (`docs/QandA_opens.md`) and/or raise `--max-turns`, then re-fire.
 
-Pick up with **Phase 8** (Hardening & Docs): P8-T1 human-trial calls & escalation tuning → P8-T2
-failure-mode report → P8-T3 decision log → P8-T4 demo script. (P8-T1 needs a browser/mic + funded
-keys for live human trials.)
+**Phase 8 in progress.** The credit-free P8-T2 docs are written and committed:
+`docs/decision-log.md` (§23), `docs/research-notes.md` (§24), `docs/limitations.md` (§25),
+top-level `README.md` (setup/demo), and a **draft** `docs/failure-modes.md` (§19) evidenced from
+the synthetic run. Pick up with the parts that need a browser/mic + funded keys: **P8-T1** live
+human-trial calls & escalation tuning, then finalize `docs/failure-modes.md` (modes 1/2/10 are
+PENDING LIVE) and refresh `docs/limitations.md`, then **P8-T3** demo rehearsal (§26 flow).
 Also still open (non-blocking): live latency measurement + deferred Tier-1/Tier-2 latency tiers;
 KB content gaps (refund/matching/scheduling/competitive still placeholder — see `docs/QandA_opens.md`);
 latency/frustration KPIs not yet captured live; dashboard experiment view (P7-T4 "surface in
@@ -483,7 +487,12 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `docs/failure-modes.md`, `docs/recursive-improvement.md`, `docs/decision-log.md`, `docs/research-notes.md`, `docs/limitations.md`, `README.md`
   - Depends on: P8-T1
   - Acceptance criteria covered: §21 Documentation
-  - Status: Todo
+  - Status: In Progress (credit-free docs done 2026-05-28: `docs/decision-log.md` (§23),
+    `docs/research-notes.md` (§24), `docs/limitations.md` (§25), top-level `README.md`
+    (setup/demo), and a **draft** `docs/failure-modes.md` (§19) evidenced from the synthetic
+    run with live-trial-dependent modes marked PENDING. `docs/recursive-improvement.md` (§11)
+    already committed. **Remaining:** finalize failure-modes (modes 1/2/10 need P8-T1 live
+    trials) and refresh limitations once humans test.)
 - P8-T3 — Demo scenario rehearsal
   - Objective: Verify the §26 demo flow end-to-end — partial-info lead → context confirm → discovery → price objection → KB answer → fit summary → close → dashboard + before/after view.
   - Files likely involved: `docs/demo-script.md`
