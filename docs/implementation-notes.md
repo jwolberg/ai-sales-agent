@@ -445,6 +445,29 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 
 ---
 
+## P4.5-T1 — turn router (2026-05-27)
+
+- **`app/agent/router.py` `classify_turn(text) → RouteDecision`:** strict-priority pure classifier
+  — escalate (DE-4) > stop-selling (refusal, §18) > objection > knowledge question > progress —
+  reusing the existing detectors (`detect_escalation`, `should_stop_selling`,
+  `ObjectionPlaybook.detect`, `is_knowledge_question`). Returns the route + reason + a `detail`
+  (escalation code / objection key) the engine will dispatch on. No DB, no capability execution.
+- **Deliberate routing decisions (documented in the module):**
+  - **Discount vs "too expensive":** a concession demand ("discount", "lower the price") trips the
+    DE-4 escalation cue → ESCALATE; a value objection ("it's too expensive") → OBJECTION → the §8
+    price-baseline rebuttal. Falls out of the existing cue sets and matches the spec. (Trade-off:
+    the discount *objection* rebuttal is now unreachable via the router — escalation wins; a
+    stateful "rebut once, escalate on repeat" version could revisit this later.)
+  - **Objection > knowledge:** "how do I know the tutor will be good?" is both a question and the
+    tutor_quality objection → handled as the objection.
+  - **Confidence escalation is NOT here:** escalating because a downstream step was low-confidence
+    is the engine's post-decision job (P4.5-T4), so a clear turn never escalates spuriously.
+- **Validation:** `ruff` clean; `pytest` 80 passed (8 new: escalation priority, discount/expensive
+  split, refusal, objection keys, objection>question, plain question, discovery→progress, strict
+  priority).
+
+---
+
 ## KB content: pricing provided by operator (2026-05-27)
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).

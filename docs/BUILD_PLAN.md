@@ -38,8 +38,8 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 4.5 — Conversation Integration & Latency (entering)
-- **Current ticket:** P4.5-T1 (next) — turn router
+- **Current phase:** Phase 4.5 — Conversation Integration & Latency
+- **Current ticket:** P4.5-T2 (next) — field & intent extraction
 - **Blockers:** None
 - **DESIGN:** Phase 4.5 inserted per `docs/AGENT_INTEGRATION.md` — the Phases 2–4 agent layer
   is built but NOT wired into the live pipeline (which still runs raw Claude). This phase makes
@@ -242,7 +242,10 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `backend/app/agent/router.py`
   - Depends on: P3-T3, P4-T2, P4-T3, P4-T4
   - Acceptance criteria covered: DF-3 (routing inputs); enabler for the engine
-  - Status: Todo
+  - Status: Complete (added `app/agent/router.py` `classify_turn` → `RouteDecision`: strict
+    priority escalate > stop-selling > objection > knowledge > progress, reusing the existing
+    detectors. Pure/deterministic. Confidence escalation deferred to the engine. The
+    discount→escalate vs too-expensive→objection split falls out cleanly.)
 - P4.5-T2 — Field & intent extraction
   - Objective: turn the caller's utterance into `collected_fields` updates + signals (answer to
     the pending question, `buying_intent`); confidence + "didn't catch that → clarify" path.
