@@ -103,5 +103,129 @@ class RuleBasedExtractor:
 
 
 def get_extractor() -> Extractor:
-    """Return the default extractor (rule-based for now; LLM-backed later)."""
+    """Return the default extractor — rule-based, deterministic, no API.
+
+    The live pipeline opts into :class:`LLMExtractor` explicitly; the simulator and tests use
+    this default so they stay offline and deterministic.
+    """
     return RuleBasedExtractor()
+
+
+# --- LLM-backed extractor (P4.5-T2 upgrade) ------------------------------------------------
+#
+# Captures the pending answer *and any fields the caller volunteers in the same turn* — the
+# thing rule-based can't do. Uses the Claude Messages API with structured output. The Anthropic
+# client is injected (tests pass a fake), and `anthropic` is imported lazily so importing this
+# module never requires the voice extra.
+
+from collections.abc import Iterable  # noqa: E402  (grouped with the LLM extractor)
+
+from pydantic import BaseModel, Field  # noqa: E402
+
+from app.agent.discovery import get_discovery_playbook  # noqa: E402
+from app.config import Settings, get_settings  # noqa: E402
+from app.memory.lead_store import PROFILE_FIELDS  # noqa: E402
+
+
+def allowed_fields() -> set[str]:
+    """The field keys the extractor may emit: discovery playbook keys + lead profile fields."""
+    playbook = get_discovery_playbook()
+    keys = {q.key for q in playbook.required + playbook.leading}
+    keys.update(PROFILE_FIELDS)
+    return keys
+
+
+class ExtractedField(BaseModel):
+    """One field the caller revealed."""
+
+    key: str
+    value: str
+
+
+class ExtractionPayload(BaseModel):
+    """Structured-output schema Claude fills in for one turn."""
+
+    answer: str | None = Field(
+        default=None, description="Caller's answer to the pending question, if they answered it"
+    )
+    extra_fields: list[ExtractedField] = Field(
+        default_factory=list, description="Other discovery fields the caller volunteered"
+    )
+    buying_intent: bool = Field(default=False, description="Caller signaled readiness to proceed")
+    disqualified: bool = Field(default=False, description="Caller is not a fit / not interested")
+    understood: bool = Field(
+        default=True, description="False if no usable answer to the pending question"
+    )
+
+
+def _build_system_prompt(field_keys: Iterable[str]) -> str:
+    keys = ", ".join(sorted(field_keys))
+    return (
+        "You extract structured facts from one turn of a spoken tutoring sales call. "
+        "Return ONLY what the caller actually said — never infer or invent. "
+        "If a pending field is named, put the caller's answer to it in `answer` (or leave null "
+        "and set understood=false if they didn't actually answer it, e.g. a question or "
+        '"I don\'t know"). Put any OTHER fields they volunteered in `extra_fields`, using only '
+        f"these field keys: {keys}. Set buying_intent if they signal readiness to move forward, "
+        "and disqualified if they say they're not interested or already sorted."
+    )
+
+
+class LLMExtractor:
+    """Structured extraction via Claude. Drop-in for :class:`Extractor`.
+
+    Model defaults to the configured ``anthropic_model`` (a latency-sensitive voice step, so we
+    reuse the project's chosen model rather than the heavier default). The client is injected for
+    testing; in production it's created lazily from the configured API key.
+    """
+
+    def __init__(
+        self,
+        *,
+        client: object | None = None,
+        model: str | None = None,
+        settings: Settings | None = None,
+        max_tokens: int = 1024,
+    ) -> None:
+        self._settings = settings or get_settings()
+        self._client = client
+        self._model = model or self._settings.anthropic_model
+        self._max_tokens = max_tokens
+        self._allowed = allowed_fields()
+        self._system = _build_system_prompt(self._allowed)
+
+    def _get_client(self):
+        if self._client is None:
+            import anthropic  # lazy: keeps core import-light
+
+            self._client = anthropic.Anthropic(api_key=self._settings.anthropic_api_key or "")
+        return self._client
+
+    def extract(self, utterance: str, *, pending_field: str | None = None) -> Extraction:
+        pending = (
+            f"The pending question is about the field '{pending_field}'.\n\n"
+            if pending_field
+            else "There is no pending question.\n\n"
+        )
+        response = self._get_client().messages.parse(
+            model=self._model,
+            max_tokens=self._max_tokens,
+            system=[{"type": "text", "text": self._system, "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": f'{pending}Caller said: "{utterance}"'}],
+            output_format=ExtractionPayload,
+        )
+        payload: ExtractionPayload = response.parsed_output
+
+        fields: dict[str, str] = {}
+        if pending_field and payload.answer:
+            fields[pending_field] = payload.answer
+        for item in payload.extra_fields:
+            if item.key in self._allowed and item.value:
+                fields[item.key] = item.value
+
+        return Extraction(
+            fields=fields,
+            buying_intent=payload.buying_intent,
+            disqualified=payload.disqualified,
+            understood=payload.understood,
+        )

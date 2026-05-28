@@ -536,6 +536,31 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 
 ---
 
+## P4.5-T2 upgrade — LLM structured extractor (2026-05-27)
+
+- **Chosen before live wiring** (per user) so a real call doesn't re-ask volunteered info.
+  Added `LLMExtractor` in `extraction.py` (built via the `claude-api` skill): one Claude call per
+  turn using **structured output** (`client.messages.parse(output_format=ExtractionPayload)`).
+  Returns the pending answer + a list of *other* fields the caller volunteered + buying/
+  disqualification signals + `understood`. Same `Extractor` protocol → drop-in for the engine.
+- **Model = configured `anthropic_model` (sonnet-4-6), not the skill's opus-4-7 default.**
+  Deliberate: extraction runs in the latency-critical per-turn voice loop, and the project
+  explicitly configured sonnet for that reason. Documented the deviation; overridable via param.
+- **Prompt caching** on the system prompt (`cache_control: ephemeral`); it lists the allowed
+  field keys. (The prompt is currently short so caching may not engage until it grows — correct
+  practice regardless.) Unknown field keys returned by the model are dropped against
+  `allowed_fields()` (discovery playbook keys + lead profile fields).
+- **Offline-testable:** the Anthropic client is injected (tests use a fake; 7 tests, no API).
+  `anthropic` is lazy-imported so core stays light. **Live smoke test passed** (anthropic 0.104.1,
+  sonnet-4-6): "it's for my daughter Mia, she's in 8th grade, struggling with algebra" →
+  `{relationship_to_student: parent, student_name: Mia, grade_level: 8th grade, subject: algebra,
+  challenge: ...}` from a single turn — the capability rule-based lacked.
+- **`get_extractor()` default stays rule-based** (offline/deterministic for sim + tests); the
+  live pipeline (P4.5-T5) opts into `LLMExtractor` explicitly.
+- **Validation:** `ruff` clean; `pytest` 108 passed (7 new) + a live smoke call.
+
+---
+
 ## KB content: pricing provided by operator (2026-05-27)
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).

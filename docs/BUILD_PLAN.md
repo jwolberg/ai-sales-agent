@@ -255,8 +255,9 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Acceptance criteria covered: LM-2 (detect missing), DF inputs; enabler for live progress
   - Status: Complete (added `app/agent/extraction.py`: `Extractor` protocol + deterministic
     `RuleBasedExtractor` — slot-fills the pending question, detects buying/disqualification
-    signals, flags non-answers for clarify (LM-2). Coarse slot value (stored utterance); LLM
-    structured extractor can swap in via the protocol.)
+    signals, flags non-answers for clarify (LM-2). **LLM upgrade also landed**: `LLMExtractor`
+    (Claude structured output via `messages.parse`) captures the pending answer *plus any fields
+    the caller volunteers in one turn* — no re-asking. Live-smoke-validated. Used by P4.5-T5.)
 - P4.5-T3 — Directive + render step
   - Objective: replace the overloaded `NextAction.prompt` with a structured **Directive**
     (intent + content + style) and a single pure `render(directive, state) → utterance`
