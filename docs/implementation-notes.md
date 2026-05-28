@@ -1126,3 +1126,13 @@ leaf/price, or one that doesn't match the price-table figure for the turn, is ca
 no dollar amount is always clean (the agent may discuss price without quoting). The engine (IR2-T3)
 will substitute a safe handoff and emit `MIS_QUOTE_BLOCKED` on a hit. Tests:
 `tests/test_guardrails_misquote.py` (5); existing guardrail/KPI tests unaffected. `ruff` clean.
+
+## 2026-05-28 — IR2-T1: brain tool contract + decision schema
+
+`app/agent/contract.py` — the shared contract between brain, engine, and the decision trace:
+`TOOLS` (OpenAI function schemas for slot_fill/kb_lookup/quote_price/escalate; slot_fill's `field`
+is enumerated from `taxonomy.SLOT_FIELDS` so the brain can't name a fake slot), a `RouterAction`
+enum (greet/ask/answer/quote/escalate/end), and `BrainDecision` (action, utterance, reason,
+confidence, slots, leaf, kb_sources, quoted_amount) with a `.trace()` that flattens to the
+`Decision` row fields (R9). `quote_price.leaf` is optional — the engine will authoritatively
+resolve the leaf from slots. Tests: `tests/test_contract.py` (3). `ruff` clean.
