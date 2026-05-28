@@ -950,3 +950,35 @@ runs on.
 - **Validation:** `ruff` clean; `pytest` 158 passed; `test_engine_pipeline_constructs` strengthened
   to assert `STTMuteFilter` is wired **before** `_DeepgramSTTService`. The actual mute behavior
   needs a live mic call to confirm (can't be exercised headlessly).
+
+### Call-log review fixes — routing/turn-taking hardening (2026-05-28)
+
+Driven by reviewing real call `8b72f75c` (web, ~45s): the agent asked
+`relationship_to_student` 3× in 30s, never escalated despite profanity, acted on
+misheard transcripts, recorded a phantom turn *before* the greeting, and dropped the
+discovery thread after a KB answer. Five small, mostly pure-logic tickets:
+
+- **T1 — hostility/abuse escalation (`guardrails.py`).** Added hostility cues to the
+  `ANGER_CONFUSION` set so "shut up / shut the **** up / you're useless / bullshit" route to
+  ESCALATE. Decision: match the *surrounding phrase* + unmasked insults, because Deepgram masks
+  profanity (`****`) so the swear word itself is unreliable.
+- **T2 — discovery re-ask cap (`orchestrator.py`/`decisioning.py`/`engine.py`).** Added
+  `ConversationState.ask_attempts`; the engine counts each ask, the decider rephrases on retry
+  (`Modifier.CLARIFY`) and **abandons** a field after `MAX_ASK_ATTEMPTS=2`, moving on instead of
+  looping. The clarify path respects the same cap. Pattern: ask → rephrase → move on.
+- **T3 — pre-greeting transcript gate (`voice/bot.py`).** `EngineProcessor._ready` is set only
+  after `greet()` dispatches; transcripts before that are dropped as connect-time noise/echo
+  (the phantom "Good early." turn). **Needs a live mic re-test** (construction-tested only).
+- **T4 — STT-confidence gate (`engine.py`/`voice/bot.py`).** Pull Deepgram word confidence off
+  `TranscriptionFrame.result`; below `STT_CONFIDENCE_THRESHOLD=0.6` on a progress/knowledge turn
+  the agent asks the caller to repeat and does **not** extract/advance. Decision: this is an
+  *STT-quality* gate (did we hear it), distinct from DE-4 decision-confidence — so it does not
+  hand off to a human, and escalations/refusals/objections are still honored at low confidence.
+  Confidence is now persisted on the turn (previously always null). Threshold 0.6 is untuned —
+  revisit against live Deepgram scores.
+- **T5 — KB-answer bridge-back (`engine.py`).** When a KNOWLEDGE turn arrives while a discovery
+  question is pending, append "Anyway — back to what I asked: <question>" and keep the field
+  pending so the next answer fills it. Re-uses the discovery prompt via a shared `_question_prompt`
+  helper (also now used by `_clarify`).
+- **Validation:** `ruff` clean; `pytest` 168 passed. T3's gate and T4's live confidence values
+  can only be fully confirmed on a browser/mic/keys run (RUNBOOK §11).
