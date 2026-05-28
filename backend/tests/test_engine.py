@@ -66,6 +66,23 @@ def test_unclear_answer_triggers_clarify(session):
     assert "make sure" in result.utterance.lower()
 
 
+def test_repeated_nonanswers_stop_looping(session):
+    # Real call 8b72f75c re-asked relationship_to_student 3x. After MAX_ASK_ATTEMPTS the engine
+    # must rephrase once, then move on instead of looping on the same field.
+    eng = _engine(session)
+    eng.open()
+    eng.run_turn("Hi there")  # agent asks the first required field
+    assert eng.state.pending_field == "relationship_to_student"
+
+    r1 = eng.run_turn("not sure")  # non-answer -> rephrased clarify, same field
+    assert r1.action.modifier is Modifier.CLARIFY
+    assert eng.state.pending_field == "relationship_to_student"
+
+    r2 = eng.run_turn("no idea")  # field capped -> decider moves on
+    assert r2.action.question_key != "relationship_to_student"
+    assert eng.state.pending_field != "relationship_to_student"
+
+
 def test_objection_turn_is_handled(session):
     eng = _engine(session)
     eng.open()

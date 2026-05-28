@@ -1,9 +1,9 @@
 """Tests for dynamic next-question selection (P3-T3)."""
 
-from app.agent.decisioning import DiscoveryDecider
+from app.agent.decisioning import MAX_ASK_ATTEMPTS, DiscoveryDecider
 from app.agent.discovery import get_discovery_playbook
 from app.agent.orchestrator import ConversationState, Orchestrator
-from app.agent.stages import Action, Stage
+from app.agent.stages import Action, Modifier, Stage
 from app.config import Settings
 
 _PB = get_discovery_playbook()
@@ -67,6 +67,27 @@ def test_moves_to_leading_then_fit_summary():
     fit = decider.decide(_state(everything, context_confirmed=True), "")
     assert fit.stage is Stage.FIT_SUMMARY
     assert fit.action is Action.SUMMARIZE_FIT
+
+
+def test_reasks_are_rephrased_then_field_is_abandoned():
+    # Real call 8b72f75c looped on relationship_to_student. After MAX_ASK_ATTEMPTS the decider
+    # must stop asking it and move to the next required field instead of re-asking forever.
+    decider = DiscoveryDecider()
+    state = _state()
+    first = decider.decide(state, "")
+    assert first.question_key == "relationship_to_student"
+    assert first.modifier is None
+
+    # Simulate the engine having asked once already: the next ask should be a rephrase.
+    state.ask_attempts["relationship_to_student"] = 1
+    retry = decider.decide(state, "")
+    assert retry.question_key == "relationship_to_student"
+    assert retry.modifier is Modifier.CLARIFY
+
+    # Once capped, the field is abandoned and the decider advances to the next required field.
+    state.ask_attempts["relationship_to_student"] = MAX_ASK_ATTEMPTS
+    moved_on = decider.decide(state, "")
+    assert moved_on.question_key != "relationship_to_student"
 
 
 def test_orchestrator_confirms_known_context_once_then_progresses():

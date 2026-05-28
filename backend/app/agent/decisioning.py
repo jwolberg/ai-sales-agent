@@ -23,9 +23,13 @@ from app.agent.closing import (
     choose_close,
     next_step_prompt,
 )
-from app.agent.discovery import DiscoveryPlaybook, get_discovery_playbook
+from app.agent.discovery import DiscoveryPlaybook, Question, get_discovery_playbook
 from app.agent.orchestrator import ConversationState, NextAction
-from app.agent.stages import Action, Stage
+from app.agent.stages import Action, Modifier, Stage
+
+# After this many asks, give up on a discovery field the caller won't answer and move on,
+# rather than re-asking it forever (the loop seen in real call 8b72f75c).
+MAX_ASK_ATTEMPTS = 2
 
 
 class DiscoveryDecider:
@@ -54,17 +58,23 @@ class DiscoveryDecider:
                 prompt=question.confirm_prompt(collected[question.key]),
             )
 
-        # 2. Fill the highest-priority missing required field (DF-1).
-        if missing_required:
-            question = missing_required[0]
+        # 2. Fill the highest-priority missing required field (DF-1) the caller hasn't already
+        #    refused to answer. Fields asked MAX_ASK_ATTEMPTS times are abandoned (we fall
+        #    through to leading/summary) so we never loop on an unanswered question.
+        askable = [q for q in missing_required if self._attempts(state, q.key) < MAX_ASK_ATTEMPTS]
+        if askable:
+            question = askable[0]
+            retry = self._attempts(state, question.key) >= 1
             return NextAction(
                 stage=Stage.DISCOVERY,
                 action=Action.ASK_REQUIRED_DISCOVERY,
-                reason=f"required field '{question.key}' still unknown",
-                confidence=0.7,
+                modifier=Modifier.CLARIFY if retry else None,
+                reason=f"required field '{question.key}' still unknown"
+                + (" (re-asking, rephrased)" if retry else ""),
+                confidence=0.7 if not retry else 0.6,
                 missing_fields=missing_keys,
                 question_key=question.key,
-                prompt=question.prompt,
+                prompt=self._reask(question) if retry else question.prompt,
             )
 
         # 3. Required complete — decide between developing need, summarizing, and closing.
@@ -97,6 +107,8 @@ class DiscoveryDecider:
 
         # Not ready to close: keep developing need via leading questions (DF-2) ...
         next_leading = self._playbook.next_question(collected)
+        if next_leading is not None and self._attempts(state, next_leading.key) >= MAX_ASK_ATTEMPTS:
+            next_leading = None  # caller won't engage this thread; stop probing it
         if next_leading is not None:
             return NextAction(
                 stage=Stage.NEED_DEVELOPMENT,
@@ -121,3 +133,12 @@ class DiscoveryDecider:
             reason=f"close criteria unmet ({'; '.join(readiness.reasons)}); probing readiness",
             confidence=0.5,
         )
+
+    @staticmethod
+    def _attempts(state: ConversationState, key: str) -> int:
+        return state.ask_attempts.get(key, 0)
+
+    @staticmethod
+    def _reask(question: Question) -> str:
+        """Soften a repeat ask so it doesn't sound like the agent is stuck on a loop."""
+        return f"No worries if I missed it — {question.prompt[0].lower()}{question.prompt[1:]}"

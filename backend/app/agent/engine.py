@@ -24,6 +24,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from app.agent.decisioning import MAX_ASK_ATTEMPTS
 from app.agent.discovery import get_discovery_playbook
 from app.agent.extraction import Extractor, get_extractor
 from app.agent.orchestrator import NextAction, Orchestrator
@@ -94,11 +95,14 @@ class ConversationEngine:
         if extraction.disqualified:
             state.disqualified = True
 
-        # 3. Dispatch to a capability (or clarify a non-answer to the pending question).
+        # 3. Dispatch to a capability (or clarify a non-answer to the pending question). Once a
+        #    field has been asked MAX_ASK_ATTEMPTS times we stop clarifying and let the decider
+        #    move on (it skips capped fields) — otherwise we loop, as in real call 8b72f75c.
         if (
             decision.route is Route.PROGRESS
             and state.pending_field
             and not extraction.understood
+            and state.ask_attempts.get(state.pending_field, 0) < MAX_ASK_ATTEMPTS
         ):
             action = self._clarify(state.pending_field)
         else:
@@ -115,6 +119,11 @@ class ConversationEngine:
         state.pending_field = (
             action.question_key if action.stage in _PENDING_STAGES else None
         )
+        # Count this ask so the decider/clarify path can stop re-asking an unanswered field.
+        if state.pending_field is not None:
+            state.ask_attempts[state.pending_field] = (
+                state.ask_attempts.get(state.pending_field, 0) + 1
+            )
 
         # 4b. Emit KPI events for this turn (PRD §16).
         if decision.route is Route.OBJECTION:

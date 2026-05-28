@@ -72,6 +72,9 @@ class ConversationState:
     open_high_risk_objection: bool = False
     # The discovery field we just asked about (so the next turn's answer fills it). Engine-managed.
     pending_field: str | None = None
+    # How many times we've asked for each discovery field (Engine-managed). The decider uses this
+    # to stop re-asking a field the caller won't answer (DF / LM-2): rephrase once, then move on.
+    ask_attempts: dict[str, int] = field(default_factory=dict)
     disqualified: bool = False
 
 
