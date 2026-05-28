@@ -38,10 +38,25 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 9 complete (demo phone-call intro); Phase 8 still open
-- **Current ticket:** Phase 9 done. Remaining: P8-T1 (live human trials), P8-T2 finalize
-  failure-modes, P8-T3 demo rehearsal — all need a browser/mic + funded keys. Phase 9's real
-  audio assets are user-provided (silent placeholders shipped).
+- **Current phase:** Phase 9 complete (demo phone-call intro); Phase 8 still open; live-voice
+  hardening underway
+- **Current ticket:** Phase 9 done. Live voice now being exercised on real browser/mic calls —
+  this surfaced (and fixed) two real bugs (see "Live-voice hardening" note). Remaining: P8-T1
+  (live human trials), P8-T2 finalize failure-modes, P8-T3 demo rehearsal — all need a
+  browser/mic + funded keys.
+
+### ▶ Live-voice hardening (2026-05-28)
+Real demo calls (web/mic) are now being run, surfacing issues the construction tests couldn't:
+- **Agent was listening to itself (FIXED, needs live re-test).** From call `58d32393`: the agent's
+  own TTS/echo was being transcribed as new user turns, so it fired 3 questions in ~8s and never
+  advanced. Fix: a Pipecat `STTMuteFilter(ALWAYS)` before STT mutes the mic while the agent speaks
+  (only the user is ever transcribed); `getUserMedia` now also requests echo cancellation/noise
+  suppression. Commit `c186ba9`. Trade-off: mid-utterance barge-in is off while the agent talks.
+- **Phone-call intro answered too early (FIXED, needs live re-test).** The demo dialing illusion
+  cut to the agent on WebRTC connect instead of on actual pickup; now answers on first real agent
+  audio (Web Audio onset detection, 30s cap). Commit `1e15286`.
+- **Still to confirm live:** that the agent now waits for full user turns and that latency meets
+  VC-3. The real `dial.mp3` is in place; `ring.mp3` is still a silent placeholder.
 
 ### ▶ RESUME HERE (next session)
 Phases 1–7 are complete. The real Phase 7 run was fired on 2026-05-28 (`docs/recursive-improvement.md`
@@ -63,8 +78,10 @@ KB content gaps (refund/matching/scheduling/competitive still placeholder — se
 latency/frustration KPIs not yet captured live; dashboard experiment view (P7-T4 "surface in
 dashboard") not built — the report is the before/after evidence.
 - **LIVE-VALIDATE (Phase 4.5):** the decider-led voice path (`app/voice/bot.py`) + latency layer
-  (fillers, ambient bed) are construction/unit-validated only. A browser/mic/keys run (RUNBOOK
-  §11) is still needed to confirm the live conversation and to measure latency vs VC-3.
+  (fillers, ambient bed) now have had **initial live calls** (2026-05-28), which exposed the
+  self-listening + early-answer bugs now fixed (see "Live-voice hardening"). A clean browser/mic/
+  keys run (RUNBOOK §11) is still needed to confirm the post-fix conversation and measure latency
+  vs VC-3.
 - **Deferred latency tiers (documented):** speculative prefetch (Tier-2) and the FAQ answer cache
   (Tier-1) need live measurement to tune; not built yet.
 - **Blockers:** None
@@ -133,7 +150,11 @@ dashboard") not built — the report is the before/after evidence.
   - Files likely involved: `backend/app/voice/pipeline.py`
   - Depends on: P2-T1
   - Acceptance criteria covered: VC-2; §21 Voice (user can interrupt)
-  - Status: Todo
+  - Status: Todo (revisit). The live-voice fix on 2026-05-28 added `STTMuteFilter(ALWAYS)` so the
+    agent stops transcribing its own speech — a deliberate trade-off that disables mid-utterance
+    barge-in *while the agent is speaking* (turn-taking resumes the instant it stops). If true
+    barge-in is wanted later, replace ALWAYS muting with an echo-robust approach (e.g. only mute
+    inbound that matches the agent's output) so the user can still cut in.
 - P2-T3 — Orchestrator skeleton + consistent persona
   - Objective: Conversation loop (greeting → listen → respond), persona system prompt, conversation-stage scaffold (§17), and a pluggable `next_action` interface (stubbed).
   - Files likely involved: `backend/app/agent/orchestrator.py`, `backend/app/agent/persona.py`
