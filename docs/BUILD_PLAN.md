@@ -561,6 +561,63 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
     Intro copy updated to "Click below to call 1-800-Nerdy-4-u (1-800-637-3948)". Browser-
     verified: Dialing… → Ringing… loop, and graceful teardown on mic-deny — no console errors.)
 
+### Phase 10 — Conversation Memory & Context Continuity
+**Goal**
+- Close the three seams surfaced by a Retell.ai architecture review: the live agent re-asks
+  questions it should already know the answers to. The structured layer exists (slot-filling,
+  `LeadStore`, transcript capture) but three connections are missing — cross-call memory isn't
+  injected into the live voice path, the LLM phrasing layer never sees the running transcript, and
+  most discovery slots are dropped at call end. This phase wires those seams so the agent stops
+  re-asking, both within a call and across calls.
+
+**Why inserted here:** these are integration fixes against existing acceptance criteria (LM-1,
+LM-4, LM-2/3, DF-4), not new scope — the capabilities were built in Phases 3 and 4.5 but are not
+connected in the live path (`app/voice/bot.py`). Numbered 10 to follow Phase 9 without renumbering.
+
+**Exit Criteria**
+- A live follow-up call starts from prior-call context (known fields seeded, not re-asked).
+- The LLM phrasing layer receives the running transcript, so it can avoid repetition and smooth
+  over corrections within a call.
+- All discovery slots collected in a call (not just the 9 `PROFILE_FIELDS`) survive to the next
+  call, and the lead profile is updated automatically when the call ends.
+
+**Tickets**
+- P10-T1 — Wire cross-call memory into the live voice path
+  - Objective: In `run_bot`/`build_engine`, load the `Lead` at call start and pass its known
+    profile as `known_fields` to the `Orchestrator` (the seam already exists — `orchestrator.py`
+    accepts `known_fields` and seeds `state.collected_fields`; `bot.py` currently constructs the
+    orchestrator without it). Result: a returning caller's known fields are skipped/confirmed, not
+    re-asked. Resolve which lead to load for a web demo call (config/query param) and document it.
+  - Files likely involved: `backend/app/voice/bot.py`, `backend/app/memory/lead_store.py`,
+    `backend/app/agent/orchestrator.py`, `backend/tests/test_bot.py`, `backend/tests/test_lead_store.py`
+  - Depends on: P3-T1, P4.5-T5
+  - Acceptance criteria covered: LM-1, LM-3 (skip/confirm known); §21 Memory (follow-up continues from context)
+  - Status: Todo
+- P10-T2 — Feed running transcript into the synthesizer
+  - Objective: Pass `state.history` (prior turns) as prior `messages` into the Claude phrasing call
+    so the LLM phrases with conversational context instead of a single isolated instruction.
+    Currently `make_synthesizer` sends only `messages=[{"role":"user","content": instruction}]` plus
+    the cached persona system prompt, so the model has zero in-call memory and cannot avoid repeats
+    or smooth over a caller's correction. Thread history through `render()` → `synthesize`; keep the
+    persona system prompt cached; bound history length for latency.
+  - Files likely involved: `backend/app/agent/synthesis.py`, `backend/app/agent/render.py`,
+    `backend/app/agent/engine.py`, `backend/tests/test_render.py`
+  - Depends on: P4.5-T3, P4.5-T4
+  - Acceptance criteria covered: DF-4 (conversational, persona-consistent phrasing); VC-4
+  - Status: Todo
+- P10-T3 — Persist all discovery slots & auto-write on call end
+  - Objective: Stop dropping slots at call end. `apply_call_outcome` only persists the 9
+    `PROFILE_FIELDS`, but `discovery.yaml` defines 15 required slots (`challenge`, `goal`,
+    `prior_tutoring`, `readiness`, …) — the rest are lost, so the next call re-asks them. Add a JSON
+    column on `Lead` (or a key/value side table) to store the full `collected_fields`, and call
+    `apply_call_outcome` automatically from `engine.end()` (currently it must be invoked manually
+    and isn't in the live path). Re-seed the full object on the next call (pairs with P10-T1).
+  - Files likely involved: `backend/app/db/models.py`, `backend/app/memory/lead_store.py`,
+    `backend/app/agent/engine.py`, `backend/tests/test_lead_store.py`, `backend/tests/test_models.py`
+  - Depends on: P3-T1, P10-T1
+  - Acceptance criteria covered: LM-1, LM-4 (memory storage across calls); §21 Memory
+  - Status: Todo
+
 ---
 
 ## Dependency Order
@@ -599,6 +656,9 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
 33. P8-T1 — Human trial calls & escalation tuning
 34. P8-T2 — Required documentation set
 35. P8-T3 — Demo scenario rehearsal
+36. P10-T1 — Wire cross-call memory into the live voice path
+37. P10-T2 — Feed running transcript into the synthesizer
+38. P10-T3 — Persist all discovery slots & auto-write on call end *(pairs with P10-T1)*
 
 ## Recommended Next Step
 - **Start with:** P4.5-T1 — Turn router (Phases 1–4 complete; the agent layer is built but not
