@@ -39,7 +39,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 7 — Recursive Improvement Loop (entering)
-- **Current ticket:** P7-T2/T3 (next) — establish baseline + generate & test variants
+- **Current ticket:** P7 machinery complete — fire the measured run, then Phase 8
 - **LIVE-VALIDATE (Phase 4.5):** the decider-led voice path (`app/voice/bot.py`) + latency layer
   (fillers, ambient bed) are construction/unit-validated only. A browser/mic/keys run (RUNBOOK
   §11) is still needed to confirm the live conversation and to measure latency vs VC-3.
@@ -422,19 +422,28 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `backend/app/experiments/engine.py`, `docs/recursive-improvement.md`
   - Depends on: P7-T1, P6-T3, P4-T3
   - Acceptance criteria covered: §8 baseline, §11.2 Step 1; §21 (baseline documented)
-  - Status: Todo
+  - Status: Machinery complete (`run_experiment` + `experiment_personas` run the baseline against
+    a fixed 5-persona set; `evaluation.score_variant_calls`/`aggregate` record objection-recovery,
+    close, escalation, frustration, unsupported-claim per variant). Measured baseline numbers land
+    in `docs/recursive-improvement.md` when the real run is fired (`python -m app.experiments`).
 - P7-T3 — Generate & test variants (≥2)
   - Objective: Generate ≥2 price-rebuttal variants (§8 candidates) each with use/avoid/escalation/compliance specs; run controlled experiment with randomized ordering across personas (§11.2 Steps 2–3).
   - Files likely involved: `backend/app/experiments/variants.py`, `data/playbooks/objections.yaml`
   - Depends on: P7-T2
   - Acceptance criteria covered: §11.2 Steps 2–3; §21 (≥2 variants + synthetic test)
-  - Status: Todo
+  - Status: Complete (5 candidate rebuttals in `variants.py` — empathy-first, outcome-cost,
+    risk-reversal, comparison, diagnostic — each with when-to-use/avoid + escalation trigger +
+    compliance note; `run_experiment` runs every variant across the persona set and tags calls.)
 - P7-T4 — Evaluate, promote/retire & before/after report
   - Objective: Compare variants vs. baseline on the primary KPI + guardrail KPIs (§8 promotion rule, §11.2 Steps 4–6); promote or retire one; surface results in the dashboard and write before/after evidence.
   - Files likely involved: `backend/app/experiments/engine.py`, `docs/recursive-improvement.md`, dashboard experiment view
   - Depends on: P7-T3, P5-T4
   - Acceptance criteria covered: §11.2 Steps 4–6; §21 (KPI comparison, promote/retire, before/after)
-  - Status: Todo
+  - Status: Machinery complete (`evaluation.py`: `aggregate` → KPI rates, `decide_promotion` →
+    §8 rule (improve recovery without regressing frustration/unsupported claims), `evaluate_experiment`
+    promotes the best passing candidate + retires the rest + marks the Experiment, `render_report`
+    writes the before/after Markdown. `python -m app.experiments` runs end-to-end. The real measured
+    run + committed `docs/recursive-improvement.md` is a deliberate fire-it step (~60 LLM calls).)
 
 ### Phase 8 — Hardening & Documentation
 **Goal**

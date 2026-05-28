@@ -790,3 +790,29 @@ runs on.
   advisory or scope it to *live-tutoring* prices (which must always be custom/deferred). The real
   no-hallucination protection remains the KB-grounding flow (answer from retrieved snippets only).
 - **Validation:** `ruff` clean; `pytest` 72 passed (retrieval probe confirms pricing grounding).
+
+---
+
+## P7-T2/T3/T4 — run, evaluate, promote, report (2026-05-27)
+
+- **`engine.run_experiment` + `experiment_personas`:** runs every variant (baseline + candidates)
+  across a fixed 5-persona set (price-sensitive, competitive-shopper, skeptical, motivated,
+  poor-fit) so a winner must hold up beyond the easy lead (§8). Calls are tagged for slicing.
+- **`evaluation.py`:** `aggregate` rolls per-call scores into KPI rates; `decide_promotion`
+  applies the §8 rule — promote only if objection-recovery improves **and** frustration +
+  unsupported-claim rates don't regress (None rates read as 0, the conservative reading);
+  `evaluate_experiment` promotes the best passing candidate, retires the rest, stamps the
+  Experiment (status/decision/end_date); `render_report` writes the before/after Markdown.
+- **Decision — offline must be truly no-LLM:** `run_variant`'s fallback built a *Claude* prospect
+  even when `offline=True` (the first smoke quietly spent tokens, ~30s). Added a scripted
+  price-objection prospect used only offline, so `python -m app.experiments --offline` is free
+  (~7s) and deterministic. Offline is a wiring smoke (recovery shows 0% — rule-based extraction
+  never closes); real numbers require the Claude run + judge.
+- **`app/experiments/__main__.py`:** `python -m app.experiments [--offline] --name … --report …`
+  runs create → run → evaluate → write report end-to-end.
+- **Deferred (deliberate):** the real measured run (~60 LLM calls: self-play + judge) and the
+  committed `docs/recursive-improvement.md` are a fire-it step, not auto-run. Dashboard experiment
+  view (P7-T4's "surface in dashboard") still TODO — the report is the primary before/after evidence.
+- **Validation:** `ruff` clean; `pytest` 158 passed (4 new: aggregate rates, promotion rule 3
+  scenarios, evaluate_experiment promotes best candidate + writes report, offline run_experiment
+  runs all variants). Offline CLI smoke green.
