@@ -39,7 +39,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 5 — Decisioning Trace & Observability Dashboard (entering)
-- **Current ticket:** P5-T3 (next) — KPI event capture & metric computation
+- **Current ticket:** P5-T4 (next) — dashboard (KPIs + transcript/decision review)
 - **LIVE-VALIDATE (Phase 4.5):** the decider-led voice path (`app/voice/bot.py`) + latency layer
   (fillers, ambient bed) are construction/unit-validated only. A browser/mic/keys run (RUNBOOK
   §11) is still needed to confirm the live conversation and to measure latency vs VC-3.
@@ -346,7 +346,11 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `backend/app/kpis/events.py`, `backend/app/kpis/metrics.py`
   - Depends on: P3-T4, P4-T3, P5-T1
   - Acceptance criteria covered: §16; §10.2 (dashboard data)
-  - Status: Todo
+  - Status: Complete (added `app/kpis/events.py` (event vocab) + `recorder.record_event`; the
+    engine emits objection_raised / escalation / close_attempt / discovery_complete / call_completed.
+    `app/kpis/metrics.py` `compute_metrics` rolls up the §16 KPIs (close success/attempt, objection
+    recovery, escalation, discovery completion, unsupported-claim), sliceable by version/variant.
+    Latency + frustration return None — not captured yet (per-turn timing / sentiment), documented.)
 - P5-T4 — Dashboard (KPIs + transcript/decision review)
   - Objective: Web dashboard showing §10.2 KPIs sliced by version/variant, plus per-call review of transcript, decision trace, and retrieved snippets (§10.3).
   - Files likely involved: `dashboard/app.py` (assumed) , `backend/app/main.py` (API endpoints)

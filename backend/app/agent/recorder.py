@@ -127,6 +127,20 @@ class CallRecorder:
         self._session.commit()
         return decision
 
+    def record_event(
+        self, event_type: str, *, value: float | None = None, metadata: dict | None = None
+    ) -> KPIEvent:
+        """Emit a KPI event for this call (PRD §16). ``created_at`` is the timing."""
+        event = KPIEvent(
+            call_id=self._call.call_id,
+            event_type=event_type,
+            event_value=value,
+            event_metadata=metadata or {},
+        )
+        self._session.add(event)
+        self._session.commit()
+        return event
+
     def record_close_attempt(self, attempt: CloseAttempt) -> KPIEvent:
         """Log a close attempt (CF-3) as a KPIEvent; ``created_at`` captures the timing."""
         event = KPIEvent(

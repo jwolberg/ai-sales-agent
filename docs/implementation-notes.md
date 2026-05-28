@@ -654,6 +654,25 @@ turning on/tuning the deferred Tier-1/Tier-2 latency work.
 
 ---
 
+## P5-T3 — KPI events & metrics (2026-05-27)
+
+- **Found the gap:** the recorder had `KPIEvent` plumbing but nothing emitted events. Added the
+  vocabulary (`app/kpis/events.py`) + a generic `CallRecorder.record_event`, and the **engine now
+  emits** per turn: `objection_raised`, `escalation`, `close_attempt`, `discovery_complete` (first
+  fit summary), and `call_completed` on `engine.end(outcome=)`. `run_bot` now calls `engine.end()`.
+- **`app/kpis/metrics.py` `compute_metrics(session, agent_version=, variant_id=, include_synthetic=)`**
+  rolls up §16: close attempt/success, objection recovery (of objection calls, share that
+  progressed to a close/summary), escalation, discovery completion, unsupported-claim — sliceable
+  for the experiment loop. Zero calls → all rates `None` (not div-by-zero).
+- **Honest gaps:** `average_latency_seconds` and `frustration_rate` return `None` — they need
+  per-turn timing and sentiment, which aren't captured yet (P4.5-T6 latency measurement / a future
+  sentiment signal). `unsupported_claim_rate` computes from events that aren't emitted yet (the
+  output guard substitutes rather than logging) → currently 0; emission is a small follow-up.
+- **Validation:** `ruff` clean; `pytest` 131 passed (5 new: objection/escalation events,
+  close/discovery events, rollup math, empty-db safety, version slicing).
+
+---
+
 ## KB content: pricing provided by operator (2026-05-27)
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).

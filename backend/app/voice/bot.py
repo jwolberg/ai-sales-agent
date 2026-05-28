@@ -190,7 +190,7 @@ async def run_bot(connection: SmallWebRTCConnection, settings: Settings) -> None
 
     @transport.event_handler("on_client_disconnected")
     async def _on_disconnected(_transport, _client):
-        await asyncio.to_thread(engine.orch.end)  # stamp ended_at
+        await asyncio.to_thread(engine.end)  # CALL_COMPLETED + stamp ended_at
         await task.cancel()
 
     runner = PipelineRunner(handle_sigint=False)

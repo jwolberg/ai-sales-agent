@@ -31,6 +31,7 @@ from app.agent.persona import build_greeting_cue
 from app.agent.render import Directive, render, to_directive
 from app.agent.router import Route, RouteDecision, classify_turn
 from app.agent.stages import Action, Modifier, Stage
+from app.kpis import events as kpi
 
 # Stages where the agent has just asked for a discovery value the next turn should fill.
 _PENDING_STAGES = (Stage.DISCOVERY, Stage.NEED_DEVELOPMENT)
@@ -104,6 +105,7 @@ class ConversationEngine:
             action = self._dispatch(decision, user_text)
 
         # 4. Advance state.
+        was_summarized = state.fit_summarized
         state.user_turns += 1
         state.stage = action.stage
         if action.stage is Stage.CONTEXT_CONFIRMATION:
@@ -113,6 +115,16 @@ class ConversationEngine:
         state.pending_field = (
             action.question_key if action.stage in _PENDING_STAGES else None
         )
+
+        # 4b. Emit KPI events for this turn (PRD §16).
+        if decision.route is Route.OBJECTION:
+            self._emit_kpi(kpi.OBJECTION_RAISED, objection=objection_key)
+        if action.action is Action.ESCALATE:
+            self._emit_kpi(kpi.ESCALATION, code=action.question_key)
+        if action.action is Action.ATTEMPT_CLOSE:
+            self._emit_kpi(kpi.CLOSE_ATTEMPT, next_step=action.question_key)
+        if action.stage is Stage.FIT_SUMMARY and not was_summarized:
+            self._emit_kpi(kpi.DISCOVERY_COMPLETE)
 
         # 5. Render words, 6. record the decision (linked to the prospect turn) + agent turn.
         directive = to_directive(action)
@@ -208,3 +220,12 @@ class ConversationEngine:
     def _record_decision(self, action: NextAction, *, turn_id: str | None = None) -> None:
         if self.orch.recorder is not None:
             self.orch.recorder.record_decision(action, turn_id=turn_id)
+
+    def _emit_kpi(self, event_type: str, **metadata) -> None:
+        if self.orch.recorder is not None:
+            self.orch.recorder.record_event(event_type, metadata=metadata or None)
+
+    def end(self, *, outcome: str | None = None, summary: str | None = None) -> None:
+        """Finalize the call: emit a CALL_COMPLETED KPI event and stamp the Call (ended/outcome)."""
+        self._emit_kpi(kpi.CALL_COMPLETED, outcome=outcome)
+        self.orch.end(outcome=outcome, summary=summary)
