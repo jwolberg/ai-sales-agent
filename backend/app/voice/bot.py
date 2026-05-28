@@ -80,15 +80,23 @@ class EngineProcessor(FrameProcessor):
         super().__init__()
         self._engine = engine
         self._fillers = FillerBank() if fillers else None
+        # Transcripts before the greeting is dispatched are connect-time noise/echo, not a real
+        # turn. Real call 8b72f75c recorded a phantom "Good early." turn *before* the greeting,
+        # which drove a spurious discovery question. Drop transcripts until we've greeted.
+        self._ready = False
 
     async def greet(self) -> None:
         greeting = await asyncio.to_thread(self._engine.open)
         spoken = guard_output(greeting)
         if spoken.strip():
             await self.push_frame(TTSSpeakFrame(spoken))
+        self._ready = True
 
     async def process_frame(self, frame: Frame, direction: FrameDirection) -> None:
         await super().process_frame(frame, direction)
+        if isinstance(frame, TranscriptionFrame) and not self._ready:
+            logger.debug(f"dropping pre-greeting transcript: {frame.text!r}")
+            return
         if isinstance(frame, TranscriptionFrame) and frame.text.strip():
             # Speak a filler immediately so the call doesn't fall silent while we compute.
             if self._fillers is not None:

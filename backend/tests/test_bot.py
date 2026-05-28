@@ -122,6 +122,14 @@ def test_engine_processor_filler_flag():
     assert EngineProcessor(engine, fillers=False)._fillers is None
 
 
+def test_engine_processor_starts_not_ready():
+    # Transcripts are dropped until greet() runs, so connect-time noise never becomes a turn.
+    settings = Settings(
+        _env_file=None, deepgram_api_key="x", anthropic_api_key="y", cartesia_api_key="z"
+    )
+    assert EngineProcessor(build_engine(settings))._ready is False
+
+
 def test_build_transport_ambient_off_constructs():
     # ambient_noise=False -> no SoundfileMixer, so no `soundfile` import needed.
     from pipecat.transports.smallwebrtc.connection import SmallWebRTCConnection
