@@ -18,7 +18,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
-from app.agent.knowledge import is_knowledge_question
+from app.agent.knowledge import is_knowledge_question, is_social_pleasantry
 
 # Utterances that don't actually answer the question -> trigger a clarify rather than storing.
 _NON_ANSWERS = ("i don't know", "i dont know", "not sure", "no idea", "idk", "dunno", "no clue")
@@ -68,6 +68,8 @@ def _is_substantive_answer(utterance: str) -> bool:
     if not lowered:
         return False
     if is_knowledge_question(utterance):  # a question back isn't an answer
+        return False
+    if is_social_pleasantry(utterance):  # "how's it going?" isn't an answer either
         return False
     if _is_non_answer(lowered):
         return False

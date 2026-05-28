@@ -8,6 +8,7 @@ phrasing layer answers from; it never invents facts itself.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from app.kb.retriever import KBRetriever, get_retriever
@@ -29,11 +30,48 @@ _QUESTION_WORDS = frozenset(
     "should".split()
 )
 
+# Social pleasantries and connectivity checks. These are grammatically questions ("how's it
+# going?", "can you hear me?") but they ask nothing the KB answers — routing them to a KB lookup
+# produces the §18 "let me connect you with a specialist" deferral on, e.g., the opening turn
+# (real call ea6c68d9). They are *not* knowledge questions; the router lets them fall through to
+# PROGRESS (acknowledge + advance discovery).
+_PLEASANTRY_PHRASES = (
+    "how's it going", "hows it going", "how is it going", "how are you", "how are ya",
+    "how ya doing", "how you doing", "how're you", "how's your day", "hows your day",
+    "how's everything", "hows everything", "what's up", "whats up", "how have you been",
+    "nice to meet you", "good to meet you", "pleasure to meet you", "can you hear me",
+    "are you there", "you there", "you still there", "still there", "good morning",
+    "good afternoon", "good evening",
+)
+# Pure-greeting / acknowledgment tokens; a turn made only of these (plus a couple connectors) is
+# small talk, not a question.
+_GREETING_TOKENS = frozenset("hi hey hello yo hiya howdy thanks thank".split())
+_GREETING_CONNECTORS = frozenset("there again you so and how doing".split())
 
-def is_knowledge_question(text: str) -> bool:
-    """Cheap heuristic for whether a turn is asking a question the KB might answer."""
+
+def is_social_pleasantry(text: str) -> bool:
+    """True for greetings, pleasantries, and connectivity checks — small talk that looks like a
+    question but isn't one the KB can answer."""
     stripped = text.strip().lower()
     if not stripped:
+        return False
+    if any(phrase in stripped for phrase in _PLEASANTRY_PHRASES):
+        return True
+    words = re.findall(r"[a-z']+", stripped)
+    return bool(words) and all(
+        w in _GREETING_TOKENS or w in _GREETING_CONNECTORS for w in words
+    )
+
+
+def is_knowledge_question(text: str) -> bool:
+    """Cheap heuristic for whether a turn is asking a question the KB might answer.
+
+    A social pleasantry ("how's it going?") is never a knowledge question even though it's
+    question-shaped — otherwise the opening turn gets a KB deferral (real call ea6c68d9)."""
+    stripped = text.strip().lower()
+    if not stripped:
+        return False
+    if is_social_pleasantry(text):
         return False
     if "?" in stripped:
         return True

@@ -70,4 +70,7 @@ def classify_turn(
     if is_knowledge_question(text):
         return RouteDecision(Route.KNOWLEDGE, "caller asked a question")
 
+    # Default: advance discovery / close via the decider. Social pleasantries ("how's it going?")
+    # are deliberately NOT knowledge questions (see is_social_pleasantry), so they land here and the
+    # agent acknowledges + moves discovery forward rather than deferring to a specialist.
     return RouteDecision(Route.PROGRESS, "advance discovery / close")

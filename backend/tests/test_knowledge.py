@@ -5,6 +5,7 @@ from app.agent.knowledge import (
     answer_question,
     grounding_prompt,
     is_knowledge_question,
+    is_social_pleasantry,
 )
 from app.agent.orchestrator import Orchestrator
 from app.agent.stages import Action, Stage
@@ -38,6 +39,33 @@ def test_is_knowledge_question_heuristic():
     assert is_knowledge_question("can we change tutors")
     assert not is_knowledge_question("It's for my son.")
     assert not is_knowledge_question("")
+
+
+def test_social_pleasantries_are_not_knowledge_questions():
+    # Real call ea6c68d9: "Hey. How's it going?" got a KB deferral on the opening turn.
+    for greeting in (
+        "Hey. How's it going?",
+        "How are you doing today?",
+        "Hi there!",
+        "Hello?",
+        "Thanks!",
+        "Can you hear me?",
+        "You still there?",
+    ):
+        assert is_social_pleasantry(greeting), greeting
+        assert not is_knowledge_question(greeting), greeting
+
+
+def test_real_questions_still_route_to_knowledge():
+    # Tightening must not swallow genuine KB questions.
+    for question in (
+        "How much does tutoring cost?",
+        "Do you offer SAT prep?",
+        "Is it online or in person?",
+        "How do I sign up?",
+    ):
+        assert not is_social_pleasantry(question), question
+        assert is_knowledge_question(question), question
 
 
 def test_orchestrator_answer_knowledge_grounded():

@@ -45,6 +45,14 @@ def test_discovery_answer_routes_to_progress():
     assert classify_turn("It's for my daughter, math.").route is Route.PROGRESS
 
 
+def test_social_pleasantry_routes_to_progress_not_knowledge():
+    # Real call ea6c68d9: a greeting was sent to KNOWLEDGE -> §18 specialist deferral on turn one.
+    assert classify_turn("Hey. How's it going?").route is Route.PROGRESS
+    assert classify_turn("How are you doing?").route is Route.PROGRESS
+    assert classify_turn("Hi there!").route is Route.PROGRESS
+    assert classify_turn("Can you hear me?").route is Route.PROGRESS
+
+
 def test_hostility_routes_to_escalate():
     assert classify_turn("Shut the **** up.").route is Route.ESCALATE
     assert classify_turn("Just shut up.").route is Route.ESCALATE

@@ -39,6 +39,13 @@ def test_question_back_is_not_an_answer():
     assert e.understood is False
 
 
+def test_social_pleasantry_is_not_an_answer():
+    # A greeting offered where an answer was expected -> clarify, never stored as the slot value.
+    e = _x().extract("Hey, how's it going?", pending_field="subject")
+    assert e.fields == {}
+    assert e.understood is False
+
+
 def test_no_pending_field_means_nothing_to_fill():
     e = _x().extract("Hi there")
     assert e.fields == {}

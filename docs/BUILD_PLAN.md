@@ -57,6 +57,12 @@ Real demo calls (web/mic) are now being run, surfacing issues the construction t
 - **Phone-call intro answered too early (FIXED, needs live re-test).** The demo dialing illusion
   cut to the agent on WebRTC connect instead of on actual pickup; now answers on first real agent
   audio (Web Audio onset detection, 30s cap). Commit `1e15286`.
+- **Greeting treated as a KB question (FIXED, needs live re-test).** From call `ea6c68d9`: the
+  opening "Hey. How's it going?" routed to KNOWLEDGE (the heuristic fired on any `?`), the KB had
+  nothing, so the agent deferred to a specialist on turn one. Fix: `is_social_pleasantry` excludes
+  greetings/pleasantries/connectivity checks from `is_knowledge_question`, so they fall through to
+  PROGRESS (acknowledge + advance discovery); extraction won't store a pleasantry as a slot value.
+  Real questions still route to KNOWLEDGE. Commit `e687566`.
 - **Still to confirm live:** that the agent now waits for full user turns and that latency meets
   VC-3. The real `dial.mp3` is in place; `ring.mp3` is still a silent placeholder.
 

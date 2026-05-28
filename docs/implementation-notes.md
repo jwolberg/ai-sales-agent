@@ -1023,3 +1023,24 @@ structured layer existed but three seams were disconnected. Implementing each as
   (no re-asking across/within calls) still needs a browser/mic/keys run per RUNBOOK §11; the unit
   tests prove the wiring (memory seeded, slots persisted/round-tripped, transcript replayed as a
   valid message list).
+
+## 2026-05-28 — Live-voice hardening T6: greetings/pleasantries aren't KB questions
+
+Real call `ea6c68d9`: the opening "Hey. How's it going?" was classified `knowledge` (because
+`is_knowledge_question` returned True for any `?`), the KB had nothing, so the agent gave the §18
+"let me connect you with a specialist" deferral on turn one — a terrible open. Two bugs: (1) the
+heuristic over-fired on punctuation, (2) a pleasantry had no route other than KNOWLEDGE.
+
+- **Fix (`agent/knowledge.py`).** Added `is_social_pleasantry()` (greeting/pleasantry/connectivity
+  cues — "how's it going", "how are you", "can you hear me", bare "hi/hey/hello/thanks", "you still
+  there"). `is_knowledge_question` now returns False for those. Real questions ("how much does it
+  cost?", "do you offer SAT prep?") still route to KNOWLEDGE.
+- **Router (`agent/router.py`).** No logic change — excluding pleasantries from
+  `is_knowledge_question` lets them fall through to the default `PROGRESS` route (acknowledge +
+  advance discovery), which is the correct home. Added a comment + tests.
+- **Extraction (`agent/extraction.py`).** `_is_substantive_answer` also rejects pleasantries, so a
+  greeting offered where an answer was expected triggers a clarify instead of being stored as a
+  bogus slot value (prevents a regression from the looser `is_knowledge_question`).
+- **Known remaining edge:** non-social rhetorical questions ("Right?") still route to KNOWLEDGE;
+  out of scope for this fix. **Validation:** `ruff` clean; `pytest` **178 passed**. Live re-test of
+  the opening turn still pending (RUNBOOK §11).
