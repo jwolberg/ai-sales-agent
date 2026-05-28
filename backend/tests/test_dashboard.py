@@ -1,0 +1,93 @@
+"""Tests for the observability API (P5-T4; PRD §10.2, §10.3)."""
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from app.agent.decisioning import DiscoveryDecider
+from app.agent.engine import ConversationEngine
+from app.agent.orchestrator import Orchestrator
+from app.agent.recorder import OUTCOME_COMPLETED, CallRecorder
+from app.config import Settings
+from app.db.models import Base
+from app.db.session import get_db
+from app.main import app
+
+
+@pytest.fixture
+def client():
+    # StaticPool keeps one in-memory connection so the seed session and the API's get_db
+    # session share the same data.
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    Base.metadata.create_all(engine)
+    TestSession = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+    def _override():
+        db = TestSession()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = _override
+    yield TestClient(app), TestSession
+    app.dependency_overrides.clear()
+
+
+def _seed_call(session_factory) -> str:
+    db = session_factory()
+    orch = Orchestrator(
+        settings=Settings(_env_file=None),
+        decider=DiscoveryDecider(),
+        recorder=CallRecorder(db, channel="web", agent_version="persona-x"),
+    )
+    eng = ConversationEngine(orch)  # rule-based extractor, no LLM
+    eng.open()
+    eng.run_turn("it's too expensive")     # objection
+    eng.run_turn("can I talk to a human?")  # escalation
+    eng.end(outcome=OUTCOME_COMPLETED)
+    call_id = orch.recorder.call_id
+    db.close()
+    return call_id
+
+
+def test_metrics_endpoint(client):
+    tc, sessions = client
+    _seed_call(sessions)
+    m = tc.get("/api/metrics").json()
+    assert m["total_calls"] == 1
+    assert m["escalation_rate"] == 1.0
+    assert m["close_success_rate"] == 1.0
+    assert m["average_latency_seconds"] is None  # not-measured surfaces as null
+
+
+def test_metrics_slice_by_version(client):
+    tc, sessions = client
+    _seed_call(sessions)
+    assert tc.get("/api/metrics", params={"agent_version": "persona-x"}).json()["total_calls"] == 1
+    assert tc.get("/api/metrics", params={"agent_version": "other"}).json()["total_calls"] == 0
+
+
+def test_calls_list_and_detail(client):
+    tc, sessions = client
+    call_id = _seed_call(sessions)
+
+    calls = tc.get("/api/calls").json()
+    assert len(calls) == 1 and calls[0]["call_id"] == call_id
+    assert calls[0]["num_turns"] > 0
+
+    detail = tc.get(f"/api/calls/{call_id}").json()
+    assert any(t["speaker"] == "prospect" for t in detail["turns"])
+    assert any(t["speaker"] == "agent" for t in detail["turns"])
+    assert any(t["detected_intent"] == "objection" for t in detail["turns"])
+    assert detail["decisions"] and detail["decisions"][0]["selected_action"]
+    assert any(e["event_type"] == "escalation" for e in detail["kpi_events"])
+
+
+def test_call_not_found(client):
+    tc, _ = client
+    assert tc.get("/api/calls/does-not-exist").status_code == 404

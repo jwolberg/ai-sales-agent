@@ -38,8 +38,8 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 5 — Decisioning Trace & Observability Dashboard (entering)
-- **Current ticket:** P5-T4 (next) — dashboard (KPIs + transcript/decision review)
+- **Current phase:** Phase 6 — Synthetic Prospect Simulator (entering)
+- **Current ticket:** P6-T1 (next) — synthetic persona definitions (≥6)
 - **LIVE-VALIDATE (Phase 4.5):** the decider-led voice path (`app/voice/bot.py`) + latency layer
   (fillers, ambient bed) are construction/unit-validated only. A browser/mic/keys run (RUNBOOK
   §11) is still needed to confirm the live conversation and to measure latency vs VC-3.
@@ -356,7 +356,10 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `dashboard/app.py` (assumed) , `backend/app/main.py` (API endpoints)
   - Depends on: P5-T1, P5-T2, P5-T3
   - Acceptance criteria covered: §10.2, §10.3; §21 (dashboard displays core KPIs)
-  - Status: Todo
+  - Status: Complete (added `app/dashboard/router.py` — `/api/metrics` (sliceable by version/
+    variant), `/api/calls`, `/api/calls/{id}` (transcript + decision trace + KPI events) — and a
+    static dashboard UI at `/dashboard` (`frontend/dashboard/index.html`, vanilla JS, no new dep).
+    Phase 5 exit criteria met.)
 
 ### Phase 6 — Synthetic Prospect Simulator
 **Goal**

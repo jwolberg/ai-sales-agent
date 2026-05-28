@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sales Agent · Observability</title>
+  <style>
+    :root {
+      --bg: #0f1419; --panel: #171d26; --line: #28313d; --ink: #e6edf3;
+      --muted: #8b98a8; --accent: #4cc2a8; --warn: #e0a458; --danger: #e06c75;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink);
+      font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    header { padding: 20px 28px; border-bottom: 1px solid var(--line); display: flex;
+      align-items: baseline; gap: 14px; }
+    header h1 { font-size: 17px; margin: 0; font-weight: 650; }
+    header span { color: var(--muted); font-size: 13px; }
+    main { padding: 24px 28px; max-width: 1100px; }
+    h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--muted); margin: 28px 0 12px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+    .card .label { color: var(--muted); font-size: 12px; }
+    .card .value { font-size: 24px; font-weight: 650; margin-top: 6px; }
+    .card .value.na { color: var(--muted); font-size: 15px; font-weight: 500; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
+    th { color: var(--muted); font-weight: 600; }
+    tr.call { cursor: pointer; }
+    tr.call:hover td { background: #1c232e; }
+    .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px;
+      background: #232c38; color: var(--muted); }
+    .pill.completed { background: #1c3a32; color: var(--accent); }
+    .pill.escalated, .pill.high { background: #3a2626; color: var(--danger); }
+    .turn { padding: 8px 0; border-bottom: 1px solid var(--line); display: grid;
+      grid-template-columns: 90px 1fr; gap: 12px; }
+    .turn .who { color: var(--muted); font-size: 12px; }
+    .turn.agent .who { color: var(--accent); }
+    .turn .tags { color: var(--muted); font-size: 11px; margin-top: 3px; }
+    .dec { padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+    .dec .head { font-weight: 600; }
+    .dec .meta { color: var(--muted); font-size: 12px; }
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+    code { color: var(--warn); }
+    button.back { background: none; border: 1px solid var(--line); color: var(--ink);
+      border-radius: 7px; padding: 5px 11px; cursor: pointer; }
+    .empty { color: var(--muted); padding: 16px 0; }
+    @media (max-width: 800px) { .cols { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Sales Agent</h1><span>Observability dashboard</span>
+  </header>
+  <main id="app"><p class="empty">Loading…</p></main>
+
+  <script>
+    const KPI_LABELS = {
+      close_success_rate: "Close success", close_attempt_rate: "Close attempts",
+      objection_recovery_rate: "Objection recovery", escalation_rate: "Escalation",
+      discovery_completion_rate: "Discovery complete", unsupported_claim_rate: "Unsupported claims",
+      average_latency_seconds: "Avg latency", frustration_rate: "Frustration",
+    };
+    const pct = (v) => v == null ? null : (v <= 1 ? Math.round(v * 100) + "%" : v);
+    const esc = (s) => (s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+    async function getJSON(url) { const r = await fetch(url); if (!r.ok) throw new Error(r.status); return r.json(); }
+
+    function kpiCards(m) {
+      return `<div class="cards">` + Object.keys(KPI_LABELS).map((k) => {
+        const v = pct(m[k]);
+        const body = v == null ? `<div class="value na">not measured</div>` : `<div class="value">${v}</div>`;
+        return `<div class="card"><div class="label">${KPI_LABELS[k]}</div>${body}</div>`;
+      }).join("") + `</div><p class="empty">Total calls: ${m.total_calls}</p>`;
+    }
+
+    function callsTable(calls) {
+      if (!calls.length) return `<p class="empty">No calls recorded yet.</p>`;
+      return `<table><thead><tr><th>Started</th><th>Channel</th><th>Outcome</th>
+        <th>Turns</th><th>Agent version</th></tr></thead><tbody>` +
+        calls.map((c) => `<tr class="call" data-id="${c.call_id}">
+          <td>${(c.started_at || "").replace("T", " ").slice(0, 19)}</td>
+          <td>${esc(c.channel)}</td>
+          <td><span class="pill ${c.outcome || ""}">${esc(c.outcome || "—")}</span></td>
+          <td>${c.num_turns}</td><td><code>${esc(c.agent_version || "—")}</code></td></tr>`).join("") +
+        `</tbody></table>`;
+    }
+
+    function callDetail(d) {
+      const turns = d.turns.map((t) => `<div class="turn ${t.speaker}">
+        <div class="who">${esc(t.speaker)}</div>
+        <div><div>${esc(t.text)}</div>${t.detected_intent ?
+          `<div class="tags">intent: ${esc(t.detected_intent)}${t.detected_objection ?
+          " · objection: " + esc(t.detected_objection) : ""}</div>` : ""}</div></div>`).join("")
+        || `<p class="empty">No turns.</p>`;
+      const decs = d.decisions.map((x) => `<div class="dec">
+        <div class="head">${esc(x.stage || "—")} → ${esc(x.selected_action)}
+          ${x.escalation_risk ? `<span class="pill ${x.escalation_risk}">${esc(x.escalation_risk)}</span>` : ""}</div>
+        <div class="meta">${esc(x.reason || "")}${x.confidence != null ? ` · conf ${x.confidence}` : ""}
+          ${x.kb_sources_used && x.kb_sources_used.length ? ` · KB: ${esc(x.kb_sources_used.join(", "))}` : ""}</div>
+        </div>`).join("") || `<p class="empty">No decisions.</p>`;
+      return `<button class="back" onclick="render()">← All calls</button>
+        <h2>Call ${esc(d.call_id).slice(0, 8)} · ${esc(d.outcome || "in progress")}</h2>
+        <div class="cols"><div><h2>Transcript</h2>${turns}</div>
+        <div><h2>Decision trace</h2>${decs}</div></div>`;
+    }
+
+    async function render() {
+      const app = document.getElementById("app");
+      try {
+        const [metrics, calls] = await Promise.all([getJSON("/api/metrics"), getJSON("/api/calls")]);
+        app.innerHTML = `<h2>KPIs</h2>${kpiCards(metrics)}<h2>Calls</h2>${callsTable(calls)}`;
+        app.querySelectorAll("tr.call").forEach((row) =>
+          row.addEventListener("click", () => showCall(row.dataset.id)));
+      } catch (e) { app.innerHTML = `<p class="empty">Failed to load: ${e}</p>`; }
+    }
+
+    async function showCall(id) {
+      const app = document.getElementById("app");
+      try { app.innerHTML = callDetail(await getJSON(`/api/calls/${id}`)); }
+      catch (e) { app.innerHTML = `<p class="empty">Failed to load call: ${e}</p>`; }
+    }
+
+    render();
+  </script>
+</body>
+</html>

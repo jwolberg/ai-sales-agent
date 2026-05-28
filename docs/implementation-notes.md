@@ -673,6 +673,28 @@ turning on/tuning the deferred Tier-1/Tier-2 latency work.
 
 ---
 
+## P5-T4 — observability dashboard (2026-05-27) — Phase 5 complete
+
+- **`app/dashboard/router.py`** (`/api` read-only): `GET /api/metrics` (compute_metrics, sliceable
+  by `agent_version`/`variant_id`), `GET /api/calls` (newest-first summaries), `GET /api/calls/{id}`
+  (transcript + decision trace + KPI events, §10.3). Uses `Annotated[Session, Depends(get_db)]`.
+- **Static UI** at `/dashboard` (`frontend/dashboard/index.html`, vanilla JS, mounted like `/demo`)
+  — KPI cards (null KPIs render "not measured"), a calls table, and per-call drill-down to the
+  transcript + decision trace. **No new dependency** (chose static-over-Streamlit to match the
+  existing frontend pattern).
+- **Validation:** `ruff` clean; `pytest` 135 passed (4 new: metrics endpoint + version slice,
+  calls list/detail with intent/decision/events, 404). Real-app smoke: `/api/metrics`, `/api/calls`,
+  `/dashboard/` all 200.
+
+### Phase 5 complete
+
+Decision trace (DE-2, linked to turns) + version attribution (§10.4) + KPI events/metrics (§16) +
+a dashboard (§10.2/§10.3). Every call is now observable and version/variant-tagged — the substrate
+the Phase 6 simulator and Phase 7 experiment loop build on. (Latency/frustration KPIs still report
+"not measured" pending per-turn timing + sentiment.)
+
+---
+
 ## KB content: pricing provided by operator (2026-05-27)
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).
