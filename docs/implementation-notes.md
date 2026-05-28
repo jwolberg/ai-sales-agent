@@ -908,3 +908,22 @@ runs on.
   re-enabled and audio stopped; no console errors. Screenshot confirms the relabeled CTA + copy.
   The answer-stops-ring path wasn't exercised live (needs a real connection / API credits) but is
   straightforward reviewed code. No Python touched — `ruff`/`pytest` unaffected.
+
+### P9-T2 fix — ring until the agent actually speaks (2026-05-28)
+
+- **Bug:** with real audio added, pressing Call "just launched into the script" — almost no
+  dialing was heard. Cause: `onAnswered` fired on `pc.ontrack` and connectionState `connected`,
+  which both happen during WebRTC negotiation *before the agent speaks*, so the ring was cut
+  immediately.
+- **Fix:** treat "answered" = the agent's audio actually starts. `detectAnswerFromStream` taps
+  the inbound stream via a Web Audio `AnalyserNode` and calls `onAnswered` on the first real audio
+  energy (threshold 400 summed over 256 bins), with a 30s hard-cap deadline so it never rings
+  forever. `ontrack` now starts detection instead of answering; connectionState only handles
+  failure. The `AudioContext` is primed in the click handler (`ensureAnswerCtx`) so the autoplay
+  policy doesn't leave it suspended (it's created after `await`s otherwise).
+- **Tradeoff:** the energy threshold (400) is untuned against a live agent stream; if WebRTC
+  comfort noise trips it early or the greeting is too quiet, it needs adjusting. The onset path
+  itself can't be exercised headlessly (needs the real bot) — verified instead that the connection
+  no longer answers early (ring persists with `getUserMedia` stubbed to hang; no console errors).
+- **Validation:** `node --check` clean; browser smoke (server :8099) — Dialing… → Ringing… with
+  no early answer. No Python touched.

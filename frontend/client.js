@@ -7,6 +7,7 @@ const remoteAudio = document.getElementById("remote");
 let pc = null;
 let localStream = null;
 let answered = false;
+let answerCtx = null; // Web Audio context used to detect when the agent actually starts speaking
 
 // Phone-call intro sound effects (Phase 9): dial+digits one-shot, then ring looped until the
 // agent answers. Silent placeholder stubs ship in frontend/audio/ — see frontend/audio/README.md.
@@ -62,18 +63,74 @@ function waitForIceGathering(connection) {
 function onAnswered() {
   if (answered) return;
   answered = true;
+  closeAnswerDetection();
   stopDialingSound();
-  setStatus("Connected — the agent will greet you.");
+  setStatus("Connected — the agent is speaking.");
+}
+
+// Keep ringing until the agent's audio *actually starts*. The WebRTC connection becomes
+// "connected" (and ontrack fires) well before the agent speaks, so those are too early to treat
+// as a pickup — we'd cut the ring and drop into silence. Instead, tap the inbound stream and
+// answer on the first real audio energy (the greeting). A deadline guarantees we don't ring
+// forever if no audio ever arrives.
+// Create the audio context while the click's user-activation is still fresh; a context created
+// later (after the awaits in startCall) can be blocked/suspended by the browser autoplay policy.
+function ensureAnswerCtx() {
+  try {
+    if (!answerCtx) answerCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (answerCtx.state === "suspended") answerCtx.resume().catch(() => {});
+  } catch (e) {
+    answerCtx = null;
+  }
+}
+
+function detectAnswerFromStream(stream) {
+  if (answered) return;
+  try {
+    ensureAnswerCtx();
+    if (!answerCtx) throw new Error("no AudioContext");
+    const source = answerCtx.createMediaStreamSource(stream);
+    const analyser = answerCtx.createAnalyser();
+    analyser.fftSize = 512;
+    source.connect(analyser);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    const deadline = Date.now() + 30000; // hard cap: pick up within 30s regardless
+    const poll = () => {
+      if (answered) return;
+      analyser.getByteFrequencyData(data);
+      let energy = 0;
+      for (const v of data) energy += v;
+      if (energy > 400 || Date.now() > deadline) {
+        onAnswered();
+        return;
+      }
+      requestAnimationFrame(poll);
+    };
+    poll();
+  } catch (e) {
+    // No Web Audio (or stream not analysable) — fall back to answering immediately.
+    console.warn("[answer-detect] falling back:", e);
+    onAnswered();
+  }
+}
+
+function closeAnswerDetection() {
+  if (answerCtx) {
+    answerCtx.close().catch(() => {});
+    answerCtx = null;
+  }
 }
 
 async function startCall() {
   callBtn.disabled = true;
   answered = false;
+  ensureAnswerCtx(); // prime the audio context now, under the fresh click gesture
   setStatus("Checking voice configuration…");
   try {
     const status = await (await fetch("/voice/status")).json();
     if (!status.ready) {
       setStatus(`Voice not configured. Missing: ${status.missing_keys.join(", ")}`);
+      closeAnswerDetection();
       callBtn.disabled = false;
       return;
     }
@@ -86,13 +143,12 @@ async function startCall() {
     });
     pc.ontrack = (event) => {
       remoteAudio.srcObject = event.streams[0];
-      onAnswered(); // fallback answer signal (inbound audio = agent picked up)
+      // Don't answer yet — ring until the agent's audio actually starts (see detectAnswer…).
+      detectAnswerFromStream(event.streams[0]);
     };
     pc.onconnectionstatechange = () => {
       console.log("[webrtc] connectionState:", pc.connectionState);
-      if (pc.connectionState === "connected") {
-        onAnswered();
-      } else if (["failed", "disconnected", "closed"].includes(pc.connectionState)) {
+      if (["failed", "disconnected", "closed"].includes(pc.connectionState) && !answered) {
         stopDialingSound();
         setStatus(`Connection ${pc.connectionState}.`);
       }
@@ -144,6 +200,7 @@ async function startCall() {
 }
 
 function stopCall() {
+  closeAnswerDetection();
   stopDialingSound();
   answered = false;
   if (pc) {
