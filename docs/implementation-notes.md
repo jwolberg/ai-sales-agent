@@ -1200,3 +1200,12 @@ else TF-IDF; `answer_question`'s `min_score` now defaults to the retriever's own
 `default_min_score` (TF-IDF 0.45, vector 0.30) so the two score scales don't collide. Offline /
 no-key / empty-index / any-error -> TF-IDF (existing knowledge+kb tests unchanged). Tests:
 `tests/test_vector_retriever.py` (6) with a deterministic fake embedder. Full suite **225 passed**.
+
+## 2026-05-28 — IR3-T3: explainer KB content
+
+Added `data/kb/test_prep_overview.md` (SAT vs ACT, what the PSAT is) and
+`data/kb/subjects_overview.md` (math/science tutoring, what a session involves) — clearly-labeled
+PLACEHOLDER copy for the router's informational Q&A. Prices intentionally stay in
+`data/pricing/pricing.yaml`, not the KB (R6). Existing TF-IDF ranking tests (`test_kb`) still pass
+with the two new docs (pricing/scheduling/formats queries still rank their own doc top). KB now 22
+chunks. Phase IR-3 complete.
