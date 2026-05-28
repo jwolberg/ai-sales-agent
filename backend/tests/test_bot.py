@@ -103,3 +103,23 @@ def test_engine_pipeline_constructs():
     )
     task = build_engine_pipeline_task(transport, stt, tts, processor)
     assert isinstance(task, PipelineTask)
+
+
+def test_engine_processor_filler_flag():
+    settings = Settings(
+        _env_file=None, deepgram_api_key="x", anthropic_api_key="y", cartesia_api_key="z"
+    )
+    engine = build_engine(settings)
+    assert EngineProcessor(engine, fillers=True)._fillers is not None
+    assert EngineProcessor(engine, fillers=False)._fillers is None
+
+
+def test_build_transport_ambient_off_constructs():
+    # ambient_noise=False -> no SoundfileMixer, so no `soundfile` import needed.
+    from pipecat.transports.smallwebrtc.connection import SmallWebRTCConnection
+
+    from app.voice.pipeline import build_transport
+
+    settings = Settings(_env_file=None)  # ambient_noise defaults False
+    transport = build_transport(SmallWebRTCConnection(), settings)
+    assert transport is not None

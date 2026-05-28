@@ -41,6 +41,7 @@ from app.agent.persona import build_system_prompt
 from app.agent.recorder import CallRecorder
 from app.config import Settings
 from app.db.session import SessionLocal, init_db
+from app.voice.fillers import FillerBank
 from app.voice.pipeline import (
     AUDIO_IN_SAMPLE_RATE,
     DebugTurnLogger,
@@ -103,9 +104,10 @@ class EngineProcessor(FrameProcessor):
     worker thread to avoid blocking the pipeline's event loop.
     """
 
-    def __init__(self, engine: ConversationEngine) -> None:
+    def __init__(self, engine: ConversationEngine, *, fillers: bool = False) -> None:
         super().__init__()
         self._engine = engine
+        self._fillers = FillerBank() if fillers else None
 
     async def greet(self) -> None:
         greeting = await asyncio.to_thread(self._engine.open)
@@ -116,6 +118,9 @@ class EngineProcessor(FrameProcessor):
     async def process_frame(self, frame: Frame, direction: FrameDirection) -> None:
         await super().process_frame(frame, direction)
         if isinstance(frame, TranscriptionFrame) and frame.text.strip():
+            # Speak a filler immediately so the call doesn't fall silent while we compute.
+            if self._fillers is not None:
+                await self.push_frame(TTSSpeakFrame(self._fillers.pick(frame.text)))
             result = await asyncio.to_thread(self._engine.run_turn, frame.text)
             spoken = guard_output(result.utterance)
             if spoken.strip():
@@ -172,8 +177,8 @@ async def run_bot(connection: SmallWebRTCConnection, settings: Settings) -> None
     db = SessionLocal()
     recorder = CallRecorder(db, channel="web")
     engine = build_engine(settings, recorder=recorder)
-    processor = EngineProcessor(engine)
-    transport = build_transport(connection)
+    processor = EngineProcessor(engine, fillers=settings.fillers)
+    transport = build_transport(connection, settings)
     task = build_engine_pipeline_task(
         transport, stt, tts, processor, voice_debug=settings.voice_debug
     )

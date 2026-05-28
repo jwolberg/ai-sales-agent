@@ -38,16 +38,18 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 4.5 — Conversation Integration & Latency
-- **Current ticket:** P4.5-T6 (next) — latency tiers + ambient bed
-- **LIVE-VALIDATE:** P4.5-T5 replaced the raw-Claude voice path with the decider-led engine
-  (`app/voice/bot.py`). Construction-validated only — needs a browser/mic/keys run (RUNBOOK §11,
-  http://localhost:8000/demo) to confirm the live decider-led conversation works.
+- **Current phase:** Phase 5 — Decisioning Trace & Observability Dashboard (entering)
+- **Current ticket:** P5-T1 (next) — decision-trace logging *(the engine already writes a basic
+  Decision trace via `recorder.record_decision`; P5-T1 enriches it — intent/objection/sentiment)*
+- **LIVE-VALIDATE (Phase 4.5):** the decider-led voice path (`app/voice/bot.py`) + latency layer
+  (fillers, ambient bed) are construction/unit-validated only. A browser/mic/keys run (RUNBOOK
+  §11) is still needed to confirm the live conversation and to measure latency vs VC-3.
+- **Deferred latency tiers (documented):** speculative prefetch (Tier-2) and the FAQ answer cache
+  (Tier-1) need live measurement to tune; not built yet.
 - **Blockers:** None
-- **DESIGN:** Phase 4.5 inserted per `docs/AGENT_INTEGRATION.md` — the Phases 2–4 agent layer
-  is built but NOT wired into the live pipeline (which still runs raw Claude). This phase makes
-  the decider-led runtime real (router → extraction → render → engine → live wiring → latency
-  tiers). It precedes Phase 5/6/8 work that depends on the engine.
+- **DESIGN:** Phase 4.5 (per `docs/AGENT_INTEGRATION.md`) is complete — the Phases 2–4 agent
+  layer is now wired into the live pipeline (decider-led runtime: router → extraction → render →
+  engine → live wiring → latency). Phase 5/6/8 build on the engine.
 - **ACTION NEEDED (user):** KB docs under `data/kb/` are safe PLACEHOLDERS, not approved
   Nerdy content. See `docs/QandA_opens.md` for the pricing/refund/matching/scheduling copy to
   provide; until then the agent defers those specifics to a human.
@@ -308,7 +310,12 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
     `backend/app/config.py`, `backend/config.toml`, `data/audio/ambient.wav`
   - Depends on: P4.5-T5
   - Acceptance criteria covered: VC-3 (latency targets); call-realism polish
-  - Status: Todo
+  - Status: Complete (shippable parts; needs live latency measurement). Added filler-masking
+    (`app/voice/fillers.py` `FillerBank` + EngineProcessor speaks a filler while computing,
+    gated by `fillers`), ambient comfort-noise bed (`SoundfileMixer` on transport output, gated
+    by `ambient_noise`, output rate pinned to 24 kHz to match `data/audio/ambient.wav`), and the
+    `soundfile` dep. **Deferred** (need live tuning): Tier-1 FAQ answer cache, Tier-2 speculative
+    prefetch, and true Tier-0 pre-synthesized filler *audio* (current fillers go through TTS).
 
 ### Phase 5 — Decisioning Trace & Observability Dashboard
 **Goal**

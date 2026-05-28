@@ -24,6 +24,7 @@ dev = [
 # deprecated and slated for removal in a future (0.1+) release. See implementation-notes.
 voice = [
     "pipecat-ai[anthropic,deepgram,cartesia,webrtc,silero]>=0.0.108,<0.1",
+    "soundfile>=0.12",  # ambient comfort-noise bed via Pipecat SoundfileMixer (P4.5-T6)
 ]
 
 [build-system]

@@ -19,6 +19,13 @@ def test_missing_voice_keys_detected():
     assert all_set.missing_voice_keys() == []
 
 
+def test_latency_config_defaults():
+    s = Settings(_env_file=None)
+    assert s.fillers is True  # latency mask on by default
+    assert s.ambient_noise is False  # opt-in (needs the asset + soundfile)
+    assert s.audio_out_sample_rate == 24000  # matches data/audio/ambient.wav
+
+
 def test_pipeline_builds_with_dummy_keys():
     """The pipeline wires together without network/keys (construction only)."""
     pytest.importorskip("pipecat")

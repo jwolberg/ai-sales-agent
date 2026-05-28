@@ -11,6 +11,15 @@ company_name = "Nerdy"
 # Logs inbound audio / VAD / transcription to the server console. Flip on while debugging.
 voice_debug = false
 
+# --- Latency / audio realism (P4.5-T6) ---
+# Speak a short filler while the reply is computed, so the call never falls silent.
+fillers = true
+# Loop a subtle room-tone bed under the agent's voice (needs data/audio/ambient.wav + soundfile).
+ambient_noise = false
+ambient_volume = 0.15
+# Transport output rate; the ambient bed WAV must match it (SoundfileMixer doesn't resample).
+audio_out_sample_rate = 24000
+
 # --- LLM ---
 # Use "claude-haiku-4-5" for lower latency.
 anthropic_model = "claude-sonnet-4-6"

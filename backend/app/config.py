@@ -65,6 +65,18 @@ class Settings(BaseSettings):
     # When true, log inbound audio / VAD / transcription to the server console (debug).
     voice_debug: bool = False
 
+    # --- Latency / audio realism (P4.5-T6) ---
+    # Transport output sample rate. The ambient bed (data/audio/ambient.wav) must match this —
+    # SoundfileMixer does not resample.
+    audio_out_sample_rate: int = 24000
+    # Speak a short filler ("Sure," / "Let me check on that…") while the real reply is computed,
+    # so the call never falls silent (AGENT_FLOW §5.10).
+    fillers: bool = True
+    # Mix a looping ambient room-tone bed under the agent's voice (output-only). Needs
+    # data/audio/ambient.wav and the `soundfile` dep; off by default.
+    ambient_noise: bool = False
+    ambient_volume: float = 0.15  # 0.0-1.0; keep subtle
+
     def missing_voice_keys(self) -> list[str]:
         """Return the env-var names of any unset voice provider keys."""
         required = {

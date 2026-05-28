@@ -9,6 +9,7 @@ Interruptions are enabled (``allow_interruptions``) as the foundation that P2-T2
 """
 
 import sys
+from pathlib import Path
 
 from loguru import logger
 from pipecat.audio.vad.silero import SileroVADAnalyzer
@@ -50,6 +51,23 @@ __all__ = [
 # (its default is None, which Pipecat serializes to "None" -> Deepgram HTTP 400); the
 # transport resamples the browser's 48 kHz WebRTC audio down to this.
 AUDIO_IN_SAMPLE_RATE = 16000
+
+# backend/app/voice/pipeline.py -> repo root is four levels up (for the ambient asset).
+REPO_ROOT = Path(__file__).resolve().parents[3]
+AMBIENT_WAV = REPO_ROOT / "data" / "audio" / "ambient.wav"
+
+
+def _build_ambient_mixer(settings: Settings):
+    """Looping room-tone bed mixed under the agent's voice (output-only). Lazy-imports
+    SoundfileMixer so `soundfile` is only required when ambient noise is enabled."""
+    from pipecat.audio.mixers.soundfile_mixer import SoundfileMixer
+
+    return SoundfileMixer(
+        sound_files={"ambient": str(AMBIENT_WAV)},
+        default_sound="ambient",
+        volume=settings.ambient_volume,
+        loop=True,
+    )
 
 
 class _DeepgramSTTService(DeepgramSTTService):
@@ -191,12 +209,23 @@ def build_pipeline_task(
     )
 
 
-def build_transport(connection: SmallWebRTCConnection) -> SmallWebRTCTransport:
-    """Wrap a WebRTC connection in a transport with Silero VAD turn-taking."""
-    params = TransportParams(
+def build_transport(
+    connection: SmallWebRTCConnection, settings: Settings | None = None
+) -> SmallWebRTCTransport:
+    """Wrap a WebRTC connection in a transport with Silero VAD turn-taking.
+
+    When ``ambient_noise`` is on, mixes a looping room-tone bed into the output (P4.5-T6).
+    """
+    settings = settings or get_settings()
+    params_kwargs = dict(
         audio_in_enabled=True,
         audio_out_enabled=True,
         audio_in_sample_rate=AUDIO_IN_SAMPLE_RATE,
+        audio_out_sample_rate=settings.audio_out_sample_rate,
         vad_analyzer=SileroVADAnalyzer(),
     )
-    return SmallWebRTCTransport(webrtc_connection=connection, params=params)
+    if settings.ambient_noise:
+        params_kwargs["audio_out_mixer"] = _build_ambient_mixer(settings)
+    return SmallWebRTCTransport(
+        webrtc_connection=connection, params=TransportParams(**params_kwargs)
+    )

@@ -594,6 +594,38 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 
 ---
 
+## P4.5-T6 — latency tiers + ambient bed (2026-05-27) — Phase 4.5 complete
+
+- **Filler-masking:** `app/voice/fillers.py` `FillerBank.pick(text)` returns a rotating short ack
+  ("Sure.", "Got it.") for statements and a "working" filler ("Let me check on that…") for
+  questions (slow KB path). `EngineProcessor` speaks the filler immediately, *then* computes the
+  real reply in the worker thread and speaks it after — so the call never falls silent. Gated by
+  the `fillers` config (default on). Neutral by design so a filler can't contradict the reply.
+- **Ambient comfort-noise bed:** `build_transport` attaches Pipecat `SoundfileMixer`
+  (`data/audio/ambient.wav`, `loop`, `volume=ambient_volume`) as the transport **output** mixer
+  when `ambient_noise` is on — output-only, so no STT/VAD impact. Output rate pinned to
+  `audio_out_sample_rate=24000` to match the asset (the mixer doesn't resample). `SoundfileMixer`
+  is lazy-imported so `soundfile` is only needed when the bed is enabled; added `soundfile` to the
+  voice extra and installed it. Verified the asset reads at 24 kHz mono.
+- **Config:** `audio_out_sample_rate=24000`, `fillers=True`, `ambient_noise=False`,
+  `ambient_volume=0.15` (in `config.py` + `config.toml`).
+- **Deferred (need live measurement to tune, documented in the plan):** Tier-1 FAQ answer cache,
+  Tier-2 speculative prefetch, and true Tier-0 pre-synthesized filler *audio* (current fillers
+  still go through TTS — fast, but not instant). The design (`AGENT_INTEGRATION.md` §5) is the
+  spec when we pick these up after a live latency baseline.
+- **Validation:** `ruff` clean; `pytest` 122 passed (7 new: filler selection/rotation, latency
+  config defaults, EngineProcessor filler flag, ambient-off transport construction).
+
+### Phase 4.5 complete
+
+All six tickets built: turn router, extraction (rule-based + LLM upgrade), directive+render,
+conversation engine, live voice wiring, latency tiers + ambient bed. The structured agent layer
+(Phases 2–4) now drives what the live agent says. **Remaining real-world step:** a browser/mic/
+keys run to validate the live decider-led conversation and measure latency vs VC-3 — that gates
+turning on/tuning the deferred Tier-1/Tier-2 latency work.
+
+---
+
 ## KB content: pricing provided by operator (2026-05-27)
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).
