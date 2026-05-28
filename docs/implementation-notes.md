@@ -982,3 +982,16 @@ discovery thread after a KB answer. Five small, mostly pure-logic tickets:
   helper (also now used by `_clarify`).
 - **Validation:** `ruff` clean; `pytest` 168 passed. T3's gate and T4's live confidence values
   can only be fully confirmed on a browser/mic/keys run (RUNBOOK §11).
+
+## 2026-05-28 — Phase 10: Conversation Memory & Context Continuity
+
+Surfaced by a Retell.ai architecture review of the "agent re-asks questions" problem. The
+structured layer existed but three seams were disconnected. Implementing each as its own ticket.
+
+- **P10-T1 — wire cross-call memory into the live voice path (`voice/bot.py`, `config.py`,
+  `agent/orchestrator.py` already supported it).** `run_bot` now loads a `Lead` and seeds the
+  engine with its `known_fields` (and ties the `Call` to the lead). Decision (not in spec): for the
+  web demo, the lead is chosen by a new optional `demo_lead_id` setting rather than a per-call
+  frontend selector — smallest change that makes returning-caller memory real without a UI/offer
+  change. Unset/unknown id ⇒ anonymous cold start, exactly as before. `build_engine` gained
+  `known_fields`/`lead_id` params. A frontend/offer-driven lead picker is a later enhancement.

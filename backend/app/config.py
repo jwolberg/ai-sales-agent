@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     company_name: str = "Nerdy"
     # When true, log inbound audio / VAD / transcription to the server console (debug).
     voice_debug: bool = False
+    # Optional: the lead whose prior-call memory a live web demo call should continue from
+    # (P10-T1). When set, `run_bot` loads that lead and seeds the agent with its known fields so
+    # it skips/confirms rather than re-asks (LM-1/LM-3). Unset -> anonymous, no prior context.
+    demo_lead_id: str | None = None
 
     # --- Latency / audio realism (P4.5-T6) ---
     # Transport output sample rate. The ambient bed (data/audio/ambient.wav) must match this —

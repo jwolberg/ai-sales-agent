@@ -46,6 +46,7 @@ from app.agent.synthesis import make_synthesizer
 from app.agent.versioning import compute_versions
 from app.config import Settings
 from app.db.session import SessionLocal, init_db
+from app.memory.lead_store import LeadStore, known_fields
 from app.voice.fillers import FillerBank
 from app.voice.pipeline import (
     AUDIO_IN_SAMPLE_RATE,
@@ -164,11 +165,25 @@ def build_engine_pipeline_task(
     )
 
 
-def build_engine(settings: Settings, *, recorder: CallRecorder | None = None) -> ConversationEngine:
+def build_engine(
+    settings: Settings,
+    *,
+    recorder: CallRecorder | None = None,
+    known_fields: dict[str, str] | None = None,
+    lead_id: str | None = None,
+) -> ConversationEngine:
     """Wire the conversation engine for the live path: DiscoveryDecider + LLM extraction + Claude
-    phrasing, with an optional recorder for the transcript/decision trace."""
+    phrasing, with an optional recorder for the transcript/decision trace.
+
+    ``known_fields`` seeds the agent with what we already know about this lead (P10-T1) so it
+    skips/confirms instead of re-asking (LM-1/LM-3); ``lead_id`` ties the call to that lead.
+    """
     orchestrator = Orchestrator(
-        settings=settings, decider=DiscoveryDecider(), recorder=recorder
+        settings=settings,
+        decider=DiscoveryDecider(),
+        recorder=recorder,
+        known_fields=known_fields,
+        lead_id=lead_id,
     )
     return ConversationEngine(
         orchestrator,
@@ -184,8 +199,17 @@ async def run_bot(connection: SmallWebRTCConnection, settings: Settings) -> None
     init_db()  # idempotent; ensures Call/Turn/Decision tables exist
     stt, _llm, tts = build_services(settings)  # _llm unused: the engine owns reasoning now
     db = SessionLocal()
-    recorder = CallRecorder(db, channel="web", **compute_versions(settings).as_dict())
-    engine = build_engine(settings, recorder=recorder)
+    # Continue from a known lead's prior-call memory when one is configured (P10-T1). Anonymous
+    # web sessions (no demo_lead_id, or an unknown id) start cold, as before.
+    lead = LeadStore(db).load(settings.demo_lead_id) if settings.demo_lead_id else None
+    lead_id = lead.lead_id if lead is not None else None
+    seeded = known_fields(lead) if lead is not None else None
+    if lead is not None:
+        logger.info(f"continuing lead {lead_id} with known fields: {sorted(seeded)}")
+    recorder = CallRecorder(
+        db, lead_id=lead_id, channel="web", **compute_versions(settings).as_dict()
+    )
+    engine = build_engine(settings, recorder=recorder, known_fields=seeded, lead_id=lead_id)
     processor = EngineProcessor(engine, fillers=settings.fillers)
     transport = build_transport(connection, settings)
     task = build_engine_pipeline_task(

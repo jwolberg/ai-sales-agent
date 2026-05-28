@@ -114,6 +114,23 @@ def test_engine_pipeline_constructs():
     assert names.index("STTMuteFilter") < names.index("_DeepgramSTTService"), names
 
 
+def test_build_engine_seeds_known_fields_and_lead_id():
+    # P10-T1: cross-call memory must reach the live engine — known fields seed the state so the
+    # agent skips/confirms instead of re-asking, and the lead id is tracked on the call state.
+    settings = Settings(
+        _env_file=None, deepgram_api_key="x", anthropic_api_key="y", cartesia_api_key="z"
+    )
+    engine = build_engine(
+        settings,
+        known_fields={"subject": "SAT prep", "grade_level": "11th grade"},
+        lead_id="seed-partial-002",
+    )
+    assert engine.state.lead_id == "seed-partial-002"
+    assert engine.state.collected_fields["subject"] == "SAT prep"
+    # subject + grade are known, so only "who" remains to ask (LM-3 skip-known).
+    assert engine.orch.missing_required_fields() == ["relationship_to_student"]
+
+
 def test_engine_processor_filler_flag():
     settings = Settings(
         _env_file=None, deepgram_api_key="x", anthropic_api_key="y", cartesia_api_key="z"
