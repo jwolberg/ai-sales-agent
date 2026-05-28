@@ -1105,3 +1105,13 @@ and `resolve_leaf` completes the path. Contradictions (a `test` under tutoring, 
 doesn't match its area) are dropped rather than erroring. `next_unfilled` encodes the
 disambiguation order (R8). Leaf ids (`test_prep/SAT`, `tutoring/science/chemistry`) are the price
 keys for IR-1. Tests: `tests/test_taxonomy.py` (9). `ruff` clean.
+
+## 2026-05-28 — IR1-T1: price table + loader
+
+`data/pricing/pricing.yaml` (keyed by leaf id) + `app/agent/pricing.py`. `quote_price(leaf|id)`
+does an **exact** lookup and returns a `PriceRecord` or `None` (R6) — no record means honest
+fallback, never an invented number (R6b). **Decisions:** (1) prices are clearly-labeled
+PLACEHOLDER (`approved: false`) — not approved Nerdy figures; the loaded value is the source of
+truth the mis-quote guardrail (IR1-T2) will check against. (2) The loader rejects a price keyed to
+a leaf the taxonomy doesn't define, so the table can't drift from `taxonomy.py`. Tests:
+`tests/test_pricing.py` (6). `ruff` clean.

@@ -1,0 +1,49 @@
+# Intent-router price table — keyed by taxonomy LEAF id (IR1-T1, R6).
+#
+# !!! PLACEHOLDER PRICING — NOT approved Nerdy / Varsity Tutors figures. !!!
+# These exist so the classify -> quote flow is demoable end-to-end. Replace with approved
+# operator-provided numbers before any real use. `approved: false` flags this; the agent may
+# still quote them in dev, but the value is the authoritative source the mis-quote guardrail
+# (IR1-T2) checks against — the agent may NEVER state a price that isn't in this table.
+#
+# Prices are looked up EXACTLY by leaf id (never fuzzy/retrieved). A leaf with no entry here
+# yields an honest fallback (R6b), not an invented number.
+
+currency: USD
+approved: false
+
+leaves:
+  test_prep/SAT:
+    amount: 85
+    unit: per hour
+    summary: "SAT prep runs $85 an hour, and there are package rates once you book a block of hours."
+  test_prep/ACT:
+    amount: 85
+    unit: per hour
+    summary: "ACT prep is $85 an hour, with package rates for booking a block of hours."
+  test_prep/PSAT:
+    amount: 75
+    unit: per hour
+    summary: "PSAT prep is $75 an hour, with package rates for a block of hours."
+
+  tutoring/math/algebra:
+    amount: 70
+    unit: per hour
+    summary: "Algebra tutoring is $70 an hour, with package rates for a block of hours."
+  tutoring/math/geometry:
+    amount: 70
+    unit: per hour
+    summary: "Geometry tutoring is $70 an hour, with package rates for a block of hours."
+
+  tutoring/science/chemistry:
+    amount: 80
+    unit: per hour
+    summary: "Chemistry tutoring is $80 an hour, with package rates for a block of hours."
+  tutoring/science/biology:
+    amount: 75
+    unit: per hour
+    summary: "Biology tutoring is $75 an hour, with package rates for a block of hours."
+  tutoring/science/physics:
+    amount: 85
+    unit: per hour
+    summary: "Physics tutoring is $85 an hour, with package rates for a block of hours."
