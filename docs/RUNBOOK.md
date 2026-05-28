@@ -176,7 +176,7 @@ env var of the same name still overrides it if you need a one-off.
 ### 11.3 Run the demo
 
 ```bash
-.venv/bin/uvicorn app.main:app --reload --port 8000
+.venv/bin/uvicorn app.main:app --reload --port 8001
 ```
 
 Open **http://localhost:8000/demo**, click **Call**, allow the microphone, and talk —
