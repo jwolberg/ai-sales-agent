@@ -1176,3 +1176,15 @@ this engine.
   `MIS_QUOTE_BLOCKED`. `LEAF_REACHED` fires once per call; `CLARIFY_ASKED` on ASK turns.
 - Low-confidence STT turns ask the caller to repeat without invoking the brain (parity w/ old engine).
 Tests: `tests/test_intent_engine.py` (4). Full suite **216 passed**; `ruff` clean.
+
+## 2026-05-28 — IR3-T1: embeddings + SQLite store (sqlite-vec blocked locally; see D-17)
+
+Verifying IR3-T1 early surfaced the flagged risk for real: the dev Python has no
+`enable_load_extension`, and `pysqlite3-binary` has no wheel here, so `sqlite-vec` can't load
+locally. Per D-17 we build the dev path now and keep sqlite-vec for the GCP/Docker prod build.
+- `app/kb/embeddings.py`: pure-Python float32 (de)serialize (little-endian, sqlite-vec-compatible
+  bytes), `cosine`, `Embedder` protocol, `OpenAIEmbedder` (batched), `get_embedder` (None offline).
+  No numpy dependency added (corpus is tiny — pure-Python cosine is instant).
+- `db/models.py`: new `KBEmbedding` table (chunk_id, source, title, text, model, dim, embedding
+  BLOB) — the vector store lives in the same SQLite DB so prod sqlite-vec can read the same rows.
+Tests: `tests/test_embeddings.py` (4). `ruff` clean.

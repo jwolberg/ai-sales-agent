@@ -8,7 +8,16 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, String, Text
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -201,3 +210,23 @@ class Variant(Base):
     retired_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     experiment: Mapped[Optional["Experiment"]] = relationship(back_populates="variants")
+
+
+class KBEmbedding(Base):
+    """A KB chunk's embedding, persisted in SQLite (IR3-T1, D-17).
+
+    The vector lives next to the call data so the dev retriever ranks with Python cosine and the
+    production GCP build can swap in a sqlite-vec index over the same rows. ``embedding`` is a
+    little-endian float32 byte string (see ``kb/embeddings.py``).
+    """
+
+    __tablename__ = "kb_embeddings"
+
+    chunk_id: Mapped[str] = mapped_column(String, primary_key=True)
+    source: Mapped[str] = mapped_column(String)
+    title: Mapped[str | None] = mapped_column(String, nullable=True)
+    text: Mapped[str] = mapped_column(Text)
+    model: Mapped[str] = mapped_column(String)
+    dim: Mapped[int] = mapped_column(Integer)
+    embedding: Mapped[bytes] = mapped_column(LargeBinary)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)

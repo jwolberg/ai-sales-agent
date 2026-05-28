@@ -228,3 +228,22 @@ Planning Assumptions or Architecture Notes, it is cross-referenced.
 - **Tradeoffs:** No operator takeover yet (deferred); WebSocket is the documented upgrade path
   when takeover lands. Adds React build tooling and turn-latency instrumentation work.
 - **Date:** 2026-05-28 · **Owner:** Jay Wolberg
+
+## D-17 — KB vector store: SQLite-persisted embeddings, Python cosine in dev; sqlite-vec on GCP
+
+- **Context:** D-15 chose OpenAI `text-embedding-3-small` + `sqlite-vec`. Verifying IR3-T1 early
+  (as the plan required) surfaced a hard local blocker: the dev Python (python.org framework build)
+  was compiled WITHOUT loadable-extension support, and `pysqlite3-binary` has no wheel for this
+  platform — so `sqlite-vec`'s `vec0` cannot load locally.
+- **Options Considered:** (a) Python-side cosine over embeddings persisted as BLOBs in the existing
+  SQLite DB; (b) add `apsw` for an isolated extension-loading connection; (c) defer semantic KB.
+- **Chosen Approach:** (a) for dev now — embeddings live in SQLite (`kb_embeddings` table), the
+  query is embedded with OpenAI, and ranking is cosine in Python (corpus is tiny, so it's instant).
+  The retriever sits behind an interface so a `sqlite-vec`-backed implementation drops in for the
+  **production GCP/Docker build**, where we control the SQLite/Python and `vec0` loads.
+- **Reason:** Preserves the real product goal (OpenAI semantic retrieval, stored in SQLite) and
+  unblocks dev immediately, without forcing an interpreter change. sqlite-vec stays the prod target
+  per the user's intent ("we need SQLite ... in production later on gcloud").
+- **Tradeoffs:** Two retriever backends to keep behind one interface; Python cosine won't scale to a
+  large corpus (fine here — a few dozen chunks). TF-IDF remains the no-key offline fallback.
+- **Date:** 2026-05-28 · **Owner:** Jay Wolberg
