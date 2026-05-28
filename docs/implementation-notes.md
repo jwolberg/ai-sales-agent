@@ -1188,3 +1188,15 @@ locally. Per D-17 we build the dev path now and keep sqlite-vec for the GCP/Dock
 - `db/models.py`: new `KBEmbedding` table (chunk_id, source, title, text, model, dim, embedding
   BLOB) — the vector store lives in the same SQLite DB so prod sqlite-vec can read the same rows.
 Tests: `tests/test_embeddings.py` (4). `ruff` clean.
+
+## 2026-05-28 — IR3-T2: vector ingest + retriever
+
+`kb/vector_retriever.py`: `build_index(session, embedder, chunks=None)` reuses the markdown chunker,
+embeds chunks, and (re)persists `KBEmbedding` rows (wipes+reinserts, so rebuild is idempotent).
+`VectorRetriever` loads the rows into memory and ranks by cosine — a drop-in for `KBRetriever`
+(same `retrieve(query, *, k, min_score) -> list[RetrievedChunk]`). Wired `knowledge`:
+`get_default_retriever()` prefers the vector retriever when an embedder + populated index exist,
+else TF-IDF; `answer_question`'s `min_score` now defaults to the retriever's own
+`default_min_score` (TF-IDF 0.45, vector 0.30) so the two score scales don't collide. Offline /
+no-key / empty-index / any-error -> TF-IDF (existing knowledge+kb tests unchanged). Tests:
+`tests/test_vector_retriever.py` (6) with a deterministic fake embedder. Full suite **225 passed**.

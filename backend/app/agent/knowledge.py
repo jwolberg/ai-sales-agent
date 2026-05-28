@@ -88,15 +88,37 @@ class GroundedAnswer:
     fallback: str | None = None
 
 
+def get_default_retriever():
+    """Prefer the OpenAI-embedding vector retriever when it's available and populated; otherwise
+    fall back to the dependency-free TF-IDF retriever (offline / no key / empty index)."""
+    try:
+        from app.db.session import SessionLocal
+        from app.kb.embeddings import get_embedder
+        from app.kb.vector_retriever import VectorRetriever
+
+        embedder = get_embedder()
+        if embedder is not None:
+            with SessionLocal() as session:
+                vr = VectorRetriever.from_session(session, embedder)
+            if len(vr) > 0:
+                return vr
+    except Exception:
+        # Any setup problem (no table, DB error, etc.) -> safe lexical fallback.
+        pass
+    return get_retriever()
+
+
 def answer_question(
     question: str,
     *,
     retriever: KBRetriever | None = None,
     k: int = DEFAULT_K,
-    min_score: float = DEFAULT_MIN_SCORE,
+    min_score: float | None = None,
 ) -> GroundedAnswer:
     """Retrieve approved content for ``question``; ground in it or fall back honestly (KB-4)."""
-    retriever = retriever or get_retriever()
+    retriever = retriever or get_default_retriever()
+    if min_score is None:
+        min_score = getattr(retriever, "default_min_score", DEFAULT_MIN_SCORE)
     hits = retriever.retrieve(question, k=k, min_score=min_score)
     if not hits:
         return GroundedAnswer(grounded=False, fallback=FALLBACK_MESSAGE)

@@ -44,6 +44,9 @@ class RetrievedChunk:
 class KBRetriever:
     """TF-IDF retrieval over a fixed set of KB chunks."""
 
+    # The grounded-vs-fallback bar for TF-IDF scores (see knowledge.DEFAULT_MIN_SCORE).
+    default_min_score = 0.45
+
     def __init__(self, chunks: list[KBChunk]) -> None:
         self._chunks = chunks
         self._chunk_tokens = [_tokenize(f"{c.title} {c.text}") for c in chunks]
