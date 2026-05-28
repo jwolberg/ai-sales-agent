@@ -4,25 +4,47 @@ Looping ambient audio ("comfort noise") mixed **under** the agent's voice so the
 falls to dead digital silence. Mixed on the **output** path only (what the caller hears), so it
 never reaches Deepgram STT or Silero VAD — no transcription/turn-taking contamination.
 
-## Drop your file here
+## Current asset
 
-- **Default path:** `data/audio/ambient.wav` (the config flag points here).
-- **Format: WAV** — Pipecat's `SoundfileMixer` reads via libsndfile (WAV/FLAC/OGG). **MP3 is not
-  supported.** If you only have an MP3, drop it as `data/audio/ambient.mp3` and it'll be converted
-  to WAV during P4.5-T6.
-- **Mono**, ideally **16 kHz** (matches the pipeline; otherwise it's resampled once).
-- **Seamless loop** — no click or gap at the loop seam, or it sounds robotic.
-- **Subtle** — it's mixed at low volume (~0.10–0.20, configurable); it should be barely-there
-  room tone, not a distraction.
-- **Licensing** — must be royalty-free or otherwise licensed for this use.
+- **`ambient.wav`** — the active bed: **mono, 24 kHz, PCM s16, ~3.3 s**. Converted from
+  `ambient.mp3` (the source MP3s are kept for re-conversion).
+- `ambient.mp3`, `ambient1.mp3` — source clips (two different ambiences). To switch beds, convert
+  the other one to `ambient.wav` (see command below).
 
-## How it's wired (P4.5-T6)
+## Hard requirements (don't skip — the mixer is picky)
 
-`SoundfileMixer(sound_files={"ambient": <path>}, volume=…, loop=True)` is attached to the
-transport via `TransportParams(audio_out_mixer=…)`, gated behind an `ambient_noise` config flag
-(off by default, like `voice_debug`). Volume is runtime-adjustable.
+Pipecat's `SoundfileMixer` **does not resample and does not downmix**. If the file doesn't match,
+it logs a warning and **silently plays nothing**. So the WAV must be:
+
+- **WAV/PCM** (libsndfile — not MP3).
+- **Mono.**
+- **Sample rate == the transport's output rate.** We pin that to **24000 Hz** in P4.5-T6
+  (`audio_out_sample_rate`); the asset is 24 kHz to match. If the output rate changes, re-convert.
+- **Seamless loop** — no click at the seam (a short loop repeats often, so a pop is very audible).
+- **Subtle** — mixed at low volume (~0.10–0.20, configurable); barely-there room tone.
+
+## Re-convert from MP3 (ffmpeg)
+
+```bash
+ffmpeg -y -i data/audio/ambient.mp3 -ac 1 -ar 24000 -sample_fmt s16 data/audio/ambient.wav
+```
+
+## Wiring (P4.5-T6)
+
+`SoundfileMixer(sound_files={"ambient": "data/audio/ambient.wav"}, default_sound="ambient",
+volume=…, loop=True)` attached via `TransportParams(audio_out_mixer=…)`, gated behind an
+`ambient_noise` config flag (off by default, like `voice_debug`). Volume is runtime-adjustable.
+
+> **Dependency:** `SoundfileMixer` imports `soundfile`, which is **not yet installed** in the
+> venv. P4.5-T6 must add `soundfile` (and its libsndfile) to the `voice` extra.
+
+## Caveats to revisit in P4.5-T6
+
+- **Short loop (~3.3 s)** may sound repetitive over a long call — prefer a longer bed, or add a
+  crossfade at the loop boundary.
+- Confirm the transport output rate really is 24 kHz once the engine is wired; re-convert if not.
 
 ## Honesty note (§18)
 
-Ambiance for naturalness is fine and standard, but it must not be used to deceive — the agent
-still must never claim to be human if asked. Comfort noise ≠ pretending to be a person.
+Ambiance for naturalness only; the agent still must never claim to be human. Comfort noise ≠
+pretending to be a person.

@@ -280,6 +280,8 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
     action-signature before speaking). **Looping ambient "comfort noise"** mixed under the agent's
     voice via Pipecat `SoundfileMixer` on the transport output (output-only → no STT/VAD impact),
     gated by an `ambient_noise` config flag (off by default), low volume, WAV asset. Measure vs VC-3.
+    NOTE: `SoundfileMixer` doesn't resample/downmix — pin `audio_out_sample_rate=24000` to match the
+    asset (`data/audio/ambient.wav`, mono 24 kHz, ready) and add the `soundfile` dep to the voice extra.
   - Files likely involved: `backend/app/voice/latency.py`, `backend/app/voice/pipeline.py`,
     `backend/app/config.py`, `backend/config.toml`, `data/audio/ambient.wav`
   - Depends on: P4.5-T5
