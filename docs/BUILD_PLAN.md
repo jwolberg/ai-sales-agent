@@ -39,7 +39,7 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 ## Current Status
 - **Overall status:** In Progress
 - **Current phase:** Phase 4.5 — Conversation Integration & Latency
-- **Current ticket:** P4.5-T2 (next) — field & intent extraction
+- **Current ticket:** P4.5-T3 (next) — directive + render step
 - **Blockers:** None
 - **DESIGN:** Phase 4.5 inserted per `docs/AGENT_INTEGRATION.md` — the Phases 2–4 agent layer
   is built but NOT wired into the live pipeline (which still runs raw Claude). This phase makes
@@ -253,7 +253,10 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `backend/app/agent/extraction.py`
   - Depends on: P4.5-T1
   - Acceptance criteria covered: LM-2 (detect missing), DF inputs; enabler for live progress
-  - Status: Todo
+  - Status: Complete (added `app/agent/extraction.py`: `Extractor` protocol + deterministic
+    `RuleBasedExtractor` — slot-fills the pending question, detects buying/disqualification
+    signals, flags non-answers for clarify (LM-2). Coarse slot value (stored utterance); LLM
+    structured extractor can swap in via the protocol.)
 - P4.5-T3 — Directive + render step
   - Objective: replace the overloaded `NextAction.prompt` with a structured **Directive**
     (intent + content + style) and a single pure `render(directive, state) → utterance`

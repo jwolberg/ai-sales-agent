@@ -468,6 +468,27 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 
 ---
 
+## P4.5-T2 — field & intent extraction (2026-05-27)
+
+- **`app/agent/extraction.py`:** `Extractor` protocol + `RuleBasedExtractor` returning an
+  `Extraction(fields, buying_intent, disqualified, understood)`. Slot-fills the **pending**
+  question with the (lightly cleaned) utterance, detects committal buying cues and
+  disqualification cues, and sets `understood=False` for non-answers / questions-back so the
+  engine can clarify (LM-2). `get_extractor()` returns the default.
+- **Deliberately deterministic v1 (no LLM):** keeps it cheap and unit-testable. Two known
+  coarsenesses, documented: (1) the slot value is the stored utterance, not a parsed token
+  ("She's in 8th grade" rather than "8th grade") — fine for skip-known truthiness and for weaving
+  into confirmations; (2) buying cues are *committal phrases* only, so "how do I get started?"
+  (a question) doesn't false-trigger. The `Extractor` protocol lets an LLM structured extractor
+  replace it later without touching the engine.
+- **Not wired yet:** the engine (P4.5-T4) merges `Extraction.fields` into `state.collected_fields`
+  and sets `state.buying_intent`; routing decides when extraction applies (PROGRESS turns).
+- **Validation:** `ruff` clean; `pytest` 89 passed (9 new: protocol, slot-fill, short answer,
+  non-answer→clarify, question-back, no-pending, buying intent (and not-on-question),
+  disqualification, answer+intent combined).
+
+---
+
 ## KB content: pricing provided by operator (2026-05-27)
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).
