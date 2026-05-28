@@ -733,6 +733,27 @@ the Phase 6 simulator and Phase 7 experiment loop build on. (Latency/frustration
 
 ---
 
+## P6-T3 — agent performance scoring (2026-05-27) — Phase 6 complete
+
+- **`app/simulator/scoring.py` `score_call`** combines: **deterministic** flags off the recorded
+  call (escalated / close_attempted / discovery_completed / objection raised+recovered, and
+  `appropriate_for_persona` — a converts persona should progress toward a close, a poor-fit persona
+  should NOT be force-closed) + an **LLM-as-judge** (`judge_transcript`, structured output via
+  `messages.parse`) for the qualitative §16 signals: frustration, unsupported-claim, consultative
+  1–5. Judge client injected (tests fake it; no API). Cross-persona aggregation is Phase 7.
+- **Validation:** `ruff` clean; `pytest` 150 passed (5 new: objection-recovery/escalation flags,
+  poor-fit-not-force-closed appropriate, converts-without-progress inappropriate, judge mapping,
+  judge prompt content).
+
+### Phase 6 complete
+
+≥6 honest personas, a self-play runner producing the same traced/versioned records (labeled
+synthetic), and per-call scoring (deterministic + LLM judge). The agent can now be tested at
+volume against adversarial prospects without a human — the substrate the Phase 7 experiment loop
+runs on.
+
+---
+
 ## KB content: pricing provided by operator (2026-05-27)
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).

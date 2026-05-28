@@ -38,8 +38,8 @@ Explicit non-goals affecting implementation (PRD §4): no replacing all human ag
 
 ## Current Status
 - **Overall status:** In Progress
-- **Current phase:** Phase 6 — Synthetic Prospect Simulator (entering)
-- **Current ticket:** P6-T3 (next) — agent performance scoring
+- **Current phase:** Phase 7 — Recursive Improvement Loop (entering)
+- **Current ticket:** P7-T1 (next) — experiment & variant infrastructure
 - **LIVE-VALIDATE (Phase 4.5):** the decider-led voice path (`app/voice/bot.py`) + latency layer
   (fillers, ambient bed) are construction/unit-validated only. A browser/mic/keys run (RUNBOOK
   §11) is still needed to confirm the live conversation and to measure latency vs VC-3.
@@ -393,7 +393,11 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Files likely involved: `backend/app/simulator/scoring.py`
   - Depends on: P6-T2
   - Acceptance criteria covered: §11.2 Step 1 metrics, §16
-  - Status: Todo
+  - Status: Complete (added `app/simulator/scoring.py` `score_call`: deterministic flags from the
+    recorded call (escalated / close-attempted / discovery-completed / objection raised+recovered /
+    `appropriate_for_persona` — converts→progressed, poor-fit→not force-closed) + an LLM-as-judge
+    (`judge_transcript`, structured output) for frustration / unsupported-claim / consultative 1–5.
+    Judge client injected for tests.)
 
 ### Phase 7 — Recursive Improvement Loop (Price Objection)
 **Goal**
