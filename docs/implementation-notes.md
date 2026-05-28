@@ -862,3 +862,23 @@ runs on.
   the PENDING-LIVE failure modes and refresh `docs/limitations.md` once humans test.
 - **Validation:** docs-only change — no lint/tests to run (no code touched). `README.md`/limitations
   cite `docs/failure-modes.md`, which now exists (no dangling links).
+
+---
+
+## P9-T1 — relabel CTA + audio-asset scaffolding (2026-05-28)
+
+- **New phase (9) for demo polish:** make `/demo` feel like a phone call. Relabeled the button
+  to "Call 1-800-Nerdy-4-u" and updated the intro copy in `frontend/index.html`.
+- **Decision — two audio assets, not one.** The user chose "loop ring until the agent answers,"
+  which can't cleanly loop a single combined mp3. Split into `frontend/audio/dial.mp3` (one-shot
+  dial+digits) and `frontend/audio/ring.mp3` (loop-safe ring) — a deviation from the original
+  "an mp3" ask, required by the chosen behavior.
+- **Decision — assets live under `frontend/`, not `data/audio/`.** `data/audio/` is server-side
+  comfort noise mixed into the agent stream and is *not* web-served; these are browser-played
+  effects, so they must be under the `/demo` static mount. Added `frontend/audio/README.md`
+  documenting the contract (mirrors `data/audio/README.md` style).
+- **Placeholders are silent stubs** (ffmpeg `anullsrc`, dial 3 s / ring 2 s) so playback wiring
+  is testable now; user drops in real audio later with no code change. The user owns the final
+  audio (their choice).
+- **Validation:** static frontend assets — no lint/tests apply (no Python touched). Browser
+  behavior is wired in P9-T2; full manual verification (RUNBOOK §11) after T2.

@@ -500,6 +500,40 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
   - Acceptance criteria covered: §26
   - Status: Todo
 
+### Phase 9 — "Phone Call" Demo Intro
+**Goal**
+- Make the `/demo` CTA feel like placing a real phone call — relabel it "Call 1-800-Nerdy-4-u"
+  and play dial tone → digits → ringing that loops until the agent answers — as demo polish for
+  the §26 walkthrough. Frontend-only; no backend change. The phone number is cosmetic (no real
+  telephony).
+
+**Exit Criteria**
+- Button reads "Call 1-800-Nerdy-4-u"; clicking plays dial+digits then a looping ring; the ring
+  stops and the agent greets the moment the WebRTC call connects; hang up / errors / denied mic
+  stop all audio. Works with placeholder stubs and with user-supplied audio, no code change.
+
+**Tickets**
+- P9-T1 — Relabel CTA + audio-asset scaffolding
+  - Objective: Change the demo button text to "Call 1-800-Nerdy-4-u"; add the browser-served
+    audio assets (one-shot `dial.mp3` + loop-safe `ring.mp3`) as silent placeholder stubs the
+    user replaces; document the asset contract.
+  - Files likely involved: `frontend/index.html`, `frontend/audio/dial.mp3`,
+    `frontend/audio/ring.mp3`, `frontend/audio/README.md`
+  - Depends on: P2-T1 (demo client)
+  - Acceptance criteria covered: §26 (demo polish)
+  - Status: Complete (button relabeled + copy updated; `frontend/audio/` added with silent
+    placeholder `dial.mp3`/`ring.mp3` (ffmpeg `anullsrc`) and a README documenting the
+    user-provided asset contract. Assets served via the existing `/demo` static mount.)
+- P9-T2 — Phone-call intro playback + connect-on-answer wiring
+  - Objective: In `client.js`, after the `/voice/status` ready-check, play `dial.mp3` once then
+    loop `ring.mp3` while connecting in parallel; stop the ring and let the agent greet the
+    moment the connection reaches `connected`; stop all audio on hang up / failure / mic denial;
+    add "Dialing…/Ringing…" status; guard the answer-during-intro race.
+  - Files likely involved: `frontend/client.js`
+  - Depends on: P9-T1
+  - Acceptance criteria covered: §26 (demo polish)
+  - Status: Todo
+
 ---
 
 ## Dependency Order
