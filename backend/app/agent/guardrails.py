@@ -38,6 +38,10 @@ LOW_CONFIDENCE = "low_confidence"
 CLAIMS_HUMAN = "claims_to_be_human"
 QUOTES_PRICE = "quotes_unapproved_price"
 PROMISES_GUARANTEE = "promises_guarantee"
+# Intent-router (IR1-T2): the agent stated a price that doesn't match an authorized price-table
+# record for the turn. Unlike QUOTES_PRICE (advisory), this is a HARD violation — a wrong number
+# is exactly the guardrail we promise never to break (R6).
+MIS_QUOTE = "states_off_table_price"
 
 # Cue lists, checked in this priority order.
 _ESCALATION_CUES: list[tuple[str, tuple[str, ...]]] = [
@@ -124,3 +128,35 @@ def check_agent_output(text: str) -> list[str]:
     if _GUARANTEE_RE.search(lowered):
         violations.append(PROMISES_GUARANTEE)
     return violations
+
+
+# A dollar amount in agent speech: "$85", "$85.50", "85 dollars", "85 usd".
+_PRICE_AMOUNT_RE = re.compile(
+    r"\$\s?(\d+(?:\.\d{1,2})?)|\b(\d+(?:\.\d{1,2})?)\s?(?:dollars|usd)\b", re.IGNORECASE
+)
+
+
+def extract_price_amounts(text: str) -> list[float]:
+    """Pull every explicit dollar amount out of agent speech (for the mis-quote guard)."""
+    amounts: list[float] = []
+    for m in _PRICE_AMOUNT_RE.finditer(text):
+        raw = m.group(1) or m.group(2)
+        if raw is not None:
+            amounts.append(float(raw))
+    return amounts
+
+
+def check_mis_quote(text: str, *, allowed_amount: float | None) -> bool:
+    """True if the agent stated a price it isn't authorized to (IR1-T2, R6).
+
+    ``allowed_amount`` is the authoritative price-table figure for the turn's confirmed leaf, or
+    ``None`` when no leaf/price is authorized yet. Any stated dollar amount with no authorization,
+    or any amount that doesn't match the authorized figure, is a hard violation. A reply with no
+    dollar amount is always clean (the agent may *talk about* price without quoting one).
+    """
+    amounts = extract_price_amounts(text)
+    if not amounts:
+        return False
+    if allowed_amount is None:
+        return True
+    return any(abs(a - allowed_amount) > 0.001 for a in amounts)

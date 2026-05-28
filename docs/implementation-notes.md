@@ -1115,3 +1115,14 @@ PLACEHOLDER (`approved: false`) — not approved Nerdy figures; the loaded value
 truth the mis-quote guardrail (IR1-T2) will check against. (2) The loader rejects a price keyed to
 a leaf the taxonomy doesn't define, so the table can't drift from `taxonomy.py`. Tests:
 `tests/test_pricing.py` (6). `ruff` clean.
+
+## 2026-05-28 — IR1-T2: mis-quote guardrail
+
+Added `check_mis_quote(text, allowed_amount)` + `extract_price_amounts` to `agent/guardrails.py`
+and a `MIS_QUOTE` violation code; added `MIS_QUOTE_BLOCKED` / `LEAF_REACHED` / `CLARIFY_ASKED` to
+`kpis/events.py`. **Decision:** unlike the legacy advisory `QUOTES_PRICE` flag (left intact for the
+old voice guard), a mis-quote is a HARD violation — any dollar amount stated with no authorized
+leaf/price, or one that doesn't match the price-table figure for the turn, is caught. A reply with
+no dollar amount is always clean (the agent may discuss price without quoting). The engine (IR2-T3)
+will substitute a safe handoff and emit `MIS_QUOTE_BLOCKED` on a hit. Tests:
+`tests/test_guardrails_misquote.py` (5); existing guardrail/KPI tests unaffected. `ruff` clean.

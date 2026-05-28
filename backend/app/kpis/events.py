@@ -13,3 +13,8 @@ CALL_COMPLETED = "call_completed"
 # Captured when detection lands later; metrics already account for them.
 UNSUPPORTED_CLAIM = "unsupported_claim"
 FRUSTRATION = "frustration"
+
+# Intent-router events (IR-1 / IR-5).
+MIS_QUOTE_BLOCKED = "mis_quote_blocked"  # agent tried to state an off-table price; guard caught it
+LEAF_REACHED = "leaf_reached"            # the brain reached a confident classification leaf
+CLARIFY_ASKED = "clarify_asked"          # the brain asked a disambiguating question
