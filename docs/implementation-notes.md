@@ -1437,3 +1437,13 @@ into a React hook (`useTestCall.js`) + a `TestCall.jsx` control beside "Start si
   allows one active test call at a time (button disables while live); no server-side concurrency cap
   added. No automated voice tests exist — validated via `npm run build`; needs a manual smoke
   (speak, hear the agent, confirm the call + decision trace on the board).
+
+## 2026-05-29 — IR-8 fix: Test Call "addTrack on a closed RTCPeerConnection"
+
+`start()` does two awaits (`/voice/status`, `getUserMedia`) before `addTrack`. Under React
+StrictMode (dev mounts → cleanup → remounts), HMR, or a fast unmount, the effect cleanup calls
+`stop()` and closes the pc *during* an await, so `addTrack` then ran on a closed connection.
+Fix: a generation token (`genRef`) bumped by every start/stop; `start()` captures its value and
+bails after each await if superseded — releasing the mic and closing the orphaned pc instead of
+touching it. Also guards the `catch` so a superseded attempt can't overwrite state with an error.
+Root cause was async setup not tolerating teardown, not the WebRTC logic itself.

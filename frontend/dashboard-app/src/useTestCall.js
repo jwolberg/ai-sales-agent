@@ -29,8 +29,13 @@ export function useTestCall() {
   const pcRef = useRef(null)
   const streamRef = useRef(null)
   const audioRef = useRef(null) // attached to a hidden <audio> by the component
+  // Bumped by every start/stop. start() captures its value and bails after each await if it no
+  // longer matches — i.e. the attempt was superseded by a teardown (StrictMode remount, unmount,
+  // hang-up) or a newer start. This is what prevents "addTrack on a closed RTCPeerConnection".
+  const genRef = useRef(0)
 
   const stop = useCallback((nextStatus = 'ended') => {
+    genRef.current += 1 // cancel any in-flight start()
     const pc = pcRef.current
     pcRef.current = null
     if (pc) {
@@ -49,10 +54,12 @@ export function useTestCall() {
   }, [])
 
   const start = useCallback(async () => {
+    const gen = (genRef.current += 1) // this attempt's token; supersedes any prior in-flight start
     setError(null)
     setStatus('checking')
     try {
       const s = await api.voiceStatus()
+      if (genRef.current !== gen) return // torn down during the status check (no pc/mic yet)
       if (!s.ready) {
         setError(`Voice not configured — missing: ${(s.missing_keys || []).join(', ')}`)
         setStatus('error')
@@ -83,12 +90,20 @@ export function useTestCall() {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       })
+      // The mic prompt is async: if the call was torn down while it was open, release the mic and
+      // close the orphaned pc rather than calling addTrack on a closed connection.
+      if (genRef.current !== gen) {
+        stream.getTracks().forEach((t) => t.stop())
+        pc.close()
+        return
+      }
       streamRef.current = stream
       stream.getTracks().forEach((t) => pc.addTrack(t, stream))
 
       const offer = await pc.createOffer({ offerToReceiveAudio: true })
       await pc.setLocalDescription(offer)
       await waitForIceGathering(pc)
+      if (genRef.current !== gen) return // torn down during ICE gathering (stop() released the mic)
 
       const resp = await api.voiceOffer(pc.localDescription.sdp, pc.localDescription.type)
       if (!resp.ok) {
@@ -98,8 +113,10 @@ export function useTestCall() {
         return
       }
       const answer = await resp.json()
+      if (genRef.current !== gen) return // torn down while awaiting the answer
       await pc.setRemoteDescription({ type: answer.type, sdp: answer.sdp })
     } catch (e) {
+      if (genRef.current !== gen) return // a superseded attempt threw on teardown — ignore
       // getUserMedia denial lands here (NotAllowedError) — surface a clear message.
       const msg =
         e && e.name === 'NotAllowedError'
