@@ -3,6 +3,7 @@ import { api } from './api.js'
 import { useLiveCalls } from './useLiveCalls.js'
 import CallBoard from './CallBoard.jsx'
 import CallDetail from './CallDetail.jsx'
+import InsightsPanel from './InsightsPanel.jsx'
 
 function SimControls() {
   const [personas, setPersonas] = useState([])
@@ -47,6 +48,7 @@ export default function App() {
   const { calls, order } = useLiveCalls()
   const [selected, setSelected] = useState(null)
   const connected = order.length >= 0 // stream is opened by the hook
+  const activeCount = Object.values(calls).filter((c) => c.status === 'active').length
 
   return (
     <div className="app">
@@ -57,6 +59,10 @@ export default function App() {
         </span>
       </header>
       <SimControls />
+      <section className="panel">
+        <h2>Insights</h2>
+        <InsightsPanel activeCount={activeCount} />
+      </section>
       <div className="layout">
         <section className="panel">
           <h2>Active &amp; recent calls</h2>

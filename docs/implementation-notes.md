@@ -1351,3 +1351,13 @@ active/recent call cards (channel, live/ended, leaf, price, latency, mis-quote f
 shows streaming prospect/agent transcript bubbles + the per-turn decision trace (action, confidence,
 slots, leaf), fetching the snapshot for historical calls and streaming live ones. App is now a
 two-pane board+detail layout. `npm run build` succeeds.
+
+## 2026-05-28 — IR7-T6: insights panel + end-to-end smoke
+
+`InsightsPanel` polls `/api/router-metrics` (every 4s) and shows tiles: active calls (live),
+total calls, leaf-reached / quoted / escalation / mis-quote rates (mis-quote red when >0), and
+turn-latency p50/p95. Classification accuracy stays a benchmark artifact (needs ground truth), not
+a live tile. **End-to-end smoke (offline RuleBrain, real uvicorn):** `/health` ok, `/dashboard/`
+serves the built app (200), `POST /api/sim/start` → call classified `tutoring/science/chemistry`,
+quoted $80, `/api/router-metrics` reported leaf_reached 1.0 / mis_quote 0.0 / latency p50 6.7ms.
+Phase IR-7 dashboard (T4–T6) complete; T7 (Twilio) remains deferred.
