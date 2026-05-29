@@ -43,21 +43,23 @@ gcloud run deploy nerdy-router \
 The image bundles the voice extra (Pipecat + OpenCV/WebRTC native libs), so the build is heavier and
 the image larger than a core-only one — the first `--source` build takes a few minutes.
 
-**Service URL:** assigned by Cloud Run on the first deploy (not known until then). Retrieve and
-record it here after deploying:
+**Service URL (deployed):** `https://your-service.example.com`
+
+- Live dashboard: https://your-service.example.com/dashboard
+- Health:         https://your-service.example.com/health
+- Twilio webhook: `https://your-service.example.com/voice/twilio`
+
+Re-fetch any time with:
 
 ```bash
 gcloud run services describe nerdy-router --project nerdy-1 --region us-central1 \
   --format="value(status.url)"
-# -> https://nerdy-router-XXXXXXXX-uc.a.run.app   (record the printed URL below)
 ```
 
-- Live dashboard: `https://<service-url>/dashboard`
-- Health:         `https://<service-url>/health`
-- Twilio webhook: `https://<service-url>/voice/twilio`  (+ `PUBLIC_BASE_URL=https://<service-url>`)
-
-> Not deployed yet as of this writing — enable the APIs (above) and run the deploy; the project's
-> Cloud Run API must be on and `gcloud config set project nerdy-1` active first.
+Deployed to `nerdy-1` (us-central1) with the voice extra; voice/LLM/Stripe/Twilio keys are set as
+service env vars (`/voice/status` reports `ready: true`). The webhook derives the `<Stream>` wss URL
+from the request host, so `PUBLIC_BASE_URL` isn't required on Cloud Run (set it only if you front the
+service with a custom domain).
 
 Notes:
 - **Pin to one instance for the live dashboard.** The dashboard streams over an **in-process**
