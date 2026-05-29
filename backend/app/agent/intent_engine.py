@@ -44,6 +44,10 @@ class RouterTurnResult:
 
     decision: BrainDecision
     utterance: str
+    # The brain decision time (ms) and the agent Turn's id, so the voice path can attach the full
+    # end-to-end latency breakdown once the agent's audio actually goes out (LAT-T1).
+    brain_ms: float | None = None
+    agent_turn_id: str | None = None
 
     @property
     def action(self) -> RouterAction:
@@ -150,9 +154,14 @@ class IntentRouterEngine:
             self.recorder.record_brain_decision(
                 decision, turn_id=turn.turn_id if turn is not None else None, missing=missing
             )
-        self._emit_agent(decision.utterance, latency_ms=latency_ms)
+        agent_turn = self._emit_agent(decision.utterance, latency_ms=latency_ms)
 
-        return RouterTurnResult(decision=decision, utterance=decision.utterance)
+        return RouterTurnResult(
+            decision=decision,
+            utterance=decision.utterance,
+            brain_ms=latency_ms,
+            agent_turn_id=agent_turn.turn_id if agent_turn is not None else None,
+        )
 
     def end(self, *, outcome: str | None = None, summary: str | None = None) -> None:
         if self.recorder is not None:
@@ -261,10 +270,12 @@ class IntentRouterEngine:
             return f"{base} and just texted you the link. Anything else I can help with?"
         return f"{base}. Anything else I can help with?"
 
-    def _emit_agent(self, text: str, *, latency_ms: float | None = None) -> None:
+    def _emit_agent(self, text: str, *, latency_ms: float | None = None):
+        """Append the agent turn to history and persist it; returns the Turn (or None offline)."""
         self.history.append(("agent", text))
         if self.recorder is not None:
-            self.recorder.record_agent(text, latency_ms=latency_ms)
+            return self.recorder.record_agent(text, latency_ms=latency_ms)
+        return None
 
     def _emit_kpi(self, event_type: str, *, metadata: dict | None = None) -> None:
         if self.recorder is not None:

@@ -1617,3 +1617,19 @@ Backend 172 passed; frontend builds; ruff clean.
 
 To try it end-to-end with no keys: set `PAYMENTS_FAKE=true` in backend/.env, start a Test Call, say
 "I'll pay now" after the quote → a fake link appears in the panel (and on the board).
+
+## 2026-05-29 — LAT-T1: end-to-end latency breakdown core
+
+Closes the IR7-T1 gap (latency was brain-decision-only). Added `Turn.latency_breakdown` JSON
+(stt/brain/tts) and made `latency_ms` the END-TO-END turnaround on voice turns. Pieces:
+- `app/agent/latency.py` `compose_turn_latency(...)` — pure helper turning the four turn boundaries
+  (user-stopped / transcript / brain-done / bot-started) into total + {stt,brain,tts}. Unit-tested.
+- Engine: `RouterTurnResult` now carries `brain_ms` + `agent_turn_id`; `_emit_agent` returns the Turn.
+- Recorder: `update_turn_latency(turn_id, latency_ms, breakdown)` — the voice path overwrites the
+  brain-only timing with end-to-end once the agent's audio goes out.
+- Metrics: `turn_latency_breakdown_ms` = mean stt/brain/tts across voice turns (null in text mode);
+  p50/p95 now reflect end-to-end on voice.
+- **Migration caution:** `latency_breakdown` is a NEW COLUMN on an existing table — `create_all`
+  won't add it to an existing dev DB. Recreate `nerdy_sales.db` (and rebuild the KB index) before
+  the next live run. Tests use fresh in-memory DBs.
+Full suite 176 passed; ruff clean. Frame wiring that feeds the helper lands in LAT-T2.

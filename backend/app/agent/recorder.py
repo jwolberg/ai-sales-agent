@@ -136,6 +136,21 @@ class CallRecorder:
         """Record something the caller said."""
         return self.record_turn(SPEAKER_PROSPECT, text, **kwargs)
 
+    def update_turn_latency(
+        self, turn_id: str, *, latency_ms: float | None, breakdown: dict | None = None
+    ) -> None:
+        """Attach the end-to-end latency + stt/brain/tts breakdown to an already-recorded agent turn
+        (LAT-T1). The voice path calls this once the agent's audio actually goes out — after
+        ``record_agent`` already committed the turn with the brain-only timing."""
+        turn = self._session.get(Turn, turn_id)
+        if turn is None:
+            return
+        if latency_ms is not None:
+            turn.latency_ms = latency_ms
+        if breakdown is not None:
+            turn.latency_breakdown = breakdown
+        self._session.commit()
+
     def record_brain_decision(
         self, decision: BrainDecision, *, turn_id: str | None = None, missing: list | None = None
     ) -> Decision:

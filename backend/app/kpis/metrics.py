@@ -106,10 +106,18 @@ def compute_router_metrics(session: Session, *, include_synthetic: bool = True) 
     n_mis_quote = sum(count(c, kpi.MIS_QUOTE_BLOCKED) > 0 for c in calls)
     total_clarify = sum(count(c, kpi.CLARIFY_ASKED) for c in calls)
 
-    # Turn latency over agent turns that recorded a timing (IR7-T1).
+    # Turn latency over agent turns that recorded a timing (IR7-T1). On voice turns this is the
+    # end-to-end turnaround; the per-component split lives in latency_breakdown (LAT-T1).
     latencies = [
         t.latency_ms for c in calls for t in c.turns if t.latency_ms is not None
     ]
+    breakdowns = [
+        t.latency_breakdown for c in calls for t in c.turns if t.latency_breakdown
+    ]
+
+    def _component_mean(key: str) -> float | None:
+        vals = [b[key] for b in breakdowns if b.get(key) is not None]
+        return round(sum(vals) / len(vals), 1) if vals else None
 
     # Payments (PAY5-T1): links sent, how many were paid, and confirmed revenue.
     payments = [p for c in calls for p in c.payments]
@@ -124,6 +132,16 @@ def compute_router_metrics(session: Session, *, include_synthetic: bool = True) 
         "avg_clarifications": round(total_clarify / total, 2) if total else None,
         "turn_latency_ms_p50": _percentile(latencies, 50),
         "turn_latency_ms_p95": _percentile(latencies, 95),
+        # Mean stt/brain/tts split across voice turns that captured it (null in text-only data).
+        "turn_latency_breakdown_ms": (
+            {
+                "stt": _component_mean("stt_ms"),
+                "brain": _component_mean("brain_ms"),
+                "tts": _component_mean("tts_ms"),
+            }
+            if breakdowns
+            else None
+        ),
         "payments_sent": len(payments),
         "payments_paid": len(paid),
         "paid_rate": _rate(len(paid), len(payments)),

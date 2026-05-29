@@ -127,8 +127,11 @@ class Turn(Base):
     detected_objection: Mapped[str | None] = mapped_column(String, nullable=True)
     sentiment: Mapped[str | None] = mapped_column(String, nullable=True)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
-    # Wall-clock ms to produce this (agent) turn — the brain decision + tool calls (IR7-T1).
+    # Wall-clock ms to produce this (agent) turn. On voice calls this is the END-TO-END turnaround
+    # (user-stopped-speaking → first agent audio); text mode records just the brain time (LAT-T1).
     latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Per-component split {stt_ms, brain_ms, tts_ms} on voice turns; null in text mode (LAT-T1).
+    latency_breakdown: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     call: Mapped["Call"] = relationship(back_populates="turns")
 
