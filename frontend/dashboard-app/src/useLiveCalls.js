@@ -13,33 +13,47 @@ const emptyCall = (id) => ({
   misQuotes: 0,
 })
 
-// Maintains a live map of calls from an initial REST load plus the SSE event stream.
+// Maintains a live map of calls from the SSE event stream, with a periodic REST reconcile so the
+// board self-heals (e.g. if the first load raced a transient API error) and picks up calls that
+// finished before the page opened.
 export function useLiveCalls() {
   const [calls, setCalls] = useState({})
   const [order, setOrder] = useState([])
 
   useEffect(() => {
-    api
-      .calls()
-      .then((rows) => {
-        const map = {}
-        const ord = []
-        for (const r of rows) {
-          map[r.call_id] = {
-            ...emptyCall(r.call_id),
-            ...r,
-            status: r.ended_at ? 'ended' : 'active',
-            turns: [],
-            decisions: [],
-          }
-          ord.push(r.call_id)
-        }
-        setCalls(map)
-        setOrder(ord)
-      })
-      .catch(() => {})
+    let alive = true
 
-    return subscribe((ev) => {
+    // Merge REST summaries in without clobbering live-accumulated turns/decisions.
+    const reconcile = () =>
+      api
+        .calls()
+        .then((rows) => {
+          if (!alive) return
+          setCalls((prev) => {
+            const next = { ...prev }
+            for (const r of rows) {
+              const ex = next[r.call_id] || emptyCall(r.call_id)
+              next[r.call_id] = {
+                ...ex,
+                ...r,
+                status: r.ended_at ? 'ended' : ex.status,
+                turns: ex.turns, // keep streamed turns/decisions; summaries don't carry them
+                decisions: ex.decisions,
+              }
+            }
+            return next
+          })
+          setOrder((prev) => {
+            const ids = rows.map((r) => r.call_id) // API returns newest-first
+            return [...ids, ...prev.filter((id) => !ids.includes(id))]
+          })
+        })
+        .catch(() => {})
+
+    reconcile()
+    const timer = setInterval(reconcile, 8000)
+
+    const unsub = subscribe((ev) => {
       const id = ev.call_id
       if (!id) return
       setCalls((prev) => {
@@ -73,6 +87,12 @@ export function useLiveCalls() {
       })
       setOrder((prev) => (prev.includes(id) ? prev : [id, ...prev]))
     })
+
+    return () => {
+      alive = false
+      clearInterval(timer)
+      unsub()
+    }
   }, [])
 
   return { calls, order }
