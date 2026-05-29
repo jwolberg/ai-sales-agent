@@ -67,10 +67,12 @@ class RouterCallResult:
 
 
 def run_router_call(
-    engine: IntentRouterEngine, persona: Persona, *, max_turns: int = 8
+    engine: IntentRouterEngine, persona: Persona, *, max_turns: int = 8, prospect=None
 ) -> RouterCallResult:
     engine.open()
-    prospect = RouterProspect(persona)
+    # The prospect drives the SAME engine + brain as a live call (R10). The deterministic default
+    # makes the benchmark run offline; inject a live LLM-driven prospect for a realistic score.
+    prospect = prospect if prospect is not None else RouterProspect(persona)
     user_text = prospect.opening()
     turns = 0
     last_action = RouterAction.ASK
@@ -129,9 +131,11 @@ def run_benchmark(
     brain: Brain | None = None,
     settings: Settings | None = None,
     max_turns: int = 8,
+    prospect_factory=None,
 ) -> dict:
     """Run the full router persona set through the engine and score it. Returns
-    ``{"results": [...], "metrics": {...}}``."""
+    ``{"results": [...], "metrics": {...}}``. ``prospect_factory(persona)`` overrides the default
+    deterministic caller (e.g. a live LLM-driven prospect)."""
     settings = settings or Settings(_env_file=None)
     personas = personas if personas is not None else get_personas().router_personas()
     brain = brain or get_brain(settings)
@@ -139,5 +143,6 @@ def run_benchmark(
     for persona in personas:
         recorder = CallRecorder(session, channel="benchmark", is_synthetic=True)
         engine = IntentRouterEngine(brain=brain, recorder=recorder, settings=settings)
-        results.append(run_router_call(engine, persona, max_turns=max_turns))
+        prospect = prospect_factory(persona) if prospect_factory is not None else None
+        results.append(run_router_call(engine, persona, max_turns=max_turns, prospect=prospect))
     return {"results": results, "metrics": score_benchmark(results)}

@@ -1256,3 +1256,13 @@ synthesizer tests move out — `synthesis.py` is removed in IR-6).
   kept as-is; refining it to honor genuine barge-in while suppressing echo requires a real
   mic/keys call to tune and is left as a live-validation follow-up.
 Full suite **232 passed**; `ruff` clean.
+
+## 2026-05-28 — IR4-T2: simulator on the brain
+
+Brain-driven self-play is delivered by `simulator/benchmark.py` — `RouterProspect` drives the same
+`IntentRouterEngine` + brain as a live call (R10), so the improvement loop tests the real path.
+Made the prospect **injectable** (`run_router_call(prospect=...)`, `run_benchmark(prospect_factory=...)`)
+so a live LLM-driven caller can plug in for a realistic score while the deterministic prospect keeps
+the offline benchmark/tests hermetic. No new runner needed; the old `simulator/runner.py` (Claude
+self-play through the discovery-to-close engine) retires in IR-6. Test: pluggable-prospect case.
+Phase IR-4 complete.
