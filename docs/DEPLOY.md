@@ -62,3 +62,50 @@ Notes:
   when the caller hangs up).
 - Telephony is μ-law 8 kHz; Pipecat's `TwilioFrameSerializer` resamples to/from the STT/TTS rates.
   Sample-rate / echo tuning may need adjustment on the first real call — see RUNBOOK.
+
+## Payments — Stripe payment link / invoice (BUILD_PLAN_PAYMENTS)
+
+After the agent quotes a confirmed leaf, the caller can pay without a human: the backend creates a
+**Stripe-hosted** Payment Link or Invoice, **texts the URL via Twilio SMS**, and a **Stripe webhook**
+confirms payment — surfaced live on the dashboard. Our server never touches card data (hosted
+checkout → PCI stays SAQ-A; in-call card numbers still escalate to a human).
+
+**Default: OFF.** Payments are gated on `STRIPE_API_KEY`. With no key, behavior is exactly as today
+(payment asks escalate). **Two independent gates must both pass before any charge is created:**
+
+1. `STRIPE_API_KEY` is set (`payments_enabled`), and
+2. the leaf's price is `approved: true` in `data/pricing/pricing.yaml`.
+
+> ⚠️ **The committed `pricing.yaml` ships `approved: false` (placeholder prices).** Until an operator
+> replaces them with approved figures and flips the flag, every charge is refused and the turn
+> escalates instead — verified by `test_shipped_pricebook_blocks_every_leaf_until_prices_are_approved`.
+
+### Setup
+
+1. Config in `backend/.env` (Stripe **test** keys to start — `sk_test_…`):
+   ```bash
+   STRIPE_API_KEY=sk_test_...
+   STRIPE_WEBHOOK_SECRET=whsec_...     # from `stripe listen` (below) or the dashboard
+   PAYMENTS_CURRENCY=usd               # optional (default usd)
+   # SMS delivery (optional — without it the link is still recorded + shown on the dashboard):
+   TWILIO_ACCOUNT_SID=AC...
+   TWILIO_AUTH_TOKEN=...
+   TWILIO_FROM_NUMBER=+1...            # E.164 sender
+   ```
+2. Approve real prices: edit `data/pricing/pricing.yaml`, set `approved: true` and the operator
+   figures. (This is also the authoritative table the mis-quote guardrail checks against.)
+3. Run the webhook locally with the Stripe CLI (gives you the `whsec_…` signing secret):
+   ```bash
+   stripe listen --forward-to localhost:8000/payments/webhook
+   # paste the printed "whsec_..." into STRIPE_WEBHOOK_SECRET, then restart uvicorn
+   ```
+   In production (or for a real card on Stripe-hosted pages), point a Stripe **Dashboard → Webhooks**
+   endpoint at `https://<public-host>/payments/webhook` for `checkout.session.completed` and
+   `invoice.paid`. (`ngrok http 8000` works for a public URL during local testing — same tunnel as
+   the Twilio section.)
+
+### Out of scope (a specialist handles these)
+
+Refunds, tax, discounts/coupons, and contract terms are **not** automated — the agent escalates
+discount/refund asks. Booking quantity (e.g. hour packages) isn't modeled yet: a link charges one
+unit of the leaf's price. Card numbers are never accepted in-call.

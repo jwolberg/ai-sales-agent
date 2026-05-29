@@ -1579,3 +1579,14 @@ carries the full `payments` list, and `/api/router-metrics` rolls up `payments_s
 hosted URL), two insights tiles (paid %, revenue), and live `payment_sent`/`payment_paid` SSE
 handling in useLiveCalls so the board updates without a refresh. Build passes; backend 167 passed;
 ruff clean. Completes the PAY-3→PAY-5 slice; PAY-6 (safety re-verify + DEPLOY docs) remains.
+
+## 2026-05-29 — PAY6-T1: safety re-verify + deploy docs (payments complete)
+
+Safety: added `test_shipped_pricebook_blocks_every_leaf_until_prices_are_approved` — loads the real
+`data/pricing/pricing.yaml` (ships `approved: false`) and asserts the gate refuses a charge for
+EVERY leaf and never calls Stripe. This pins the "placeholder prices are never chargeable" anchor.
+Docs: added a Payments section to `docs/DEPLOY.md` — the two gates (STRIPE_API_KEY + approved
+price), the placeholder-price warning, `.env` setup (Stripe test keys, Twilio SMS), local webhook
+via `stripe listen --forward-to localhost:8000/payments/webhook`, and out-of-scope items
+(refunds/tax/discounts/booking-quantity → specialist; card numbers never taken in-call).
+Full suite 168 passed; ruff clean. BUILD_PLAN_PAYMENTS PAY-0..PAY-6 all implemented.

@@ -6,7 +6,7 @@ the price-table amount are passed through to Stripe.
 
 import pytest
 
-from app.agent.pricing import PriceBook, PriceRecord
+from app.agent.pricing import PriceBook, PriceRecord, get_pricebook
 from app.payments.stripe_service import PaymentError, PaymentLink, StripeService
 
 
@@ -81,3 +81,16 @@ def test_currency_is_lowercased_for_stripe():
     svc = StripeService(gw, pricebook=_book(approved=True), currency="USD")
     svc.create_payment_link("test_prep/SAT", idempotency_key="k1")
     assert gw.calls[0][1]["currency"] == "usd"
+
+
+def test_shipped_pricebook_blocks_every_leaf_until_prices_are_approved():
+    """PAY6-T1 safety anchor: the committed pricing.yaml is `approved: false` (placeholders), so the
+    gate must refuse a charge for EVERY real leaf — no accidental charges on placeholder prices."""
+    gw = FakeGateway()
+    book = get_pricebook()
+    svc = StripeService(gw, pricebook=book)
+    assert book.leaf_ids(), "expected priced leaves to exist in pricing.yaml"
+    for leaf_id in book.leaf_ids():
+        with pytest.raises(PaymentError, match="not approved"):
+            svc.create_payment_link(leaf_id, idempotency_key="k")
+    assert gw.calls == []  # never reached Stripe for any leaf
