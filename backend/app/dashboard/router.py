@@ -6,16 +6,23 @@ version/variant) and per-call transcript + decision trace + KPI events. Read-onl
 
 from __future__ import annotations
 
+import asyncio
+import json
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.models import Call
 from app.db.session import get_db
+from app.events import Subscription, bus
 from app.kpis.metrics import compute_metrics, compute_router_metrics
+
+# SSE keepalive cadence (seconds) so proxies don't drop an idle stream.
+_SSE_KEEPALIVE = 15.0
 
 router = APIRouter(prefix="/api", tags=["observability"])
 
@@ -60,6 +67,34 @@ def router_metrics(db: Db, include_synthetic: bool = True) -> dict:
     escalation / mis-quote rates + avg clarifications. Classification accuracy needs ground
     truth and is reported by the benchmark, not here."""
     return compute_router_metrics(db, include_synthetic=include_synthetic)
+
+
+async def _sse(sub: Subscription, request: Request):
+    """Yield Server-Sent Events from a subscription until the client disconnects (IR7-T2)."""
+    try:
+        yield ": connected\n\n"
+        while not await request.is_disconnected():
+            try:
+                event = await asyncio.wait_for(sub.queue.get(), timeout=_SSE_KEEPALIVE)
+                yield f"data: {json.dumps(event)}\n\n"
+            except asyncio.TimeoutError:
+                yield ": keepalive\n\n"
+    finally:
+        bus.unsubscribe(sub)
+
+
+@router.get("/stream")
+async def stream(request: Request) -> StreamingResponse:
+    """Live event stream for all calls (call_started / turn / decision / kpi / call_ended)."""
+    sub = bus.subscribe()
+    return StreamingResponse(_sse(sub, request), media_type="text/event-stream")
+
+
+@router.get("/calls/{call_id}/stream")
+async def call_stream(call_id: str, request: Request) -> StreamingResponse:
+    """Live event stream filtered to one call."""
+    sub = bus.subscribe(call_id=call_id)
+    return StreamingResponse(_sse(sub, request), media_type="text/event-stream")
 
 
 @router.get("/calls")

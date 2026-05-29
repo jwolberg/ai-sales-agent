@@ -1311,3 +1311,14 @@ turn. `compute_router_metrics` now returns `turn_latency_ms_p50/p95` (nearest-ra
 This closes the long-standing "latency never measured" gap (old `average_latency_seconds=None`) for
 the brain/tool cost. **Deferred (needs live audio):** the STT-final → first-TTS-audio span in the
 voice path. Tests: latency recorded + rolled up. `ruff` clean.
+
+## 2026-05-28 — IR7-T2: live event bus + SSE stream
+
+`app/events.py` — a neutral in-process pub/sub (`bus`). Each `Subscription` captures its event loop;
+`publish` is thread-safe (`call_soon_threadsafe`), so the recorder can emit from a voice worker
+thread and FastAPI's loop receives it. With no subscribers, publish is a no-op (zero cost in
+tests/offline). The recorder now publishes **call_started / turn / decision / kpi / call_ended**.
+Dashboard gains dependency-free SSE endpoints `GET /api/stream` and `GET /api/calls/{id}/stream`
+(StreamingResponse + manual `data:` framing, keepalive every 15s, unsubscribe on disconnect) — no
+sse-starlette dependency. Tests: bus pub/sub + call-id filter + recorder-publishes-lifecycle
+(async). Full suite **132 passed**; `ruff` clean.

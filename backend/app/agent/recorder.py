@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy.orm import Session
 
 from app.db.models import Call, Decision, KPIEvent, Turn
+from app.events import bus
 
 if TYPE_CHECKING:
     from app.agent.contract import BrainDecision
@@ -70,6 +71,13 @@ class CallRecorder:
         )
         session.add(self._call)
         session.flush()  # assign call_id without ending the surrounding transaction
+        bus.publish(
+            call_id=self._call.call_id,
+            type="call_started",
+            channel=channel,
+            is_synthetic=is_synthetic,
+            lead_id=lead_id,
+        )
 
     @property
     def call(self) -> Call:
@@ -105,6 +113,13 @@ class CallRecorder:
         )
         self._session.add(turn)
         self._session.commit()
+        bus.publish(
+            call_id=self._call.call_id,
+            type="turn",
+            speaker=speaker,
+            text=text,
+            latency_ms=latency_ms,
+        )
         return turn
 
     def record_agent(self, text: str, **kwargs) -> Turn:
@@ -133,6 +148,15 @@ class CallRecorder:
         )
         self._session.add(row)
         self._session.commit()
+        bus.publish(
+            call_id=self._call.call_id,
+            type="decision",
+            action=decision.action.value,
+            reason=decision.reason,
+            confidence=decision.confidence,
+            slots=dict(decision.slots),
+            leaf=decision.leaf,
+        )
         return row
 
     def record_result(self, *, reached_leaf: str | None, quoted_price: float | None) -> Call:
@@ -154,6 +178,9 @@ class CallRecorder:
         )
         self._session.add(event)
         self._session.commit()
+        bus.publish(
+            call_id=self._call.call_id, type="kpi", event_type=event_type, metadata=metadata or {}
+        )
         return event
 
     def record_escalation(self, code: str, reason: str | None = None) -> KPIEvent:
@@ -183,4 +210,11 @@ class CallRecorder:
         if recording_url is not None:
             self._call.recording_url = recording_url
         self._session.commit()
+        bus.publish(
+            call_id=self._call.call_id,
+            type="call_ended",
+            outcome=self._call.outcome,
+            reached_leaf=self._call.reached_leaf,
+            quoted_price=self._call.quoted_price,
+        )
         return self._call
