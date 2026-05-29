@@ -24,12 +24,14 @@ from app.agent.contract import (
     TOOL_ESCALATE,
     TOOL_KB_LOOKUP,
     TOOL_QUOTE_PRICE,
+    TOOL_SEND_PAYMENT_LINK,
     TOOL_SLOT_FILL,
-    TOOLS,
     BrainDecision,
+    PaymentRequest,
     RouterAction,
+    tools_for,
 )
-from app.agent.guardrails import ESCALATION_MESSAGE, detect_escalation
+from app.agent.guardrails import ESCALATION_MESSAGE, detect_escalation, detect_payment_intent
 from app.agent.knowledge import FALLBACK_MESSAGE, answer_question
 from app.agent.pricing import quote_price
 from app.config import Settings, get_settings
@@ -116,8 +118,9 @@ class RuleBrain:
         slots.update({k: v for k, v in (lead_fields or {}).items() if k in tx.SLOT_FIELDS})
         last_user = next((t for spk, t in reversed(history) if spk == "prospect"), "")
 
-        # Escalation cues short-circuit everything (DE-4).
-        trigger = detect_escalation(last_user)
+        # Escalation cues short-circuit everything (DE-4). With payments on, pay-intent is NOT an
+        # escalation (handled below); card-data still escalates (PAY3-T3).
+        trigger = detect_escalation(last_user, payments_enabled=self.settings.payments_enabled)
         if trigger is not None:
             return BrainDecision(
                 action=RouterAction.ESCALATE,
@@ -132,6 +135,19 @@ class RuleBrain:
 
         leaf = tx.resolve_leaf(slots)
         if leaf is not None:
+            # Caller wants to pay/be invoiced for a confirmed need -> hand the engine a payment
+            # request (it creates + texts the hosted link; the brain stays IO-free). PAY3-T2.
+            kind = detect_payment_intent(last_user) if self.settings.payments_enabled else None
+            if kind is not None:
+                return BrainDecision(
+                    action=RouterAction.PAY,
+                    utterance="",  # the engine composes the spoken confirmation after sending
+                    reason=f"caller asked to pay ({kind}) for leaf {leaf.id}",
+                    confidence=1.0,
+                    slots=slots,
+                    leaf=leaf.id,
+                    payment_request=PaymentRequest(kind=kind),
+                )
             rec = quote_price(leaf)
             if rec is not None:
                 return BrainDecision(
@@ -233,7 +249,16 @@ class OpenAIBrain:
             "- For factual questions (e.g. SAT vs ACT), call kb_lookup and answer ONLY from what "
             "it returns; if it returns nothing, offer to connect them with a specialist.\n"
             "- Never claim to be human; if asked, say you're an AI assistant for the company.\n"
-            "- Keep replies short and spoken-friendly (1-3 sentences).\n\n"
+            "- Keep replies short and spoken-friendly (1-3 sentences).\n"
+            + (
+                "- If, after you've quoted, the caller wants to pay or be invoiced, call "
+                "send_payment_link (kind='link' to pay now, 'invoice' to be invoiced) — we text a "
+                "secure hosted link. NEVER take a card number over the phone; if they try to read "
+                "one out, call escalate instead.\n"
+                if s.payments_enabled
+                else ""
+            )
+            + "\n"
             f"{known_line}"
             + (f"\n\n{self.prompt_delta}" if self.prompt_delta else "")
         )
@@ -255,13 +280,15 @@ class OpenAIBrain:
         kb_sources: list[str] = []
         quoted_amount: float | None = None
         escalate_reason: str | None = None
+        payment_request: PaymentRequest | None = None
         used_kb = False
         used_quote = False
 
+        tools = tools_for(self.settings.payments_enabled)
         utterance = ""
         for _ in range(MAX_TOOL_ROUNDS):
             resp = self.client.chat.completions.create(
-                model=self.model, messages=messages, tools=TOOLS, tool_choice="auto"
+                model=self.model, messages=messages, tools=tools, tool_choice="auto"
             )
             msg = resp.choices[0].message
             if not getattr(msg, "tool_calls", None):
@@ -310,6 +337,17 @@ class OpenAIBrain:
                             quoted_amount = rec.amount
                             used_quote = True
                             result = f"{rec.spoken()} (leaf {leaf.id})"
+                elif name == TOOL_SEND_PAYMENT_LINK:
+                    # Gate on a confirmed leaf (same bar as quoting); the engine creates + texts the
+                    # link and enforces the approved-price gate. The brain only records the request.
+                    leaf = tx.resolve_leaf(working)
+                    if leaf is None:
+                        result = "NOT_READY: confirm what they need and quote the price first."
+                    else:
+                        kind = args.get("kind", "link")
+                        kind = kind if kind in ("link", "invoice") else "link"
+                        payment_request = PaymentRequest(kind=kind, phone=args.get("phone"))
+                        result = "OK: a secure payment link will be texted to the caller."
                 elif name == TOOL_ESCALATE:
                     escalate_reason = args.get("reason", "escalation requested")
                     result = ESCALATION_MESSAGE
@@ -318,12 +356,14 @@ class OpenAIBrain:
         leaf = tx.resolve_leaf(working)
         action = self._infer_action(
             escalate=escalate_reason is not None,
+            pay=payment_request is not None,
             used_quote=used_quote,
             used_kb=used_kb,
             leaf=leaf,
         )
-        if not utterance:
+        if not utterance and action is not RouterAction.PAY:
             # Model exhausted tool rounds without composing a reply: fall back to a question.
+            # (PAY needs no model utterance — the engine composes the confirmation after sending.)
             utterance = _question_for(working)
             action = RouterAction.ASK
         return BrainDecision(
@@ -335,12 +375,17 @@ class OpenAIBrain:
             leaf=leaf.id if leaf is not None else None,
             kb_sources=kb_sources,
             quoted_amount=quoted_amount,
+            payment_request=payment_request,
         )
 
     @staticmethod
-    def _infer_action(*, escalate: bool, used_quote: bool, used_kb: bool, leaf) -> RouterAction:
+    def _infer_action(
+        *, escalate: bool, pay: bool, used_quote: bool, used_kb: bool, leaf
+    ) -> RouterAction:
         if escalate:
             return RouterAction.ESCALATE
+        if pay and leaf is not None:
+            return RouterAction.PAY
         if used_quote and leaf is not None:
             return RouterAction.QUOTE
         if used_kb:

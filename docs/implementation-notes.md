@@ -1534,3 +1534,24 @@ Added KPI constants `PAYMENT_LINK_SENT`, `PAYMENT_COMPLETED`.
   differ from before (pay-intent now checked after the cue loop), but the outcome (escalate) is
   unchanged. Cosmetic only.
 4 new guardrail tests; full guardrail suite 11 passed; ruff clean.
+
+## 2026-05-29 — PAY3-T2: brain + engine payment executor
+
+Wired the live flow. Brain (both impls): after a leaf is confirmed and the caller wants to pay,
+the brain sets `BrainDecision.payment_request` and returns `action=PAY` (RuleBrain via
+`detect_payment_intent`; OpenAIBrain via the `send_payment_link` tool, gated on a resolved leaf).
+The brain stays IO-free — no Stripe/DB/SMS in it. The OpenAI system prompt only mentions the payment
+tool when `payments_enabled`, and `tools_for()` only exposes it then.
+Engine (`_maybe_execute_payment`): creates the link/invoice via `StripeService`, best-effort texts
+it (`get_sms_sender`), records the `Payment`, emits `PAYMENT_LINK_SENT`, and composes the spoken
+confirmation. Design choices:
+- **Failure = safe escalation:** a `PaymentError` (e.g. unapproved/placeholder price) turns the turn
+  into `ESCALATE` with the standard handoff — the agent never states/charges an unauthorized price.
+- **SMS is non-fatal:** no phone or SMS failure → status `created` (link still recorded + shown on
+  the board) rather than erroring the call.
+- **Confirmation states no dollar amount**, so the mis-quote guard stays clean on the PAY turn.
+- **Idempotency key** = `{call_id}:pay:{turn_id}` so a retried turn can't double-charge.
+- Phone: `payment_request.phone` else `engine.caller_number` (Twilio `From`, plumbed later).
+- Injectable `stripe_service` / `sms_sender` on the engine for offline tests.
+2 e2e tests (RuleBrain + fake Stripe + fake SMS): pay-after-quote records+texts+emits KPI;
+unapproved price escalates and charges nothing. Full suite 162 passed; ruff clean.

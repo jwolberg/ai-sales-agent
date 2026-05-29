@@ -25,8 +25,12 @@ from app.agent import taxonomy as tx
 from app.agent.brain import Brain, get_brain
 from app.agent.contract import BrainDecision, RouterAction
 from app.agent.guardrails import ESCALATION_MESSAGE, check_mis_quote
+from app.agent.pricing import quote_price
+from app.agent.recorder import PAYMENT_CREATED, PAYMENT_SENT
 from app.config import Settings, get_settings
 from app.kpis import events as kpi
+from app.payments.sms import SmsError, get_sms_sender
+from app.payments.stripe_service import PaymentError, get_stripe_service
 
 # Don't act on a likely-misheard low-confidence transcript; ask the caller to repeat.
 STT_CONFIDENCE_THRESHOLD = 0.6
@@ -60,11 +64,19 @@ class IntentRouterEngine:
         recorder=None,
         lead_fields: dict | None = None,
         settings: Settings | None = None,
+        caller_number: str | None = None,
+        stripe_service=None,
+        sms_sender=None,
     ) -> None:
         self.settings = settings or get_settings()
         self.brain = brain or get_brain(self.settings)
         self.recorder = recorder
         self.lead_fields = dict(lead_fields or {})
+        # Payments (PAY3-T2): the caller's number to text (Twilio `From` on a phone call), and
+        # optional injected fakes for tests. Real services are built lazily when first needed.
+        self.caller_number = caller_number
+        self._stripe_service = stripe_service
+        self._sms_sender = sms_sender
         self.history: History = []
         self.slots: dict = {k: v for k, v in self.lead_fields.items() if k in tx.SLOT_FIELDS}
         self.reached_leaf: str | None = None
@@ -99,6 +111,10 @@ class IntentRouterEngine:
         )
         latency_ms = round((time.perf_counter() - _t0) * 1000, 1)
         self.slots = decision.slots
+
+        # 3b. Payment (PAY3-T2): if the brain asked to send a link/invoice, execute it now. On
+        #     failure (e.g. an unapproved/placeholder price) this turns into a safe escalation.
+        self._maybe_execute_payment(decision, turn)
 
         # 4. Mis-quote guard (R6): a price the brain wasn't authorized to state is a hard
         #    violation — substitute a safe handoff and record it.
@@ -163,6 +179,87 @@ class IntentRouterEngine:
         )
         self._emit_agent(utterance)
         return RouterTurnResult(decision=decision, utterance=utterance)
+
+    # --- payments (PAY3-T2) ------------------------------------------------------------
+
+    def _maybe_execute_payment(self, decision: BrainDecision, turn) -> None:
+        """Create the hosted link/invoice the brain asked for, text it, and record it. On a
+        :class:`PaymentError` (unapproved price / Stripe off) the turn becomes a safe escalation —
+        the agent never states a price it isn't authorized to charge."""
+        req = decision.payment_request
+        if (
+            req is None
+            or decision.action is not RouterAction.PAY
+            or not self.settings.payments_enabled
+        ):
+            return
+        leaf = decision.leaf
+        try:
+            service = self._stripe_service or get_stripe_service(self.settings)
+            idem = self._payment_idem(turn)
+            if req.kind == "invoice":
+                link = service.create_invoice(
+                    leaf, customer_phone=self._payment_phone(req), idempotency_key=idem
+                )
+            else:
+                link = service.create_payment_link(leaf, idempotency_key=idem)
+        except PaymentError as exc:
+            decision.action = RouterAction.ESCALATE
+            decision.utterance = ESCALATION_MESSAGE
+            decision.reason = f"payment unavailable ({exc}); safe handoff"
+            decision.payment_request = None
+            return
+
+        texted = self._try_text_link(self._payment_phone(req), link)
+        record = quote_price(leaf)
+        if self.recorder is not None:
+            self.recorder.record_payment(
+                leaf=leaf,
+                amount=record.amount if record is not None else 0.0,
+                currency=self.settings.payments_currency,
+                kind=req.kind,
+                provider_ref=link.id,
+                url=link.url,
+                status=PAYMENT_SENT if texted else PAYMENT_CREATED,
+            )
+        self._emit_kpi(
+            kpi.PAYMENT_LINK_SENT,
+            metadata={"leaf": leaf, "kind": req.kind, "texted": texted, "url": link.url},
+        )
+        decision.utterance = self._payment_confirmation(req.kind, texted)
+
+    def _payment_phone(self, req) -> str | None:
+        return req.phone or self.caller_number
+
+    def _payment_idem(self, turn) -> str:
+        """A stable idempotency key for this turn so a retry can't double-charge."""
+        base = self.recorder.call_id if self.recorder is not None else "nocall"
+        suffix = turn.turn_id if turn is not None else str(len(self.history))
+        return f"{base}:pay:{suffix}"
+
+    def _try_text_link(self, phone: str | None, link) -> bool:
+        """Best-effort SMS. SMS failure is non-fatal: the link still exists + shows on the board."""
+        if not phone:
+            return False
+        try:
+            sender = self._sms_sender or (
+                get_sms_sender(self.settings) if self.settings.sms_enabled else None
+            )
+            if sender is None:
+                return False
+            sender.send(phone, f"Here's your secure link to get started with Nerdy: {link.url}")
+            return True
+        except SmsError:
+            return False
+
+    @staticmethod
+    def _payment_confirmation(kind: str, texted: bool) -> str:
+        base = "I've created your invoice" if kind == "invoice" else (
+            "I've set up a secure payment link for you"
+        )
+        if texted:
+            return f"{base} and just texted you the link. Anything else I can help with?"
+        return f"{base}. Anything else I can help with?"
 
     def _emit_agent(self, text: str, *, latency_ms: float | None = None) -> None:
         self.history.append(("agent", text))
