@@ -13,7 +13,7 @@ import math
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.agent.recorder import OUTCOME_COMPLETED
+from app.agent.recorder import OUTCOME_COMPLETED, PAYMENT_PAID
 from app.db.models import Call
 from app.kpis import events as kpi
 
@@ -111,6 +111,10 @@ def compute_router_metrics(session: Session, *, include_synthetic: bool = True) 
         t.latency_ms for c in calls for t in c.turns if t.latency_ms is not None
     ]
 
+    # Payments (PAY5-T1): links sent, how many were paid, and confirmed revenue.
+    payments = [p for c in calls for p in c.payments]
+    paid = [p for p in payments if p.status == PAYMENT_PAID]
+
     return {
         "total_calls": total,
         "leaf_reached_rate": _rate(n_leaf, total),
@@ -120,4 +124,8 @@ def compute_router_metrics(session: Session, *, include_synthetic: bool = True) 
         "avg_clarifications": round(total_clarify / total, 2) if total else None,
         "turn_latency_ms_p50": _percentile(latencies, 50),
         "turn_latency_ms_p95": _percentile(latencies, 95),
+        "payments_sent": len(payments),
+        "payments_paid": len(paid),
+        "paid_rate": _rate(len(paid), len(payments)),
+        "revenue": round(sum(p.amount for p in paid), 2),
     }

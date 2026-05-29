@@ -114,6 +114,27 @@ def test_sim_personas_endpoint(client):
     assert all(p["target_leaf"] and p["opening_line"] for p in personas)
 
 
+def test_payment_surfaces_on_calls_api_and_metrics(client):
+    tc, sessions = client
+    db = sessions()
+    rec = CallRecorder(db, channel="web")
+    rec.record_payment(
+        leaf="test_prep/SAT", amount=85.0, currency="usd", kind="link",
+        provider_ref="plink_1", url="https://pay/x",
+    )
+    from app.agent.recorder import mark_payment_paid
+    mark_payment_paid(db, "plink_1")
+    cid = rec.call_id
+    db.close()
+
+    row = next(c for c in tc.get("/api/calls").json() if c["call_id"] == cid)
+    assert row["payment"]["status"] == "paid"
+    detail = tc.get(f"/api/calls/{cid}").json()
+    assert detail["payments"][0]["url"] == "https://pay/x"
+    m = tc.get("/api/router-metrics").json()
+    assert m["payments_paid"] == 1 and m["paid_rate"] == 1.0 and m["revenue"] == 85.0
+
+
 def test_catalog_endpoint(client):
     tc, _ = client
     cat = tc.get("/api/catalog").json()

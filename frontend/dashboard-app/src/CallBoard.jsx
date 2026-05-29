@@ -1,5 +1,18 @@
 import React from 'react'
 
+// Short payment badge for a call card: "💳 paid · $85" (green) or "💳 link sent" (amber).
+function PaymentBadge({ payment }) {
+  if (!payment) return null
+  const paid = payment.status === 'paid'
+  const amount = payment.amount != null ? ` · $${payment.amount}` : ''
+  const label = paid ? `paid${amount}` : payment.kind === 'invoice' ? 'invoice sent' : 'link sent'
+  return (
+    <div className="row" style={{ color: paid ? 'var(--good)' : 'var(--warn)' }}>
+      💳 {label}
+    </div>
+  )
+}
+
 export default function CallBoard({ calls, order, selected, onSelect }) {
   if (order.length === 0) {
     return <p className="muted">No calls yet — start a simulated one above.</p>
@@ -27,6 +40,7 @@ export default function CallBoard({ calls, order, selected, onSelect }) {
               <span>{c.lastLatency != null ? `${Math.round(c.lastLatency)}ms` : ''}</span>
             </div>
             {c.misQuotes > 0 && <div className="row" style={{ color: 'var(--bad)' }}>⚠ mis-quote blocked</div>}
+            <PaymentBadge payment={c.payment} />
           </div>
         )
       })}

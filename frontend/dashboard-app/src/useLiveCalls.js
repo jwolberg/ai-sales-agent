@@ -11,6 +11,7 @@ const emptyCall = (id) => ({
   quoted_price: null,
   lastLatency: null,
   misQuotes: 0,
+  payment: null, // latest payment for this call: { status, kind, url, amount, currency }
 })
 
 // Maintains a live map of calls from the SSE event stream, with a periodic REST reconcile so the
@@ -78,6 +79,16 @@ export function useLiveCalls() {
           if (ev.leaf) c.reached_leaf = ev.leaf
         } else if (ev.type === 'kpi') {
           if (ev.event_type === 'mis_quote_blocked') c.misQuotes += 1
+        } else if (ev.type === 'payment_sent') {
+          c.payment = {
+            status: ev.status,
+            kind: ev.kind,
+            url: ev.url,
+            amount: ev.amount,
+            currency: ev.currency,
+          }
+        } else if (ev.type === 'payment_paid') {
+          c.payment = { ...(c.payment || {}), status: 'paid', amount: ev.amount, currency: ev.currency }
         } else if (ev.type === 'call_ended') {
           c.status = 'ended'
           if (ev.reached_leaf != null) c.reached_leaf = ev.reached_leaf

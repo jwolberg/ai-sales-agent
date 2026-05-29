@@ -42,6 +42,8 @@ export default function InsightsPanel({ activeCount }) {
       <Tile k="mis-quote" v={pct(m?.mis_quote_rate)} cls={m?.mis_quote_rate ? 'bad' : 'good'} />
       <Tile k="latency p50" v={ms(m?.turn_latency_ms_p50)} />
       <Tile k="latency p95" v={ms(m?.turn_latency_ms_p95)} />
+      <Tile k="paid" v={pct(m?.paid_rate)} cls={m?.payments_paid ? 'good' : ''} />
+      <Tile k="revenue" v={m?.revenue != null ? `$${m.revenue}` : '—'} />
     </div>
   )
 }

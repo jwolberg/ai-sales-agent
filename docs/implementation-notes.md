@@ -1569,3 +1569,13 @@ unknown ref → `unknown_ref`.
 - **Testability:** signature verification is a module function `_verify_event` that tests
   monkeypatch with a constructed event (no payload signing). 4 tests (checkout/invoice paid, unknown
   ref, unhandled type). Full suite 166 passed; ruff clean.
+
+## 2026-05-29 — PAY5-T1: dashboard payment surface
+
+Backend: `/api/calls` summary now carries the latest `payment` (status badge), `/api/calls/{id}`
+carries the full `payments` list, and `/api/router-metrics` rolls up `payments_sent`,
+`payments_paid`, `paid_rate`, and `revenue` (paid amounts). Frontend: a 💳 badge on the call card
+(amber link/invoice sent → green paid), a Payments section in the call detail (status + clickable
+hosted URL), two insights tiles (paid %, revenue), and live `payment_sent`/`payment_paid` SSE
+handling in useLiveCalls so the board updates without a refresh. Build passes; backend 167 passed;
+ruff clean. Completes the PAY-3→PAY-5 slice; PAY-6 (safety re-verify + DEPLOY docs) remains.

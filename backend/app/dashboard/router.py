@@ -44,6 +44,26 @@ def _iso(value: datetime | None) -> str | None:
     return value.isoformat() if value is not None else None
 
 
+def _payment_dict(payment) -> dict:
+    return {
+        "payment_id": payment.payment_id,
+        "kind": payment.kind,
+        "status": payment.status,
+        "amount": payment.amount,
+        "currency": payment.currency,
+        "url": payment.url,
+        "created_at": _iso(payment.created_at),
+        "paid_at": _iso(payment.paid_at),
+    }
+
+
+def _latest_payment(call: Call) -> dict | None:
+    """The most recent payment for the board (status badge); None if the call had no payment."""
+    if not call.payments:
+        return None
+    return _payment_dict(max(call.payments, key=lambda p: p.created_at))
+
+
 def _call_summary(call: Call) -> dict:
     return {
         "call_id": call.call_id,
@@ -59,6 +79,8 @@ def _call_summary(call: Call) -> dict:
         # Intent-router result (IR6-T2): the leaf the call reached and the price quoted.
         "reached_leaf": call.reached_leaf,
         "quoted_price": call.quoted_price,
+        # Payment state for the board badge (PAY5-T1): the latest payment, or null.
+        "payment": _latest_payment(call),
     }
 
 
@@ -233,5 +255,9 @@ def call_detail(call_id: str, db: Db) -> dict:
                 "created_at": _iso(e.created_at),
             }
             for e in sorted(call.kpi_events, key=lambda e: e.created_at)
+        ],
+        # Payments for this call (PAY5-T1), oldest first.
+        "payments": [
+            _payment_dict(p) for p in sorted(call.payments, key=lambda p: p.created_at)
         ],
     }

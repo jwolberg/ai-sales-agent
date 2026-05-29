@@ -19,6 +19,8 @@ export default function CallDetail({ call }) {
   const decisions = call.decisions.length ? call.decisions : fetched?.decisions || []
   const leaf = call.reached_leaf || fetched?.reached_leaf
   const price = call.quoted_price ?? fetched?.quoted_price
+  // Prefer the full payment list from the fetched snapshot; fall back to the live latest-payment.
+  const payments = fetched?.payments?.length ? fetched.payments : call.payment ? [call.payment] : []
 
   return (
     <div>
@@ -51,6 +53,32 @@ export default function CallDetail({ call }) {
           </li>
         ))}
       </ul>
+
+      {payments.length > 0 && (
+        <>
+          <h2 style={{ marginTop: 16 }}>Payments</h2>
+          <ul className="trace">
+            {payments.map((p, i) => {
+              const paid = p.status === 'paid'
+              return (
+                <li key={p.payment_id || i}>
+                  <span className="action" style={{ color: paid ? 'var(--good)' : 'var(--warn)' }}>
+                    {p.kind} · {p.status}
+                  </span>
+                  {p.amount != null && <span> · ${p.amount}</span>}
+                  {p.url && (
+                    <div>
+                      <a href={p.url} target="_blank" rel="noreferrer">
+                        {p.url}
+                      </a>
+                    </div>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </>
+      )}
     </div>
   )
 }
