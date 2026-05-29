@@ -1469,3 +1469,20 @@ native build — unlike the heavy `voice` extra, so no separate extra needed) an
 optional extra, so the PAY-1 service + its fake-client tests are importable everywhere; the flag is
 the KEY, not the package. Flag off by default → behavior unchanged (payment asks still escalate).
 Full suite 141 passed; ruff clean.
+
+## 2026-05-29 — PAY1-T1: Stripe service
+
+`app/payments/stripe_service.py`: `StripeService.create_payment_link/create_invoice` behind a
+`StripeGateway` seam (real `_StripeApiGateway` wraps the SDK; tests inject a fake — no network).
+**Deviation from the plan signature:** dropped the `amount`/`currency` params and derive the amount
+from the leaf's approved `PriceRecord` instead. Rationale: the price table is already the single
+source of truth the mis-quote guard enforces, so no code path can request an arbitrary charge — a
+stronger approved-price gate. Currency comes from `payments_currency`, lowercased for Stripe.
+- Approved-price gate refuses unapproved (all current placeholders) and unpriced leaves with
+  `PaymentError` before any Stripe call. Since pricing.yaml is `approved: false`, **every leaf is
+  refused today** — intended; real charges need approved prices (PAY-6 verifies this).
+- Idempotency keys are passed on every write; the invoice/link flows derive per-step keys
+  (`:price`, `:link`, `:customer`, `:item`, `:invoice`) so multi-call flows stay idempotent.
+- Payment Links need a Price object, so the link flow creates an ad-hoc one-off Price then the link;
+  quantity is fixed at 1 (packages/booking-quantity out of scope for this slice).
+5 tests (fake gateway); ruff clean.
