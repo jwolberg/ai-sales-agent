@@ -15,22 +15,60 @@ docker run --rm -p 8080:8080 -e OPENAI_API_KEY=sk-... nerdy-router
 
 Without `OPENAI_API_KEY` the offline rule-based brain + TF-IDF retriever run, so the app still boots.
 
-## GCP Cloud Run (target)
+## GCP Cloud Run (project `nerdy-1`)
+
+Builds the repo `Dockerfile` and deploys in one step (Cloud Build pushes the image to Artifact
+Registry automatically — no manual `docker build`/`push`).
 
 ```bash
-gcloud builds submit --tag gcr.io/$PROJECT/nerdy-router
+PROJECT=nerdy-1
+REGION=us-central1
+gcloud config set project "$PROJECT"
+
+# one-time: enable the APIs the deploy uses
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
+
+# build from the Dockerfile + deploy (run from the repo root)
 gcloud run deploy nerdy-router \
-  --image gcr.io/$PROJECT/nerdy-router \
-  --region us-central1 --allow-unauthenticated \
+  --source . \
+  --region "$REGION" \
+  --allow-unauthenticated \
+  --port 8080 \
+  --max-instances 1 \
   --set-env-vars OPENAI_API_KEY=sk-...
+# -> prints the service URL; open <service-url>/dashboard   (health: <service-url>/health)
 ```
 
 Notes:
-- Cloud Run's filesystem is ephemeral — the bundled SQLite resets per instance. For persistence,
-  point `DATABASE_URL` at a managed DB (e.g. Cloud SQL).
-- **sqlite-vec** loads on a Python build with loadable-extension support (the slim image qualifies
-  where the local macOS framework Python did not — D-17), so the production KB can move from the
-  dev Python-cosine retriever to a sqlite-vec index over the same `kb_embeddings` rows.
+- **Pin to one instance for the live dashboard.** The dashboard streams over an **in-process**
+  event bus (`app/events.py`) and reads per-instance SQLite, so a call/sim and the watching
+  dashboard must be on the **same** instance. `--max-instances 1` (optionally `--min-instances 1`
+  to avoid cold starts) keeps the demo coherent. True multi-instance would need a shared pub/sub +
+  shared DB — not built.
+- **Secrets.** `--set-env-vars` is fine for a quick demo. For real keys use Secret Manager:
+  `gcloud run deploy … --set-secrets OPENAI_API_KEY=openai-key:latest`.
+- **Database is ephemeral.** The image runs `python -m app.db.seed` on boot, which `create_all`s
+  the schema fresh — so new tables/columns (e.g. `payments`, `Turn.latency_breakdown`) appear
+  automatically on a fresh container. The SQLite file resets per instance/redeploy. For persistence,
+  set `DATABASE_URL` to a managed DB (e.g. Cloud SQL Postgres); there's no migration tool, so create
+  the schema once against it.
+- Without `OPENAI_API_KEY` the offline rule brain + TF-IDF retriever run, so it still boots.
+- **sqlite-vec** loads on the slim image's Python (loadable-extension support — D-17), so the
+  production KB can use a sqlite-vec index over the same `kb_embeddings` rows.
+
+### Voice / Twilio on Cloud Run (caveat)
+
+⚠️ **The shipped image is core-only — it does NOT include the `voice` extra** (Pipecat + STT/TTS).
+So on the deployed container the `/voice/*` endpoints return **503**, and the in-dashboard Test Call
+and Twilio phone calls won't work there. Two options:
+
+- **Recommended:** run the voice path **locally** with a public tunnel (see the Twilio section
+  below) while pointing the local server at the same DB — simplest and what the voice path is
+  designed for (D-16).
+- **Voice-enabled image:** add the extra to the `Dockerfile` install
+  (`pip install -e /app/backend[voice]` — a heavy native build: pipecat, onnxruntime, etc.) and
+  deploy with `--max-instances 1` and a long `--timeout` (Cloud Run supports WebSockets/Media
+  Streams). Telephony sample-rate/echo tuning still needs a real call to validate.
 
 ## Twilio inbound phone line (IR7-T7)
 
@@ -49,7 +87,8 @@ tagged `channel="twilio"` and streams live like a simulated one.
    ngrok http 8000        # -> https://<id>.ngrok.app
    # set PUBLIC_BASE_URL=https://<id>.ngrok.app in backend/.env (so the <Stream> wss URL is correct)
    ```
-   (On Cloud Run the service URL is already public; set `PUBLIC_BASE_URL` to it.)
+   (The core Cloud Run image doesn't serve voice — see the caveat above — so run this locally with a
+   tunnel. If you build a voice-enabled image, set `PUBLIC_BASE_URL` to the Cloud Run service URL.)
 3. In the Twilio console, set the phone number's **Voice → A call comes in** webhook to:
    ```
    POST  https://<public-host>/voice/twilio
@@ -103,6 +142,12 @@ checkout → PCI stays SAQ-A; in-call card numbers still escalate to a human).
    endpoint at `https://<public-host>/payments/webhook` for `checkout.session.completed` and
    `invoice.paid`. (`ngrok http 8000` works for a public URL during local testing — same tunnel as
    the Twilio section.)
+
+> **Note:** the payment endpoints (`/payments/webhook` + the link-creation flow) are part of the
+> **core** app, so they *do* run on the core Cloud Run image — but the webhook must reach the same
+> DB that recorded the `Payment`. Since calls run locally (voice isn't on the core image), keep the
+> webhook pointed at wherever the call ran, or use one shared `DATABASE_URL`. `PAYMENTS_FAKE=true`
+> gives a keyless end-to-end demo (fake links, no real charge).
 
 ### Out of scope (a specialist handles these)
 
