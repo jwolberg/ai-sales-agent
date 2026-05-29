@@ -24,6 +24,12 @@ RUN pip install --no-cache-dir -e "/app/backend[voice]" \
     && apt-get purge -y build-essential \
     && apt-get autoremove -y
 
+# Frontend assets main.py serves: the built React dashboard (/dashboard) and the standalone voice
+# demo page (/demo). main.py resolves these at /app/frontend (REPO_ROOT/frontend).
+COPY frontend/dashboard-app/dist /app/frontend/dashboard-app/dist
+COPY frontend/index.html /app/frontend/index.html
+COPY frontend/client.js /app/frontend/client.js
+
 ENV PORT=8080
 WORKDIR /app/backend
 # Create the schema on boot, then serve. SQLite file lives in the container (ephemeral on Cloud
