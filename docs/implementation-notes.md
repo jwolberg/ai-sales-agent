@@ -1231,3 +1231,13 @@ per-call result. **Offline result: 100% accuracy / 0% mis-quote across all 10 pe
 the harness + metric end-to-end (a meaningful score needs the OpenAIBrain). Created the new module
 rather than rewriting the old scoring.py/metrics.compute_metrics (those go in IR-6). Tests:
 `tests/test_benchmark.py` (5). Full suite **233 passed**; `ruff` clean.
+
+## 2026-05-28 — IR5-T3: router improvement loop
+
+`simulator/improvement.py`: `run_improvement(baseline_brain, candidate_brains)` runs each over the
+accuracy benchmark and `decide_promotion` promotes a candidate only when **Classification Accuracy
+strictly improves AND neither mis-quote nor price-correctness regresses**; promotion stays
+human-approved (returns a report/decision, flips nothing). A variant is a brain config — `OpenAIBrain`
+gained a `prompt_delta` so live variants are real prompt tweaks; offline tests inject deterministic
+stand-in brains. Built fresh rather than refactoring the old objection-recovery `experiments/*`
+(removed in IR-6). Tests: `tests/test_improvement.py` (3). Phase IR-5 complete. `ruff` clean.

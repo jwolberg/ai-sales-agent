@@ -193,10 +193,13 @@ class RuleBrain:
 class OpenAIBrain:
     """A bounded tool-calling loop against OpenAI (the live conversation path)."""
 
-    def __init__(self, settings: Settings | None = None, *, client=None) -> None:
+    def __init__(
+        self, settings: Settings | None = None, *, client=None, prompt_delta: str = ""
+    ) -> None:
         self.settings = settings or get_settings()
         self.model = self.settings.openai_chat_model
         self._client = client  # injectable for tests
+        self.prompt_delta = prompt_delta  # improvement-loop variant override (IR5-T3)
 
     @property
     def client(self):
@@ -232,6 +235,7 @@ class OpenAIBrain:
             "- Never claim to be human; if asked, say you're an AI assistant for the company.\n"
             "- Keep replies short and spoken-friendly (1-3 sentences).\n\n"
             f"{known_line}"
+            + (f"\n\n{self.prompt_delta}" if self.prompt_delta else "")
         )
 
     def decide(
