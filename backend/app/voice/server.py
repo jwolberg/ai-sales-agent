@@ -6,7 +6,8 @@ the optional ``voice`` extra. Missing keys or deps produce a clear 503.
 
 import asyncio
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, WebSocket
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app.config import get_settings
@@ -64,3 +65,43 @@ async def voice_offer(offer: Offer) -> dict:
     task.add_done_callback(_active_tasks.discard)
 
     return connection.get_answer()
+
+
+# --- Twilio inbound (IR7-T7) -----------------------------------------------------------
+
+@router.api_route("/twilio", methods=["GET", "POST"])
+async def twilio_voice(request: Request) -> Response:
+    """Twilio Voice webhook: return TwiML that streams the call's audio to our WebSocket.
+
+    Point a Twilio number's Voice webhook at https://<public-host>/voice/twilio.
+    """
+    settings = get_settings()
+    if settings.missing_voice_keys():
+        # Speak a clear message rather than failing silently on the call.
+        twiml = (
+            '<?xml version="1.0" encoding="UTF-8"?><Response><Say>'
+            "Sorry, the assistant is not configured right now. Goodbye."
+            "</Say><Hangup/></Response>"
+        )
+        return Response(content=twiml, media_type="application/xml")
+    from app.voice.twilio_bot import build_twiml, stream_ws_url
+
+    host = request.headers.get("host", request.url.netloc)
+    return Response(
+        content=build_twiml(stream_ws_url(settings, host)), media_type="application/xml"
+    )
+
+
+@router.websocket("/twilio/ws")
+async def twilio_ws(websocket: WebSocket) -> None:
+    """Media Streams WebSocket: bridge Twilio audio into the intent-router engine."""
+    settings = get_settings()
+    if settings.missing_voice_keys():
+        await websocket.close(code=1011)
+        return
+    try:
+        from app.voice.twilio_bot import run_twilio_bot
+    except ImportError:
+        await websocket.close(code=1011)
+        return
+    await run_twilio_bot(websocket, settings)

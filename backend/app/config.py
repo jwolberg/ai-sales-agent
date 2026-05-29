@@ -59,6 +59,14 @@ class Settings(BaseSettings):
     openai_chat_model: str = "gpt-4o"
     # KB embeddings for the sqlite-vec retriever (D-15). Small + cheap; corpus is tiny.
     openai_embedding_model: str = "text-embedding-3-small"
+
+    # --- Twilio inbound (IR7-T7) ---
+    # Optional. Used for the Media Streams serializer's auto-hangup; the inbound bridge works
+    # without them (auto-hangup just stays off). The public host for the <Stream> wss URL is
+    # derived from the incoming webhook request unless `public_base_url` overrides it.
+    twilio_account_sid: str | None = None
+    twilio_auth_token: str | None = None
+    public_base_url: str | None = None  # e.g. https://abc123.ngrok.app (no trailing slash)
     # Tunables (override via env). Default to a capable Claude model; switch to
     # claude-haiku-4-5 for lower latency if needed.
     anthropic_model: str = "claude-sonnet-4-6"

@@ -1375,3 +1375,19 @@ the plan (IR-0 … IR-7 T1–T6) is implemented, tested, and committed.
 ### Build complete — summary
 25 of 26 tickets done (IR7-T7 intentionally deferred). Backend: `ruff` clean, **134 passed**.
 Frontend: Vite build succeeds; full-stack smoke verified (sim call → classify → quote → metrics).
+
+## 2026-05-28 — IR7-T7: Twilio inbound bridge (implemented)
+
+Built now that keys are available. `voice/twilio_bot.py`: `run_twilio_bot` accepts the Media Streams
+WebSocket, reads Twilio's start frame (streamSid/callSid), and bridges audio via
+`TwilioFrameSerializer` + `FastAPIWebsocketTransport` into the **same** STT → `IntentRouterEngine`
+→ TTS pipeline as the web demo (STTMuteFilter + guard_output reused). Calls record with
+`channel="twilio"`, so they appear on the dashboard with no UI change. Routes in `voice/server.py`:
+`POST /voice/twilio` returns `<Connect><Stream>` TwiML (wss URL from `PUBLIC_BASE_URL` or the request
+host); `WEBSOCKET /voice/twilio/ws` runs the bridge. Config: `twilio_account_sid`/`twilio_auth_token`
+(optional) + `public_base_url`. No `twilio` SDK dependency — TwiML is hand-written and auto-hangup is
+off (call ends on caller hangup). Setup steps in `docs/DEPLOY.md`.
+- **Validated:** construction tests (TwiML, ws-url derivation, webhook XML) + a live-server smoke of
+  the configured webhook returning the correct `<Stream>` TwiML. **Still needs a real inbound call**
+  to validate the audio loop + telephony sample-rate/echo tuning (can't be done without a phone).
+Full suite **139 passed**; `ruff` clean. All 26 tickets now implemented.
