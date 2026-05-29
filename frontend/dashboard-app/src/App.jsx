@@ -50,6 +50,15 @@ export default function App() {
   const connected = order.length >= 0 // stream is opened by the hook
   const activeCount = Object.values(calls).filter((c) => c.status === 'active').length
 
+  // Auto-focus a call so the Transcript + Decision trace are visible without a manual click:
+  // pick the newest one when nothing is selected, and follow a newly-arrived live call.
+  useEffect(() => {
+    if (!order.length) return
+    const newest = order[0]
+    if (!selected) setSelected(newest)
+    else if (newest !== selected && calls[newest]?.status === 'active') setSelected(newest)
+  }, [order, calls, selected])
+
   return (
     <div className="app">
       <header className="topbar">

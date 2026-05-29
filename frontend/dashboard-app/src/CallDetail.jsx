@@ -27,6 +27,7 @@ export default function CallDetail({ call }) {
         <span>{price != null ? `$${price}` : ''}</span>
       </div>
 
+      <h2>Transcript</h2>
       <div className="transcript">
         {turns.length === 0 && <p className="muted">No turns yet.</p>}
         {turns.map((t, i) => (
