@@ -13,6 +13,26 @@ function Tile({ k, v, cls = '' }) {
   )
 }
 
+// Mean stt/brain/tts split of the end-to-end voice latency (LAT-T3). Null until a voice call has
+// recorded a breakdown (text-only / sim calls don't have one).
+function LatencyBreakdownTile({ breakdown }) {
+  const parts = breakdown
+    ? [
+        ['stt', breakdown.stt],
+        ['brain', breakdown.brain],
+        ['tts', breakdown.tts],
+      ].filter(([, v]) => v != null)
+    : []
+  return (
+    <div className="tile" title="Mean end-to-end voice latency split (stt / brain / tts)">
+      <div className="v" style={{ fontSize: 14 }}>
+        {parts.length ? parts.map(([k, v]) => `${k} ${Math.round(v)}`).join(' · ') : '—'}
+      </div>
+      <div className="k">latency split (ms)</div>
+    </div>
+  )
+}
+
 // DB-derived router KPIs (Classification Accuracy needs ground truth and comes from the benchmark,
 // not this live endpoint). Polls every few seconds + shows the live active-call count.
 export default function InsightsPanel({ activeCount }) {
@@ -44,6 +64,7 @@ export default function InsightsPanel({ activeCount }) {
       <Tile k="latency p95" v={ms(m?.turn_latency_ms_p95)} />
       <Tile k="paid" v={pct(m?.paid_rate)} cls={m?.payments_paid ? 'good' : ''} />
       <Tile k="revenue" v={m?.revenue != null ? `$${m.revenue}` : '—'} />
+      <LatencyBreakdownTile breakdown={m?.turn_latency_breakdown_ms} />
     </div>
   )
 }

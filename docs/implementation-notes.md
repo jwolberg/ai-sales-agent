@@ -1647,3 +1647,10 @@ so it doesn't block the pipeline loop.
 - With fillers on, the first agent audio may be the *filler*, so the measured tts/total reflects
   perceived time-to-first-audio — arguably the right thing for "low-latency voice interaction."
 Pipeline still builds (test_voice_pipeline green); full suite 176 passed; ruff clean.
+
+## 2026-05-29 — LAT-T3: surface latency breakdown on dashboard
+
+InsightsPanel adds a "latency split (ms)" tile rendering the mean stt · brain · tts from
+`router-metrics.turn_latency_breakdown_ms` (shows — until a voice call records a breakdown). The
+p50/p95 tiles now reflect end-to-end voice turnaround. Completes the LAT slice: the latency
+benchmark now measures the caller-perceived end-to-end turn, not just brain time. Build passes.
