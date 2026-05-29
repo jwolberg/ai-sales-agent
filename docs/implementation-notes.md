@@ -1486,3 +1486,13 @@ stronger approved-price gate. Currency comes from `payments_currency`, lowercase
 - Payment Links need a Price object, so the link flow creates an ad-hoc one-off Price then the link;
   quantity is fixed at 1 (packages/booking-quantity out of scope for this slice).
 5 tests (fake gateway); ruff clean.
+
+## 2026-05-29 — PAY1-T2: Twilio SMS sender
+
+`app/payments/sms.py`: `TwilioSmsSender.send(to, body) -> sid` via the Twilio Messages REST API
+(HTTP basic auth). Used **stdlib urllib** rather than httpx/requests — httpx is only a dev/transitive
+dep, and stdlib keeps this zero-new-dependency and matches the voice bridge's "raw REST, no SDK"
+choice. HTTP POST sits behind an injectable `post` seam so tests run offline. `get_sms_sender`
+raises `SmsError` when `sms_enabled` is false (needs SID + token + from-number). SMS failures are
+defined as **non-fatal** (the link still exists / shows on the dashboard; the caller just isn't
+texted) — the engine will treat them that way in PAY-3. 5 unit tests; ruff clean.
