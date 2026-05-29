@@ -10,6 +10,7 @@ export const api = {
   calls: () => getJSON('/api/calls'),
   call: (id) => getJSON(`/api/calls/${id}`),
   routerMetrics: () => getJSON('/api/router-metrics'),
+  catalog: () => getJSON('/api/catalog'),
   simPersonas: () => getJSON('/api/sim/personas'),
   startSim: (persona) =>
     fetch('/api/sim/start', {

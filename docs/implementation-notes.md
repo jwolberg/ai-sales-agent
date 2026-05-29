@@ -1401,3 +1401,12 @@ and built it (22 chunks). `get_default_retriever()` now returns `VectorRetriever
 matches on paraphrases ("my kid keeps failing chem tests" -> subjects_overview). The index lives in
 the gitignored DB, so it must be rebuilt per-environment (after DB recreate / KB edits); documented
 in the README quick start. No OpenAI key -> clean TF-IDF fallback.
+
+## 2026-05-29 — Dashboard catalog/explainer panel
+
+Added "What the agent offers" to /dashboard: `GET /api/catalog` returns the taxonomy (Test Prep:
+SAT/ACT/PSAT vs Tutoring: math/science → subjects), each leaf with its authoritative price + the
+KB-sourced summary; tutoring grouped by subject area. Frontend `Catalog.jsx` renders it as a
+two-column reference panel. Also fixed `test_get_default_retriever_falls_back_to_tfidf` to be
+hermetic (monkeypatch the embedder) — it had assumed no-key/empty-index, which broke once the dev
+env had an OpenAI key + a built KB index. ruff clean; 140 passed.

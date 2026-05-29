@@ -67,6 +67,10 @@ def test_vector_retriever_returns_nothing_for_offtopic(session):
     assert vr.retrieve("what is the price of pizza", k=3) == []
 
 
-def test_get_default_retriever_falls_back_to_tfidf_offline():
-    # No OpenAI key configured in tests -> embedder is None -> TF-IDF.
+def test_get_default_retriever_falls_back_to_tfidf_without_embedder(monkeypatch):
+    # With no embedder available, retrieval must fall back to TF-IDF — regardless of whether the
+    # dev env happens to have an OpenAI key + a built index.
+    import app.kb.embeddings as emb
+
+    monkeypatch.setattr(emb, "get_embedder", lambda *a, **k: None)
     assert isinstance(get_default_retriever(), KBRetriever)

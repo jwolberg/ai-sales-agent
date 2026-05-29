@@ -17,12 +17,20 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.agent import taxonomy as tx
+from app.agent.pricing import quote_price
 from app.db.models import Call
 from app.db.session import get_db
 from app.events import Subscription, bus
 from app.kpis.metrics import compute_metrics, compute_router_metrics
 from app.simulator.live_feed import run_sim_call_paced
 from app.simulator.personas import get_personas
+
+# Short, operator-facing descriptions of the two top-level options the agent routes between.
+_CATEGORY_DESC = {
+    "test_prep": "Prep for a college-admissions test — pick the test the student is taking.",
+    "tutoring": "One-on-one help in a specific school subject (math or science).",
+}
 
 # SSE keepalive cadence (seconds) so proxies don't drop an idle stream.
 _SSE_KEEPALIVE = 15.0
@@ -98,6 +106,52 @@ async def call_stream(call_id: str, request: Request) -> StreamingResponse:
     """Live event stream filtered to one call."""
     sub = bus.subscribe(call_id=call_id)
     return StreamingResponse(_sse(sub, request), media_type="text/event-stream")
+
+
+def _leaf_entry(leaf: tx.Leaf) -> dict:
+    rec = quote_price(leaf)
+    return {
+        "id": leaf.id,
+        "label": leaf.label,
+        "price": rec.amount if rec else None,
+        "unit": rec.unit if rec else None,
+        "display": rec.display if rec else None,
+        "summary": rec.summary if rec else None,
+        "approved": rec.approved if rec else None,
+    }
+
+
+@router.get("/catalog")
+def catalog() -> dict:
+    """The agent's offerings — the taxonomy the router classifies into, each leaf with its
+    authoritative price and KB-sourced summary. Powers the dashboard's catalog/explainer panel."""
+    test_leaves = [_leaf_entry(tx.Leaf(tx.Category.TEST_PREP, test=t)) for t in tx.TESTS]
+    tutoring_groups = [
+        {
+            "label": area.title(),
+            "leaves": [
+                _leaf_entry(tx.Leaf(tx.Category.TUTORING, subject_area=area, subject=s))
+                for s in subjects
+            ],
+        }
+        for area, subjects in tx.SUBJECTS.items()
+    ]
+    return {
+        "categories": [
+            {
+                "key": "test_prep",
+                "label": "Test Prep",
+                "description": _CATEGORY_DESC["test_prep"],
+                "groups": [{"label": None, "leaves": test_leaves}],
+            },
+            {
+                "key": "tutoring",
+                "label": "Tutoring",
+                "description": _CATEGORY_DESC["tutoring"],
+                "groups": tutoring_groups,
+            },
+        ]
+    }
 
 
 @router.get("/sim/personas")

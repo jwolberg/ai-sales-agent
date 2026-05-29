@@ -82,3 +82,16 @@ body {
 
 .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } }
+
+/* --- catalog / offerings explainer --- */
+.catalog { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 800px) { .catalog { grid-template-columns: 1fr; } }
+.cat-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.cat-name { font-size: 15px; font-weight: 600; color: var(--accent); }
+.cat-group { margin-bottom: 8px; }
+.group-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 8px 0 4px; }
+.offering { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
+.offering-row { display: flex; justify-content: space-between; align-items: baseline; }
+.off-name { font-weight: 500; }
+.off-price { color: var(--good); font-family: ui-monospace, monospace; }
+.off-summary { color: var(--muted); font-size: 12px; margin-top: 2px; }

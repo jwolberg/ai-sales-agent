@@ -112,3 +112,16 @@ def test_sim_personas_endpoint(client):
     personas = tc.get("/api/sim/personas").json()
     assert len(personas) == 10
     assert all(p["target_leaf"] and p["opening_line"] for p in personas)
+
+
+def test_catalog_endpoint(client):
+    tc, _ = client
+    cat = tc.get("/api/catalog").json()
+    cats = {c["key"]: c for c in cat["categories"]}
+    assert set(cats) == {"test_prep", "tutoring"}
+    # all 8 leaves present with prices + summaries
+    leaves = [lf for c in cat["categories"] for g in c["groups"] for lf in g["leaves"]]
+    assert len(leaves) == 8
+    assert all(lf["display"] and lf["summary"] for lf in leaves)
+    # tutoring is grouped by subject area
+    assert {g["label"] for g in cats["tutoring"]["groups"]} == {"Math", "Science"}
