@@ -69,13 +69,16 @@ cd backend
 python3 -m venv .venv
 .venv/bin/python -m pip install -e ".[dev]"   # core
 .venv/bin/python -m app.db.seed               # create schema + seed sample leads
+.venv/bin/python -m app.kb.index              # build the KB vector index (needs OPENAI_API_KEY)
 .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
 Verify: `curl -s http://localhost:8000/health` and open http://localhost:8000/dashboard.
 
 The brain uses OpenAI when `OPENAI_API_KEY` is set (in `backend/.env`); without it, the offline
-rule-based brain runs so the app and tests work with no key.
+rule-based brain runs so the app and tests work with no key. The KB index
+(`python -m app.kb.index`) embeds the approved docs for semantic lookup — rerun it after editing
+`data/kb/*.md` or recreating the DB; without an OpenAI key, KB retrieval falls back to TF-IDF.
 
 ### Voice demo (needs API keys)
 

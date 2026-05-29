@@ -1391,3 +1391,13 @@ off (call ends on caller hangup). Setup steps in `docs/DEPLOY.md`.
   the configured webhook returning the correct `<Stream>` TwiML. **Still needs a real inbound call**
   to validate the audio loop + telephony sample-rate/echo tuning (can't be done without a phone).
 Full suite **139 passed**; `ruff` clean. All 26 tickets now implemented.
+
+## 2026-05-29 — KB vector index build CLI + built
+
+The KB lookup was wired (brain kb_lookup -> answer_question -> retriever) and content present (22
+chunks), but `kb_embeddings` was empty so it ran on the TF-IDF fallback. Added `app/kb/index.py`
+(`python -m app.kb.index`) to embed the docs with `text-embedding-3-small` and persist to SQLite,
+and built it (22 chunks). `get_default_retriever()` now returns `VectorRetriever`; verified semantic
+matches on paraphrases ("my kid keeps failing chem tests" -> subjects_overview). The index lives in
+the gitignored DB, so it must be rebuilt per-environment (after DB recreate / KB edits); documented
+in the README quick start. No OpenAI key -> clean TF-IDF fallback.
