@@ -1633,3 +1633,17 @@ Closes the IR7-T1 gap (latency was brain-decision-only). Added `Turn.latency_bre
   won't add it to an existing dev DB. Recreate `nerdy_sales.db` (and rebuild the KB index) before
   the next live run. Tests use fresh in-memory DBs.
 Full suite 176 passed; ruff clean. Frame wiring that feeds the helper lands in LAT-T2.
+
+## 2026-05-29 — LAT-T2: wire STT/brain/TTS boundaries into the voice pipeline
+
+`EngineProcessor` (shared by web + Twilio, so one change covers both) now stamps monotonic
+boundaries as frames flow: `UserStoppedSpeakingFrame` starts the clock, the transcript + brain
+finish mark the middle, and the first `BotStartedSpeakingFrame` (agent audio out) closes it →
+`compose_turn_latency` → `recorder.update_turn_latency`. The DB write runs via `asyncio.to_thread`
+so it doesn't block the pipeline loop.
+- **Needs real-call validation** (consistent with the rest of the voice path): the exact frame
+  arrival timing can only be confirmed on a live call. The math (`compose_turn_latency`) and the DB
+  path are unit-tested; this ticket is the frame plumbing that feeds them.
+- With fillers on, the first agent audio may be the *filler*, so the measured tts/total reflects
+  perceived time-to-first-audio — arguably the right thing for "low-latency voice interaction."
+Pipeline still builds (test_voice_pipeline green); full suite 176 passed; ruff clean.

@@ -14,9 +14,16 @@ lazily so the core app stays importable without it.
 from __future__ import annotations
 
 import asyncio
+import time
 
 from loguru import logger
-from pipecat.frames.frames import Frame, TranscriptionFrame, TTSSpeakFrame
+from pipecat.frames.frames import (
+    BotStartedSpeakingFrame,
+    Frame,
+    TranscriptionFrame,
+    TTSSpeakFrame,
+    UserStoppedSpeakingFrame,
+)
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -39,6 +46,7 @@ from app.agent.guardrails import (
     check_agent_output,
 )
 from app.agent.intent_engine import IntentRouterEngine
+from app.agent.latency import compose_turn_latency
 from app.agent.recorder import CallRecorder
 from app.agent.versioning import compute_versions
 from app.config import Settings
@@ -97,6 +105,11 @@ class EngineProcessor(FrameProcessor):
         # turn. Real call 8b72f75c recorded a phantom "Good early." turn *before* the greeting,
         # which drove a spurious discovery question. Drop transcripts until we've greeted.
         self._ready = False
+        # End-to-end latency timing (LAT-T2). We stamp monotonic boundaries as frames flow and,
+        # on the first agent-audio frame, attach the stt/brain/tts breakdown to the agent turn.
+        self._user_stopped_at: float | None = None
+        # {turn_id, user_stopped_at, transcript_at, brain_done_at}; closed by the first agent audio.
+        self._pending: dict | None = None
 
     async def greet(self) -> None:
         greeting = await asyncio.to_thread(self._engine.open)
@@ -107,10 +120,21 @@ class EngineProcessor(FrameProcessor):
 
     async def process_frame(self, frame: Frame, direction: FrameDirection) -> None:
         await super().process_frame(frame, direction)
+        # Latency boundaries (LAT-T2): VAD stop starts the clock; the first agent-audio frame ends
+        # it. These frames pass straight through — we only read their arrival time.
+        if isinstance(frame, UserStoppedSpeakingFrame):
+            self._user_stopped_at = time.monotonic()
+            await self.push_frame(frame, direction)
+            return
+        if isinstance(frame, BotStartedSpeakingFrame):
+            await self._finalize_latency()
+            await self.push_frame(frame, direction)
+            return
         if isinstance(frame, TranscriptionFrame) and not self._ready:
             logger.debug(f"dropping pre-greeting transcript: {frame.text!r}")
             return
         if isinstance(frame, TranscriptionFrame) and frame.text.strip():
+            transcript_at = time.monotonic()
             # Speak a filler immediately so the call doesn't fall silent while we compute.
             if self._fillers is not None:
                 await self.push_frame(TTSSpeakFrame(self._fillers.pick(frame.text)))
@@ -121,8 +145,41 @@ class EngineProcessor(FrameProcessor):
             spoken = guard_output(result.utterance)
             if spoken.strip():
                 await self.push_frame(TTSSpeakFrame(spoken))
+            # Arm the latency finalizer for this turn; the next agent-audio frame closes it.
+            if result.agent_turn_id is not None:
+                self._pending = {
+                    "turn_id": result.agent_turn_id,
+                    "user_stopped_at": self._user_stopped_at,
+                    "transcript_at": transcript_at,
+                    "brain_done_at": time.monotonic(),
+                }
+            self._user_stopped_at = None
         else:
             await self.push_frame(frame, direction)
+
+    async def _finalize_latency(self) -> None:
+        """On the first agent-audio frame, stamp the end-to-end latency + breakdown on the turn.
+
+        Best-effort telemetry — the exact frame timing needs a real call to validate. With fillers
+        on, the first agent audio may be the filler, so this reflects perceived time-to-first-audio.
+        """
+        pending, self._pending = self._pending, None
+        if pending is None:
+            return
+        total, breakdown = compose_turn_latency(
+            user_stopped_at=pending["user_stopped_at"],
+            transcript_at=pending["transcript_at"],
+            brain_done_at=pending["brain_done_at"],
+            bot_started_at=time.monotonic(),
+        )
+        recorder = getattr(self._engine, "recorder", None)
+        if recorder is not None:
+            await asyncio.to_thread(
+                recorder.update_turn_latency,
+                pending["turn_id"],
+                latency_ms=total,
+                breakdown=breakdown,
+            )
 
 
 def build_engine_pipeline_task(
