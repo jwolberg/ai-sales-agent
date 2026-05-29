@@ -1342,3 +1342,12 @@ wraps the REST endpoints + an `EventSource` SSE subscription; the App shell show
 serves the built app at `/dashboard` (falls back to the legacy static page if no build). `dist` is
 committed so `/dashboard` works from a clone without npm; `node_modules` gitignored. `npm run build`
 succeeds (Vite 5). Backend tests unaffected (7 passed).
+
+## 2026-05-28 — IR7-T5: live call board + transcript
+
+`useLiveCalls` hook reduces the SSE stream (+ initial /api/calls load) into a live map of calls
+(turns, decisions, reached leaf, quoted price, last latency, mis-quote count). `CallBoard` renders
+active/recent call cards (channel, live/ended, leaf, price, latency, mis-quote flag); `CallDetail`
+shows streaming prospect/agent transcript bubbles + the per-turn decision trace (action, confidence,
+slots, leaf), fetching the snapshot for historical calls and streaming live ones. App is now a
+two-pane board+detail layout. `npm run build` succeeds.

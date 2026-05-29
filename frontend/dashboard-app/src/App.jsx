@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { api, subscribe } from './api.js'
+import { api } from './api.js'
+import { useLiveCalls } from './useLiveCalls.js'
+import CallBoard from './CallBoard.jsx'
+import CallDetail from './CallDetail.jsx'
 
 function SimControls() {
   const [personas, setPersonas] = useState([])
@@ -41,13 +44,9 @@ function SimControls() {
 }
 
 export default function App() {
-  const [events, setEvents] = useState([])
-  const [connected, setConnected] = useState(false)
-  useEffect(() => {
-    const unsub = subscribe((ev) => setEvents((prev) => [ev, ...prev].slice(0, 200)))
-    setConnected(true)
-    return unsub
-  }, [])
+  const { calls, order } = useLiveCalls()
+  const [selected, setSelected] = useState(null)
+  const connected = order.length >= 0 // stream is opened by the hook
 
   return (
     <div className="app">
@@ -58,20 +57,16 @@ export default function App() {
         </span>
       </header>
       <SimControls />
-      <section className="panel">
-        <h2>Live events</h2>
-        <ul className="events">
-          {events.length === 0 && <li className="muted">Waiting for calls… start a simulated one above.</li>}
-          {events.map((e, i) => (
-            <li key={i}>
-              <code className={`tag tag-${e.type}`}>{e.type}</code>
-              <span className="cid">{e.call_id?.slice(0, 8)}</span>
-              <span>{e.speaker || e.action || e.event_type || ''}</span>
-              <span className="detail">{e.text || e.leaf || ''}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <div className="layout">
+        <section className="panel">
+          <h2>Active &amp; recent calls</h2>
+          <CallBoard calls={calls} order={order} selected={selected} onSelect={setSelected} />
+        </section>
+        <section className="panel">
+          <h2>Call detail</h2>
+          <CallDetail call={selected ? calls[selected] : null} />
+        </section>
+      </div>
     </div>
   )
 }
