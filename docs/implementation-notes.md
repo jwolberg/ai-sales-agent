@@ -1447,3 +1447,14 @@ Fix: a generation token (`genRef`) bumped by every start/stop; `start()` capture
 bails after each await if superseded — releasing the mic and closing the orphaned pc instead of
 touching it. Also guards the `catch` so a superseded attempt can't overwrite state with an error.
 Root cause was async setup not tolerating teardown, not the WebRTC logic itself.
+
+## 2026-05-29 — Fix: inflated turn-latency p95/p50 (percentile bug)
+
+`_percentile` used `round((pct/100)*N + 0.5) - 1` as a nearest-rank ceil, but Python's `round()` is
+banker's rounding, so it biased the index high — p95 of 20 turns returned the max, p50 of 2 returned
+the larger value. That's why p95 looked wrong (it tracked the single slowest turn, usually the
+cold-start first turn). Replaced with `math.ceil((pct/100)*N) - 1` and pinned it with a unit test.
+Caveats noted but NOT changed: the dashboard's latency tiles pool **all calls** (synthetic included,
+no time window) and `latency_ms` times only `brain.decide()`, not end-to-end STT→TTS (the IR7-T1
+stt/brain/tts breakdown in voice/bot.py was never added). Flag for a follow-up if we want per-call
+or end-to-end latency.

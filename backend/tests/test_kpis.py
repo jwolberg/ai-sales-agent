@@ -10,7 +10,7 @@ from app.agent.recorder import OUTCOME_COMPLETED, CallRecorder
 from app.config import Settings
 from app.db.models import Base, KPIEvent
 from app.kpis import events as kpi
-from app.kpis.metrics import compute_metrics, compute_router_metrics
+from app.kpis.metrics import _percentile, compute_metrics, compute_router_metrics
 
 
 @pytest.fixture
@@ -77,6 +77,19 @@ def test_compute_metrics_empty_db_is_safe():
     with Session(engine) as s:
         assert compute_metrics(s)["total_calls"] == 0
         assert compute_router_metrics(s)["total_calls"] == 0
+
+
+def test_percentile_nearest_rank():
+    assert _percentile([], 95) is None
+    assert _percentile([42.0], 95) == 42.0
+    # p50 of two values is the smaller (nearest-rank), not the larger — the old banker's-rounding
+    # ceil returned 5000 here, which is what inflated p50/p95.
+    assert _percentile([100.0, 5000.0], 50) == 100.0
+    assert _percentile([100.0, 5000.0], 95) == 5000.0
+    # 1..20: p50 -> 10th value, p95 -> 19th value (not the 20th/max).
+    vals = [float(i) for i in range(1, 21)]
+    assert _percentile(vals, 50) == 10.0
+    assert _percentile(vals, 95) == 19.0
 
 
 def test_turn_latency_recorded_and_rolled_up(session):

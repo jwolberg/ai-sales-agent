@@ -8,6 +8,8 @@ frustration — are returned as ``None`` rather than a misleading 0, so the dash
 
 from __future__ import annotations
 
+import math
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -21,11 +23,17 @@ def _rate(numerator: int, denominator: int) -> float | None:
 
 
 def _percentile(values: list[float], pct: float) -> float | None:
-    """Nearest-rank percentile (pct in 0..100). None for an empty list."""
+    """Nearest-rank percentile (pct in 0..100). None for an empty list.
+
+    Nearest-rank: rank = ceil(pct/100 * N), 1-based, so the 0-based index is rank - 1. The earlier
+    ``round(x + 0.5) - 1`` form was a broken ceil — Python's banker's rounding made it bias the
+    index high (e.g. p95 of 20 returned the max, p50 of 2 returned the larger value), inflating p95.
+    """
     if not values:
         return None
     ordered = sorted(values)
-    k = max(0, min(len(ordered) - 1, round((pct / 100) * len(ordered) + 0.5) - 1))
+    rank = math.ceil((pct / 100) * len(ordered))
+    k = max(0, min(len(ordered) - 1, rank - 1))
     return round(ordered[k], 1)
 
 
