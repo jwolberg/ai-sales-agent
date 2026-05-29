@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     stripe_api_key: str | None = None      # Stripe secret key (sk_test_… / sk_live_…)
     stripe_webhook_secret: str | None = None  # verifies inbound webhook signatures (PAY-4)
     payments_currency: str = "usd"
+    # Dev-only (PAY7-T1): exercise the payment flow with NO Stripe/Twilio keys and no real charge —
+    # fake gateway returns deterministic example.test links, fake SMS is a no-op. NEVER set in prod.
+    payments_fake: bool = False
     # Tunables (override via env). Default to a capable Claude model; switch to
     # claude-haiku-4-5 for lower latency if needed.
     anthropic_model: str = "claude-sonnet-4-6"
@@ -124,10 +127,10 @@ class Settings(BaseSettings):
 
     @property
     def payments_enabled(self) -> bool:
-        """True when Stripe is configured. The whole payment flow is gated on this — with it off,
-        payment asks escalate exactly as today (PAY-0). The approved-price gate (pricing.yaml) is a
-        separate, always-on guard against charging placeholder prices."""
-        return bool(self.stripe_api_key)
+        """True when Stripe is configured (or the dev fake mode is on). The whole payment flow is
+        gated on this — with it off, payment asks escalate exactly as today (PAY-0). The
+        approved-price gate (pricing.yaml) is a separate, always-on guard for the REAL path."""
+        return bool(self.stripe_api_key) or self.payments_fake
 
     @property
     def sms_enabled(self) -> bool:

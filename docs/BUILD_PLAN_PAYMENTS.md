@@ -83,6 +83,20 @@ Reuse what's already wired; add a thin, hosted-payment slice.
   setup (Stripe test keys, `stripe listen` for local webhooks, ngrok) in `docs/DEPLOY.md`; note
   refunds/tax/terms remain a specialist's job (out of scope).
 
+## Phase PAY-7 — Test-call billing link (dev fake mode + in-call surface)
+Make the billing link demoable from the in-dashboard **Test Call** (IR-8) with no Stripe/Twilio keys
+and no real charge — a web mic call has no caller ID, so the link is shown in the panel and can be
+texted to a number the operator types.
+- **PAY7-T1 — Dev fake payments mode.** A `PAYMENTS_FAKE` flag (dev-only) makes `payments_enabled`
+  true without a key: `get_stripe_service` returns a `FakeStripeGateway` (deterministic
+  `https://…example.test/fake/…` links, no network) and `get_sms_sender` a no-op fake. In fake mode
+  the Stripe service runs with `allow_unapproved=True` so the placeholder `pricing.yaml` is
+  chargeable *for the fake only* — **the real path keeps the strict approved-price gate** (PAY-6).
+- **PAY7-T2 — In-call link + text it.** The Test Call panel surfaces the active call's payment link
+  (click-to-open) by reading the live call's `payment` (already streamed via `payment_sent`), plus a
+  phone field that POSTs to `POST /api/calls/{id}/send-payment-sms` to text the hosted URL (uses the
+  fake SMS sender in fake mode). Caller-ID auto-text on real Twilio calls remains a follow-on.
+
 ---
 
 ## Data-model notes

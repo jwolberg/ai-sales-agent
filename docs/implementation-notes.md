@@ -1590,3 +1590,16 @@ price), the placeholder-price warning, `.env` setup (Stripe test keys, Twilio SM
 via `stripe listen --forward-to localhost:8000/payments/webhook`, and out-of-scope items
 (refunds/tax/discounts/booking-quantity → specialist; card numbers never taken in-call).
 Full suite 168 passed; ruff clean. BUILD_PLAN_PAYMENTS PAY-0..PAY-6 all implemented.
+
+## 2026-05-29 — PAY7-T1: dev fake payments mode
+
+Added `PAYMENTS_FAKE` (dev-only) so the billing flow works with NO Stripe/Twilio keys and no real
+charge — needed to demo the link from a web Test Call. `payments_enabled` is now
+`bool(stripe_api_key) or payments_fake`. `app/payments/fakes.py`: `FakeStripeGateway` (deterministic
+`https://…example.test/fake/…` links, no network) + `FakeSmsSender` (no-op). `get_stripe_service`
+returns the fake with `allow_unapproved=True` in fake mode; `get_sms_sender` returns the fake when
+fake mode is on and Twilio isn't configured.
+- **Safety preserved:** `allow_unapproved` defaults False; only the fake-mode factory sets it, so
+  the REAL Stripe path keeps the strict approved-price gate (the PAY-6 test still holds). Fake links
+  are obviously non-real (`example.test`).
+3 tests; full suite 171 passed; ruff clean.

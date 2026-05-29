@@ -68,9 +68,14 @@ class TwilioSmsSender:
         return sid
 
 
-def get_sms_sender(settings, *, post: PostFn = _urllib_post) -> TwilioSmsSender:
-    """Build the sender from settings. Raises :class:`SmsError` when SMS isn't configured (Twilio
-    SID + auth token + from-number) — callers check ``settings.sms_enabled`` first."""
+def get_sms_sender(settings, *, post: PostFn = _urllib_post):
+    """Build the sender from settings. In dev fake mode without Twilio creds (PAY7-T1) returns a
+    no-op fake so the flow completes; otherwise the real Twilio sender. Raises :class:`SmsError`
+    when SMS isn't configured (Twilio SID + auth token + from-number)."""
+    if settings.payments_fake and not settings.sms_enabled:
+        from app.payments.fakes import FakeSmsSender
+
+        return FakeSmsSender()
     if not settings.sms_enabled:
         raise SmsError(
             "SMS disabled (need TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER)"

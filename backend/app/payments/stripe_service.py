@@ -74,11 +74,15 @@ class StripeService:
         *,
         pricebook: PriceBook | None = None,
         currency: str = "usd",
+        allow_unapproved: bool = False,
     ) -> None:
         self._gateway = gateway
         self._pricebook = pricebook or get_pricebook()
         # Stripe wants a lowercase ISO code; the pricebook stores 'USD'.
         self._currency = currency.lower()
+        # Dev fake mode only: charge placeholder (unapproved) prices since the fake never bills.
+        # The real path leaves this False — the approved-price gate stays strict (PAY-6).
+        self._allow_unapproved = allow_unapproved
 
     def create_payment_link(self, leaf_id: str, *, idempotency_key: str) -> PaymentLink:
         """Pay-now link for ``leaf_id``. Raises :class:`PaymentError` if not approved/priced."""
@@ -107,7 +111,7 @@ class StripeService:
         record = quote_price(leaf_id, pricebook=self._pricebook)
         if record is None:
             raise PaymentError(f"no priced record for leaf {leaf_id!r}; cannot charge")
-        if not record.approved:
+        if not record.approved and not self._allow_unapproved:
             raise PaymentError(
                 f"price for {leaf_id!r} is not approved (placeholder); refusing to charge"
             )
@@ -170,9 +174,18 @@ class _StripeApiGateway:
 
 
 def get_stripe_service(settings, *, pricebook: PriceBook | None = None) -> StripeService:
-    """Build the live service from settings. Raises :class:`PaymentError` if Stripe isn't configured
-    (the engine checks ``settings.payments_enabled`` before calling, so this is a belt-and-braces
-    guard)."""
+    """Build the service from settings. In dev fake mode (PAY7-T1) returns a no-network fake that
+    can charge placeholder prices; otherwise the real Stripe-backed service with the strict
+    approved-price gate. Raises :class:`PaymentError` if payments aren't enabled at all."""
+    if settings.payments_fake:
+        from app.payments.fakes import FakeStripeGateway
+
+        return StripeService(
+            FakeStripeGateway(),
+            pricebook=pricebook,
+            currency=settings.payments_currency,
+            allow_unapproved=True,
+        )
     if not settings.payments_enabled:
         raise PaymentError("payments are disabled (no STRIPE_API_KEY)")
     gateway = _StripeApiGateway(settings.stripe_api_key)
