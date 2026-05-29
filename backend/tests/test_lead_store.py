@@ -7,8 +7,6 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from app.agent.orchestrator import Orchestrator
-from app.config import Settings
 from app.db.models import Base
 from app.db.seed import seed_leads
 from app.memory.lead_store import (
@@ -125,30 +123,3 @@ def test_non_profile_slots_persist_and_all_known_fields_merges(session):
     merged = all_known_fields(reloaded)
     assert merged["subject"] == "Algebra II"
     assert merged["challenge"] == "word problems"
-
-
-def test_orchestrator_end_writes_collected_fields_back_to_lead(session):
-    # P10-T3: ending a call auto-persists everything learned (typed + extra slots) onto the lead.
-    store = LeadStore(session)
-    lead = store.load("seed-none-003")
-    orch = Orchestrator(settings=Settings(_env_file=None), lead_store=store, lead=lead)
-    orch.state.collected_fields.update({"subject": "Geometry", "challenge": "test anxiety"})
-    orch.end(summary="Explored options; will follow up.")
-
-    reloaded = LeadStore(session).load("seed-none-003")
-    assert reloaded.subject == "Geometry"  # typed column written
-    assert reloaded.collected_fields["challenge"] == "test anxiety"  # extra slot written
-    assert reloaded.prior_summary == "Explored options; will follow up."
-
-
-def test_orchestrator_seeds_known_fields_and_reports_gaps(session):
-    partial = LeadStore(session).load("seed-partial-002")
-    orch = Orchestrator(
-        settings=Settings(_env_file=None),
-        known_fields=known_fields(partial),
-        lead_id=partial.lead_id,
-    )
-    assert orch.state.lead_id == "seed-partial-002"
-    assert orch.state.collected_fields["subject"] == "SAT prep"
-    # Knows subject & grade, so it should only need to ask "who".
-    assert orch.missing_required_fields() == ["relationship_to_student"]

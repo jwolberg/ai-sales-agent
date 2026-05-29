@@ -1266,3 +1266,22 @@ so a live LLM-driven caller can plug in for a realistic score while the determin
 the offline benchmark/tests hermetic. No new runner needed; the old `simulator/runner.py` (Claude
 self-play through the discovery-to-close engine) retires in IR-6. Test: pluggable-prospect case.
 Phase IR-4 complete.
+
+## 2026-05-28 — IR6-T1: delete the discovery-to-close machinery
+
+Removed the old brain + its tests now that voice + self-play run on the router engine (IR-4).
+**Reordered IR-4 before IR-6** (the plan's own sequencing rule): the teardown is only safe once
+nothing imports the old modules.
+- **Deleted (app):** `agent/{decisioning,discovery,closing,objections,extraction,orchestrator,
+  engine,router,render,synthesis}.py`, `simulator/{runner,scoring}.py`, the whole `experiments/`
+  package, and `data/playbooks/{discovery,objections}.yaml`.
+- **Deleted (tests):** 13 files covering the above.
+- **Kept (vestigial, on purpose):** `agent/persona.py` + `agent/stages.py` — still imported by the
+  reused `versioning.py` (version hash) and `voice/pipeline.py` (legacy raw-Claude builder); deleting
+  them forces needless surgery. `versioning` handles the now-empty playbook dir gracefully
+  (`pb-none`). The `Experiment`/`Variant` ORM models are retained (schema) though no longer driven —
+  removing them is a migration, deferred.
+- **Edited survivors:** `recorder.py` lost `record_decision(NextAction)` + `record_close_attempt` +
+  the closing/orchestrator imports. Trimmed/rewrote `test_{lead_store,transcript,guardrails,
+  knowledge,kpis,dashboard}.py` to drop old-engine setup and exercise the router engine instead.
+Full suite **127 passed**; `ruff` clean across app + tests.

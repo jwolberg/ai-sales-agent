@@ -18,10 +18,7 @@ from app.agent.guardrails import (
     detect_escalation,
     should_stop_selling,
 )
-from app.agent.orchestrator import Orchestrator
 from app.agent.recorder import CallRecorder
-from app.agent.stages import Action, Stage
-from app.config import Settings
 from app.db.models import Base, KPIEvent
 
 
@@ -77,25 +74,6 @@ def test_check_agent_output_flags_prohibited_speech():
     assert QUOTES_PRICE in check_agent_output("It's just $40 per session.")
     assert PROMISES_GUARANTEE in check_agent_output("We guarantee her grades will improve.")
     assert check_agent_output("Happy to help you find the right tutor.") == []
-
-
-# --- orchestrator wiring ---------------------------------------------------------------
-
-def test_orchestrator_check_escalation_emits_escalate_action():
-    orch = Orchestrator(settings=Settings(_env_file=None))
-    assert orch.check_escalation("what grade is she in?") is None
-
-    action = orch.check_escalation("Please connect me with a human.")
-    assert action.stage is Stage.ESCALATION
-    assert action.action is Action.ESCALATE
-    assert action.escalation_risk == "high"
-    assert action.question_key == HUMAN_REQUEST
-    assert action.prompt  # the handoff line
-
-
-def test_orchestrator_exposes_stop_selling():
-    orch = Orchestrator(settings=Settings(_env_file=None))
-    assert orch.should_stop_selling("no thanks, remove me from your list")
 
 
 # --- escalation record (DE-4 / observability) ------------------------------------------

@@ -6,14 +6,12 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
-from app.agent.orchestrator import Orchestrator
 from app.agent.recorder import (
     OUTCOME_COMPLETED,
     SPEAKER_AGENT,
     SPEAKER_PROSPECT,
     CallRecorder,
 )
-from app.config import Settings
 from app.db.models import Base, Call, Lead, Turn
 
 
@@ -73,37 +71,28 @@ def test_synthetic_flag_is_recorded(session):
     assert loaded.ended_at is not None
 
 
-def test_orchestrator_drives_a_recorded_call(session):
-    settings = Settings(_env_file=None, agent_name="Jay", company_name="Nerdy")
-    rec = CallRecorder(session, channel="web")
-    orch = Orchestrator(settings=settings, recorder=rec)
+def test_engine_drives_a_recorded_call(session):
+    # The intent-router engine drives a recorded call end-to-end (replaces the old orchestrator
+    # transcript test). Greeting + a classifying turn produce ordered turns + a decision trace.
+    from app.agent.brain import RuleBrain
+    from app.agent.intent_engine import IntentRouterEngine
+    from app.config import Settings
 
-    orch.open()
-    orch.record_agent_turn("Hi, this is Jay from Nerdy. How can I help?")
-    for reply in ("It's for my son.", "He's in 9th grade.", "Geometry."):
-        orch.on_user_turn(reply)
-        orch.record_agent_turn("Thanks — and what's been hardest lately?")
-    orch.end(outcome=OUTCOME_COMPLETED)
+    rec = CallRecorder(session, channel="web")
+    eng = IntentRouterEngine(
+        brain=RuleBrain(Settings(_env_file=None)), recorder=rec, settings=Settings(_env_file=None)
+    )
+    eng.open()
+    eng.run_turn("I need help with chemistry.")
+    eng.end(outcome=OUTCOME_COMPLETED)
 
     loaded = session.scalar(select(Call).where(Call.call_id == rec.call_id))
     assert loaded.outcome == OUTCOME_COMPLETED
     assert loaded.ended_at is not None
+    assert loaded.reached_leaf == "tutoring/science/chemistry"
 
     turns = _turns_in_order(session, rec.call_id)
-    # 1 greeting + 3 (prospect, agent) pairs = 7 turns.
-    assert len(turns) == 7
-    assert sum(t.speaker == SPEAKER_PROSPECT for t in turns) == 3
-    assert sum(t.speaker == SPEAKER_AGENT for t in turns) == 4
-    prospect_texts = {t.text for t in turns if t.speaker == SPEAKER_PROSPECT}
-    assert prospect_texts == {"It's for my son.", "He's in 9th grade.", "Geometry."}
-
-
-def test_orchestrator_without_recorder_does_not_touch_db(session):
-    # Pure decision use: no recorder, so nothing is persisted.
-    orch = Orchestrator(settings=Settings(_env_file=None))
-    orch.open()
-    orch.on_user_turn("hello")
-    orch.record_agent_turn("hi there")
-    orch.end(outcome=OUTCOME_COMPLETED)
-    assert session.scalar(select(Call)) is None
-    assert session.scalar(select(Turn)) is None
+    # greeting + prospect + agent reply
+    assert len(turns) == 3
+    assert sum(t.speaker == SPEAKER_PROSPECT for t in turns) == 1
+    assert sum(t.speaker == SPEAKER_AGENT for t in turns) == 2

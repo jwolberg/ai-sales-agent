@@ -7,9 +7,6 @@ from app.agent.knowledge import (
     is_knowledge_question,
     is_social_pleasantry,
 )
-from app.agent.orchestrator import Orchestrator
-from app.agent.stages import Action, Stage
-from app.config import Settings
 
 
 def test_grounded_answer_returns_snippets_and_sources():
@@ -68,21 +65,15 @@ def test_real_questions_still_route_to_knowledge():
         assert is_knowledge_question(question), question
 
 
-def test_orchestrator_answer_knowledge_grounded():
-    orch = Orchestrator(settings=Settings(_env_file=None))
-    action = orch.answer_knowledge("how do you match a student with a tutor?")
-    assert action.stage is Stage.KNOWLEDGE_ANSWER
-    assert action.action is Action.ANSWER_KNOWLEDGE
-    assert "tutoring_formats_and_matching.md" in action.kb_sources
-    assert action.prompt and "ONLY this approved information" in action.prompt
-    assert action.confidence == 0.7
+def test_answer_question_grounded_cites_source():
+    ans = answer_question("how do you match a student with a tutor?")
+    assert ans.grounded is True
+    assert "tutoring_formats_and_matching.md" in ans.sources
+    assert ans.snippets
 
 
-def test_orchestrator_answer_knowledge_fallback():
-    orch = Orchestrator(settings=Settings(_env_file=None))
-    action = orch.answer_knowledge("can my dog learn to drive a car?")
-    assert action.stage is Stage.KNOWLEDGE_ANSWER
-    assert action.action is Action.ANSWER_KNOWLEDGE
-    assert action.kb_sources == []  # nothing grounded -> no sources claimed
-    assert action.prompt == FALLBACK_MESSAGE
-    assert action.confidence == 0.3
+def test_answer_question_fallback_when_uncovered():
+    ans = answer_question("can my dog learn to drive a car?")
+    assert ans.grounded is False
+    assert ans.sources == []  # nothing grounded -> no sources claimed
+    assert ans.fallback == FALLBACK_MESSAGE

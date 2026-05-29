@@ -17,12 +17,10 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
-from app.agent.closing import CloseAttempt
 from app.db.models import Call, Decision, KPIEvent, Turn
 
-if TYPE_CHECKING:  # avoid a runtime import cycle (orchestrator imports CallRecorder)
+if TYPE_CHECKING:
     from app.agent.contract import BrainDecision
-    from app.agent.orchestrator import NextAction
 
 # Turn.speaker values (PRD §15).
 SPEAKER_AGENT = "agent"
@@ -115,23 +113,6 @@ class CallRecorder:
         """Record something the caller said."""
         return self.record_turn(SPEAKER_PROSPECT, text, **kwargs)
 
-    def record_decision(self, action: NextAction, *, turn_id: str | None = None) -> Decision:
-        """Log the per-turn decision trace (PRD DE-2) from a NextAction."""
-        decision = Decision(
-            call_id=self._call.call_id,
-            turn_id=turn_id,
-            stage=action.stage.value if action.stage is not None else None,
-            selected_action=action.action.value,
-            reason=action.reason,
-            confidence=action.confidence,
-            missing_fields=list(action.missing_fields),
-            escalation_risk=action.escalation_risk,
-            kb_sources_used=list(action.kb_sources),
-        )
-        self._session.add(decision)
-        self._session.commit()
-        return decision
-
     def record_brain_decision(
         self, decision: BrainDecision, *, turn_id: str | None = None, missing: list | None = None
     ) -> Decision:
@@ -168,23 +149,6 @@ class CallRecorder:
             event_type=event_type,
             event_value=value,
             event_metadata=metadata or {},
-        )
-        self._session.add(event)
-        self._session.commit()
-        return event
-
-    def record_close_attempt(self, attempt: CloseAttempt) -> KPIEvent:
-        """Log a close attempt (CF-3) as a KPIEvent; ``created_at`` captures the timing."""
-        event = KPIEvent(
-            call_id=self._call.call_id,
-            event_type="close_attempt",
-            event_metadata={
-                "close_type": attempt.close_type,
-                "next_step": attempt.next_step,
-                "objection_state": attempt.objection_state,
-                "user_response": attempt.user_response,
-                "outcome": attempt.outcome,
-            },
         )
         self._session.add(event)
         self._session.commit()

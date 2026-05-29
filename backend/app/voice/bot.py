@@ -85,7 +85,7 @@ def _transcript_confidence(frame: TranscriptionFrame) -> float | None:
 class EngineProcessor(FrameProcessor):
     """Drives the ConversationEngine from STT-final transcripts and speaks the result.
 
-    The engine's per-turn work (LLM extraction + render synthesis) is sync, so it runs in a
+    The engine's per-turn work (the brain's tool-calling decision) is sync, so it runs in a
     worker thread to avoid blocking the pipeline's event loop.
     """
 
