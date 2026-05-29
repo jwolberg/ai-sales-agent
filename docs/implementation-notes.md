@@ -1555,3 +1555,17 @@ confirmation. Design choices:
 - Injectable `stripe_service` / `sms_sender` on the engine for offline tests.
 2 e2e tests (RuleBrain + fake Stripe + fake SMS): pay-after-quote records+texts+emits KPI;
 unapproved price escalates and charges nothing. Full suite 162 passed; ruff clean.
+
+## 2026-05-29 — PAY4-T1: Stripe webhook (source of truth for "paid")
+
+`app/payments/webhook.py` — `POST /payments/webhook`, mounted in main.py. Verifies the Stripe
+signature with `STRIPE_WEBHOOK_SECRET` (503 if unconfigured, 400 on a bad signature), then on
+`checkout.session.completed` (provider_ref = `payment_link`) or `invoice.paid` (provider_ref = `id`)
+calls `mark_payment_paid` → publishes `payment_paid` to the SSE bus. Other event types → `ignored`;
+unknown ref → `unknown_ref`.
+- **Idempotency:** leaned on `mark_payment_paid`'s already-paid no-op rather than persisting event
+  ids in a new table — a duplicate webhook for a paid row is a harmless no-op. Documented as a
+  deliberate simplification.
+- **Testability:** signature verification is a module function `_verify_event` that tests
+  monkeypatch with a constructed event (no payload signing). 4 tests (checkout/invoice paid, unknown
+  ref, unhandled type). Full suite 166 passed; ruff clean.

@@ -8,6 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from app import __version__
 from app.config import get_settings
 from app.dashboard.router import router as dashboard_router
+from app.payments.webhook import router as payments_router
 from app.voice.server import router as voice_router
 
 # Repo root is two levels up from this file: backend/app/main.py -> repo root.
@@ -35,6 +36,7 @@ def create_app() -> FastAPI:
 
     app.include_router(voice_router)
     app.include_router(dashboard_router)
+    app.include_router(payments_router)
 
     # Serve the observability dashboard UI at /dashboard (mounted before /demo so the
     # nested frontend/dashboard dir isn't shadowed by the /demo mount).
