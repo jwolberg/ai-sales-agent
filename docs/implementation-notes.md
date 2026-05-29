@@ -1218,3 +1218,16 @@ and `PersonaLibrary.router_personas()`. Appended 10 router personas to `personas
 ones ("struggling in school" -> algebra; "science help" -> chemistry; "do you offer tutoring?" ->
 geometry) so the benchmark exercises disambiguation. Tests: `tests/test_router_personas.py` (3),
 incl. full-leaf coverage. `ruff` clean.
+
+## 2026-05-28 — IR5-T2: accuracy benchmark + router KPIs
+
+`simulator/benchmark.py`: runs router personas through the real `IntentRouterEngine` in text mode
+with a deterministic `RouterProspect` (opens with `opening_line`, reveals the leaf's components as
+asked — fully offline), then scores **Classification Accuracy**, median **Turns-to-Classification**,
+quote/price-correct/mis-quote/escalation rates. `kpis/metrics.py` gains `compute_router_metrics()`
+for the DB-derivable rates the dashboard can show on any call (accuracy needs ground truth, so it
+lives in the benchmark report, not the DB query). Added a `mis_quote_count` to the engine for the
+per-call result. **Offline result: 100% accuracy / 0% mis-quote across all 10 personas** — proves
+the harness + metric end-to-end (a meaningful score needs the OpenAIBrain). Created the new module
+rather than rewriting the old scoring.py/metrics.compute_metrics (those go in IR-6). Tests:
+`tests/test_benchmark.py` (5). Full suite **233 passed**; `ruff` clean.

@@ -65,3 +65,35 @@ def compute_metrics(
         "average_latency_seconds": None,
         "frustration_rate": None,
     }
+
+
+def compute_router_metrics(session: Session, *, include_synthetic: bool = True) -> dict:
+    """Intent-router KPIs derivable from persisted calls (IR5-T2).
+
+    Classification *accuracy* needs the persona's ground-truth leaf and lives in the benchmark
+    report (`simulator/benchmark.py`); these are the DB-only rates the dashboard can show for any
+    call (live or synthetic), where no ground truth exists.
+    """
+    stmt = select(Call)
+    if not include_synthetic:
+        stmt = stmt.where(Call.is_synthetic.is_(False))
+    calls = list(session.scalars(stmt))
+    total = len(calls)
+
+    def count(call: Call, event_type: str) -> int:
+        return sum(e.event_type == event_type for e in call.kpi_events)
+
+    n_leaf = sum(c.reached_leaf is not None for c in calls)
+    n_quoted = sum(c.quoted_price is not None for c in calls)
+    n_escalation = sum(count(c, kpi.ESCALATION) > 0 for c in calls)
+    n_mis_quote = sum(count(c, kpi.MIS_QUOTE_BLOCKED) > 0 for c in calls)
+    total_clarify = sum(count(c, kpi.CLARIFY_ASKED) for c in calls)
+
+    return {
+        "total_calls": total,
+        "leaf_reached_rate": _rate(n_leaf, total),
+        "quote_rate": _rate(n_quoted, total),
+        "escalation_rate": _rate(n_escalation, total),
+        "mis_quote_rate": _rate(n_mis_quote, total),
+        "avg_clarifications": round(total_clarify / total, 2) if total else None,
+    }

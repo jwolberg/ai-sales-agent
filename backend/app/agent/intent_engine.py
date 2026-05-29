@@ -68,6 +68,7 @@ class IntentRouterEngine:
         self.slots: dict = {k: v for k, v in self.lead_fields.items() if k in tx.SLOT_FIELDS}
         self.reached_leaf: str | None = None
         self.quoted_price: float | None = None
+        self.mis_quote_count = 0
 
     # --- turns -------------------------------------------------------------------------
 
@@ -99,6 +100,7 @@ class IntentRouterEngine:
         # 4. Mis-quote guard (R6): a price the brain wasn't authorized to state is a hard
         #    violation — substitute a safe handoff and record it.
         if check_mis_quote(decision.utterance, allowed_amount=decision.quoted_amount):
+            self.mis_quote_count += 1
             self._emit_kpi(
                 kpi.MIS_QUOTE_BLOCKED,
                 metadata={"leaf": decision.leaf, "blocked_text": decision.utterance},
