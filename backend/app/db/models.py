@@ -1,6 +1,6 @@
 """ORM models for the PRD §15 data model.
 
-Entities: Lead, Call, Turn, Decision, KPIEvent, Experiment, Variant.
+Entities: Lead, Call, Turn, Decision, KPIEvent, Payment, Experiment, Variant.
 IDs are UUID hex strings so they are stable across logs, dashboards, and exports.
 """
 
@@ -108,6 +108,9 @@ class Call(Base):
     kpi_events: Mapped[list["KPIEvent"]] = relationship(
         back_populates="call", cascade="all, delete-orphan"
     )
+    payments: Mapped[list["Payment"]] = relationship(
+        back_populates="call", cascade="all, delete-orphan"
+    )
 
 
 class Turn(Base):
@@ -169,6 +172,32 @@ class KPIEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
 
     call: Mapped["Call"] = relationship(back_populates="kpi_events")
+
+
+class Payment(Base):
+    """A hosted-checkout charge for a call (BUILD_PLAN_PAYMENTS, PAY2-T1).
+
+    The agent/server never touch card data — this row tracks a Stripe Payment Link or Invoice and
+    its lifecycle. ``status`` moves created -> sent -> paid (or failed); the webhook is the source
+    truth for ``paid`` and looks the row up by ``provider_ref`` (Stripe id), so it's indexed.
+    """
+
+    __tablename__ = "payments"
+
+    payment_id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    call_id: Mapped[str] = mapped_column(ForeignKey("calls.call_id"))
+    leaf: Mapped[str | None] = mapped_column(String, nullable=True)
+    amount: Mapped[float] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String, default="usd")
+    provider: Mapped[str] = mapped_column(String, default="stripe")
+    kind: Mapped[str] = mapped_column(String)  # "link" (pay-now) | "invoice" (send-invoice)
+    provider_ref: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    url: Mapped[str | None] = mapped_column(String, nullable=True)
+    status: Mapped[str] = mapped_column(String, default="created")  # created|sent|paid|failed
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    call: Mapped["Call"] = relationship(back_populates="payments")
 
 
 class Experiment(Base):

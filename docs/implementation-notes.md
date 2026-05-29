@@ -1496,3 +1496,18 @@ choice. HTTP POST sits behind an injectable `post` seam so tests run offline. `g
 raises `SmsError` when `sms_enabled` is false (needs SID + token + from-number). SMS failures are
 defined as **non-fatal** (the link still exists / shows on the dashboard; the caller just isn't
 texted) — the engine will treat them that way in PAY-3. 5 unit tests; ruff clean.
+
+## 2026-05-29 — PAY2-T1: Payment model + recorder
+
+Added the `Payment` table (`payment_id`, `call_id`, `leaf`, `amount`, `currency`, `provider`,
+`kind` link|invoice, `provider_ref` [indexed], `url`, `status` created|sent|paid|failed,
+`created_at`, `paid_at`) + a `Call.payments` relationship. `CallRecorder.record_payment(...)`
+persists + publishes `payment_sent`; `mark_payment_paid(session, provider_ref)` flips to paid +
+publishes `payment_paid`.
+- **Deviation:** `mark_payment_paid` is a **module-level function**, not a recorder method — the
+  Stripe webhook (PAY-4) resolves payments globally by `provider_ref` with no call recorder in
+  scope. Made it **idempotent** (a row already `paid` is returned unchanged) so a duplicate webhook
+  can't re-fire `payment_paid`; unknown ref → None (webhook no-op).
+- **Migration:** this is a NEW table, so `init_db()`/`create_all` adds it additively on next boot —
+  no destructive dev-DB recreate needed (that caution applies to added *columns*, not new tables).
+Full suite 155 passed (+14 payment tests); ruff clean.

@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Call, Decision, KPIEvent, Turn
+from app.db.models import Call, Decision, KPIEvent, Payment, Turn
 from app.events import bus
 
 if TYPE_CHECKING:
@@ -34,6 +34,12 @@ OUTCOME_COMPLETED = "completed"
 OUTCOME_ESCALATED = "escalated"
 OUTCOME_DISQUALIFIED = "disqualified"
 OUTCOME_ABANDONED = "abandoned"
+
+# Payment.status lifecycle (PAY2-T1). The webhook is the source of truth for PAID.
+PAYMENT_CREATED = "created"  # link/invoice made, not yet texted
+PAYMENT_SENT = "sent"        # hosted URL texted to the caller
+PAYMENT_PAID = "paid"        # confirmed by the Stripe webhook
+PAYMENT_FAILED = "failed"
 
 
 def _utcnow() -> datetime:
@@ -183,6 +189,48 @@ class CallRecorder:
         )
         return event
 
+    def record_payment(
+        self,
+        *,
+        leaf: str | None,
+        amount: float,
+        currency: str,
+        kind: str,
+        provider_ref: str | None,
+        url: str | None,
+        status: str = PAYMENT_SENT,
+        provider: str = "stripe",
+    ) -> Payment:
+        """Persist a payment for this call and publish ``payment_sent`` for the dashboard (PAY2-T1).
+
+        ``status`` is ``sent`` once the hosted URL was texted, or ``created`` when the link exists
+        but SMS was unavailable (still surfaced on the board)."""
+        payment = Payment(
+            call_id=self._call.call_id,
+            leaf=leaf,
+            amount=amount,
+            currency=currency,
+            kind=kind,
+            provider=provider,
+            provider_ref=provider_ref,
+            url=url,
+            status=status,
+        )
+        self._session.add(payment)
+        self._session.commit()
+        bus.publish(
+            call_id=self._call.call_id,
+            type="payment_sent",
+            payment_id=payment.payment_id,
+            leaf=leaf,
+            amount=amount,
+            currency=currency,
+            kind=kind,
+            url=url,
+            status=status,
+        )
+        return payment
+
     def record_escalation(self, code: str, reason: str | None = None) -> KPIEvent:
         """Log an escalation to a human (DE-4) as a KPIEvent; ``created_at`` is the timing."""
         event = KPIEvent(
@@ -218,3 +266,29 @@ class CallRecorder:
             quoted_price=self._call.quoted_price,
         )
         return self._call
+
+
+def mark_payment_paid(session: Session, provider_ref: str) -> Payment | None:
+    """Mark the payment with this Stripe ``provider_ref`` paid; publish ``payment_paid`` (PAY2-T1).
+
+    Module-level (not a recorder method) because the Stripe webhook (PAY-4) resolves payments
+    globally by ``provider_ref`` with no call recorder in scope. Idempotent: a row already ``paid``
+    is returned unchanged so a duplicate webhook can't re-fire the event. Returns None for an
+    unknown ref (the webhook treats that as a no-op)."""
+    payment = session.query(Payment).filter(Payment.provider_ref == provider_ref).one_or_none()
+    if payment is None:
+        return None
+    if payment.status == PAYMENT_PAID:
+        return payment  # already settled — don't double-publish
+    payment.status = PAYMENT_PAID
+    payment.paid_at = _utcnow()
+    session.commit()
+    bus.publish(
+        call_id=payment.call_id,
+        type="payment_paid",
+        payment_id=payment.payment_id,
+        leaf=payment.leaf,
+        amount=payment.amount,
+        currency=payment.currency,
+    )
+    return payment
