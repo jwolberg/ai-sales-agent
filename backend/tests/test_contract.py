@@ -5,13 +5,14 @@ from app.agent.contract import (
     TOOLS,
     BrainDecision,
     RouterAction,
+    tools_for,
 )
 from app.agent.taxonomy import SLOT_FIELDS
 
 
 def test_tool_schemas_well_formed():
     names = set()
-    for tool in TOOLS:
+    for tool in tools_for(payments_enabled=True):  # the full set, incl. the payment tool
         assert tool["type"] == "function"
         fn = tool["function"]
         assert fn["name"] and fn["description"]
@@ -22,7 +23,13 @@ def test_tool_schemas_well_formed():
             assert req in params["properties"]
         names.add(fn["name"])
     assert names == set(TOOL_NAMES)
-    assert names == {"slot_fill", "kb_lookup", "quote_price", "escalate"}
+    assert names == {"slot_fill", "kb_lookup", "quote_price", "escalate", "send_payment_link"}
+
+
+def test_payment_tool_is_gated_by_flag():
+    base = {t["function"]["name"] for t in tools_for(payments_enabled=False)}
+    assert base == {"slot_fill", "kb_lookup", "quote_price", "escalate"}  # no payment tool
+    assert "send_payment_link" not in {t["function"]["name"] for t in TOOLS}
 
 
 def test_slot_fill_enumerates_taxonomy_fields():

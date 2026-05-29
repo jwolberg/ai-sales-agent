@@ -1511,3 +1511,12 @@ publishes `payment_paid`.
 - **Migration:** this is a NEW table, so `init_db()`/`create_all` adds it additively on next boot —
   no destructive dev-DB recreate needed (that caution applies to added *columns*, not new tables).
 Full suite 155 passed (+14 payment tests); ruff clean.
+
+## 2026-05-29 — PAY3-T1: send_payment_link tool contract
+
+contract.py: added `TOOL_SEND_PAYMENT_LINK` + `PAYMENT_TOOL` schema (`kind` link|invoice, optional
+`phone`), `RouterAction.PAY`, a `PaymentRequest` dataclass, and `BrainDecision.payment_request`.
+**Design:** the payment tool is kept OUT of the base `TOOLS`; `tools_for(payments_enabled)` adds it
+only when enabled, so with the flag off the model never even sees the tool (flag-off path
+unchanged). The brain stays DB/IO-free — it only sets `payment_request`; the engine (PAY3-T2)
+executes the side effects. Updated test_contract to validate the full set + that the tool is gated.
