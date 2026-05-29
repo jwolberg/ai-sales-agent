@@ -135,6 +135,35 @@ def test_payment_surfaces_on_calls_api_and_metrics(client):
     assert m["payments_paid"] == 1 and m["paid_rate"] == 1.0 and m["revenue"] == 85.0
 
 
+def test_send_payment_sms_endpoint(client, monkeypatch):
+    tc, sessions = client
+    db = sessions()
+    rec = CallRecorder(db, channel="web")
+    rec.record_payment(
+        leaf="test_prep/SAT", amount=85.0, currency="usd", kind="link",
+        provider_ref="plink_1", url="https://pay/x",
+    )
+    cid = rec.call_id
+    db.close()
+
+    # Fake SMS via fake mode so no Twilio creds are needed.
+    from app.dashboard import router as dash
+    monkeypatch.setattr(dash, "get_settings", lambda: Settings(_env_file=None, payments_fake=True))
+
+    ok = tc.post(f"/api/calls/{cid}/send-payment-sms", json={"phone": "+15551234567"})
+    assert ok.status_code == 200 and ok.json()["status"] == "sent"
+    # detail now reflects the sent status
+    detail = tc.get(f"/api/calls/{cid}").json()
+    assert detail["payments"][-1]["status"] == "sent"
+
+    # No payment on a fresh call -> 400.
+    db = sessions()
+    empty = CallRecorder(db, channel="web").call_id
+    db.commit()
+    db.close()
+    assert tc.post(f"/api/calls/{empty}/send-payment-sms", json={"phone": "+1"}).status_code == 400
+
+
 def test_catalog_endpoint(client):
     tc, _ = client
     cat = tc.get("/api/catalog").json()

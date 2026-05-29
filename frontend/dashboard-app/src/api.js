@@ -28,6 +28,19 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sdp, type }),
     }),
+
+  // Text a call's latest payment link to a number (PAY7-T2). Resolves to the JSON body; throws on
+  // a non-2xx so the caller can surface the error detail.
+  sendPaymentSms: async (callId, phone) => {
+    const r = await fetch(`/api/calls/${callId}/send-payment-sms`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone }),
+    })
+    const body = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(body.detail || `send failed (${r.status})`)
+    return body
+  },
 }
 
 // Subscribe to the live event stream. Returns an unsubscribe function.

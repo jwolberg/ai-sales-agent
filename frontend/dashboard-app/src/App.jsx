@@ -52,6 +52,12 @@ export default function App() {
   const connected = order.length >= 0 // stream is opened by the hook
   const activeCount = Object.values(calls).filter((c) => c.status === 'active').length
 
+  // The Test Call's own call for the in-panel billing link: newest web call that's live or has a
+  // payment (order is newest-first). Lets TestCall show + text the link it just generated (PAY7-T2).
+  const testCall = order
+    .map((id) => calls[id])
+    .find((c) => c && c.channel === 'web' && (c.status === 'active' || c.payment))
+
   // Auto-focus a call so the Transcript + Decision trace are visible without a manual click:
   // pick the newest one when nothing is selected, and follow a newly-arrived live call.
   useEffect(() => {
@@ -70,7 +76,7 @@ export default function App() {
         </span>
       </header>
       <SimControls />
-      <TestCall />
+      <TestCall liveCall={testCall} />
       <section className="panel">
         <h2>Insights</h2>
         <InsightsPanel activeCount={activeCount} />

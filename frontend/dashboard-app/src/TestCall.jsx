@@ -1,9 +1,11 @@
-import React from 'react'
+import React, { useState } from 'react'
+import { api } from './api.js'
 import { useTestCall } from './useTestCall.js'
 
 // Test Call (IR8-T3): speak to the agent with your own mic and hear it route in real time.
 // The call records as channel="web", so it appears on the call board with its live transcript
-// + decision trace — this control just starts/stops the audio session.
+// + decision trace — this control just starts/stops the audio session. When the agent creates a
+// billing link during the call, it's surfaced here too (PAY7-T2).
 const STATUS_LABEL = {
   idle: 'Idle.',
   checking: 'Checking voice configuration…',
@@ -13,20 +15,77 @@ const STATUS_LABEL = {
   error: '',
 }
 
-export default function TestCall() {
+// Shown once the agent has generated a payment link for this call: open it, or text it to a number
+// (a browser mic call has no caller ID, so we ask for one).
+function BillingLink({ call }) {
+  const [phone, setPhone] = useState('')
+  const [sms, setSms] = useState(null) // { ok, msg }
+  const [busy, setBusy] = useState(false)
+  const payment = call?.payment
+  if (!payment?.url) return null
+
+  const text = async () => {
+    setBusy(true)
+    setSms(null)
+    try {
+      await api.sendPaymentSms(call.call_id, phone)
+      setSms({ ok: true, msg: `Texted to ${phone}.` })
+    } catch (e) {
+      setSms({ ok: false, msg: e.message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const paid = payment.status === 'paid'
+  return (
+    <div className="panel" style={{ marginTop: 12 }}>
+      <h2>Billing link {paid ? '· paid ✓' : `· ${payment.kind}`}</h2>
+      <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <a href={payment.url} target="_blank" rel="noreferrer">
+          {payment.url}
+        </a>
+        {payment.amount != null && <span className="muted">${payment.amount}</span>}
+      </div>
+      {!paid && (
+        <div className="sim-controls" style={{ marginTop: 8 }}>
+          <input
+            type="tel"
+            placeholder="+15551234567"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+          <button disabled={busy || !phone.trim()} onClick={text}>
+            Text link
+          </button>
+          {sms && (
+            <span className="muted" style={{ color: sms.ok ? 'var(--good)' : 'var(--bad)' }}>
+              {sms.msg}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function TestCall({ liveCall }) {
   const { status, error, start, hangup, audioRef } = useTestCall()
   const live = status === 'checking' || status === 'connecting' || status === 'connected'
 
   return (
-    <div className="sim-controls">
-      <button disabled={live} onClick={start}>
-        ▶ Start Test Call
-      </button>
-      <button disabled={!live} onClick={hangup}>
-        ■ Hang up
-      </button>
-      <span className="muted">{status === 'error' ? error : STATUS_LABEL[status]}</span>
-      <audio ref={audioRef} autoPlay playsInline />
-    </div>
+    <>
+      <div className="sim-controls">
+        <button disabled={live} onClick={start}>
+          ▶ Start Test Call
+        </button>
+        <button disabled={!live} onClick={hangup}>
+          ■ Hang up
+        </button>
+        <span className="muted">{status === 'error' ? error : STATUS_LABEL[status]}</span>
+        <audio ref={audioRef} autoPlay playsInline />
+      </div>
+      <BillingLink call={liveCall} />
+    </>
   )
 }

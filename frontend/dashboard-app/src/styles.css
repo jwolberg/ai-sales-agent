@@ -29,6 +29,7 @@ body {
 
 .sim-controls { display: flex; gap: 8px; margin: 16px 0; }
 .sim-controls select,
+.sim-controls input,
 .sim-controls button {
   background: var(--panel-2); color: var(--text);
   border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 14px;

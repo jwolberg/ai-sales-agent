@@ -1603,3 +1603,17 @@ fake mode is on and Twilio isn't configured.
   the REAL Stripe path keeps the strict approved-price gate (the PAY-6 test still holds). Fake links
   are obviously non-real (`example.test`).
 3 tests; full suite 171 passed; ruff clean.
+
+## 2026-05-29 — PAY7-T2: in-call billing link + text-it endpoint
+
+Backend: `POST /api/calls/{id}/send-payment-sms {phone}` texts the call's latest payment link (uses
+the fake SMS sender in dev fake mode, else Twilio); flips the payment to `sent` and re-publishes
+`payment_sent` so the board updates. Frontend: `App` finds the Test Call's own web call (newest web
+call that's live or has a payment) and passes it to `TestCall`, which now renders a **Billing link**
+panel — click-to-open URL + a phone field/“Text link” button (and a paid ✓ state). A browser mic
+call has no caller ID, hence the explicit phone entry. `api.sendPaymentSms` surfaces error detail.
+Caller-ID auto-text on real Twilio calls is still a follow-on (From not yet plumbed via TwiML).
+Backend 172 passed; frontend builds; ruff clean.
+
+To try it end-to-end with no keys: set `PAYMENTS_FAKE=true` in backend/.env, start a Test Call, say
+"I'll pay now" after the quote → a fake link appears in the panel (and on the board).

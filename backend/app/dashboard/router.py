@@ -19,10 +19,13 @@ from sqlalchemy.orm import Session
 
 from app.agent import taxonomy as tx
 from app.agent.pricing import quote_price
+from app.agent.recorder import PAYMENT_SENT
+from app.config import get_settings
 from app.db.models import Call
 from app.db.session import get_db
 from app.events import Subscription, bus
 from app.kpis.metrics import compute_metrics, compute_router_metrics
+from app.payments.sms import SmsError, get_sms_sender
 from app.simulator.live_feed import run_sim_call_paced
 from app.simulator.personas import get_personas
 
@@ -261,3 +264,47 @@ def call_detail(call_id: str, db: Db) -> dict:
             _payment_dict(p) for p in sorted(call.payments, key=lambda p: p.created_at)
         ],
     }
+
+
+class SendPaymentSms(BaseModel):
+    phone: str
+
+
+@router.post("/calls/{call_id}/send-payment-sms")
+def send_payment_sms(call_id: str, body: SendPaymentSms, db: Db) -> dict:
+    """Text this call's latest payment link to a number the operator typed (PAY7-T2).
+
+    A web Test Call has no caller ID, so the link is texted on demand. Uses the fake SMS sender in
+    dev fake mode; otherwise real Twilio."""
+    call = db.get(Call, call_id)
+    if call is None:
+        raise HTTPException(status_code=404, detail="call not found")
+    if not call.payments:
+        raise HTTPException(status_code=400, detail="no payment link for this call yet")
+    phone = body.phone.strip()
+    if not phone:
+        raise HTTPException(status_code=400, detail="a phone number is required")
+    payment = max(call.payments, key=lambda p: p.created_at)
+    try:
+        sender = get_sms_sender(get_settings())
+    except SmsError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    body_text = f"Here's your secure link to get started with Nerdy: {payment.url}"
+    try:
+        sid = sender.send(phone, body_text)
+    except SmsError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    payment.status = PAYMENT_SENT
+    db.commit()
+    bus.publish(
+        call_id=call_id,
+        type="payment_sent",
+        payment_id=payment.payment_id,
+        leaf=payment.leaf,
+        amount=payment.amount,
+        currency=payment.currency,
+        kind=payment.kind,
+        url=payment.url,
+        status=PAYMENT_SENT,
+    )
+    return {"status": "sent", "message_sid": sid}
