@@ -12,7 +12,9 @@ from app.voice.server import router as voice_router
 
 # Repo root is two levels up from this file: backend/app/main.py -> repo root.
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
-DASHBOARD_DIR = FRONTEND_DIR / "dashboard"
+# Prefer the built React call-center dashboard (IR7-T4); fall back to the legacy static page.
+_DASHBOARD_APP_DIST = FRONTEND_DIR / "dashboard-app" / "dist"
+DASHBOARD_DIR = _DASHBOARD_APP_DIST if _DASHBOARD_APP_DIST.is_dir() else FRONTEND_DIR / "dashboard"
 
 
 def create_app() -> FastAPI:

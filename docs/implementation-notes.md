@@ -1333,3 +1333,12 @@ ground-truth personas. This is the "calls come in" demo driver — no mic, no Tw
 the RuleBrain, with a key the OpenAIBrain. Tested the paced runner directly (StaticPool session) +
 the personas endpoint; `/sim/start`'s background task isn't exercised via TestClient (it would hit
 the real DB + sleep). `ruff` clean; 7 passed.
+
+## 2026-05-28 — IR7-T4: React dashboard scaffold
+
+Vite + React app in `frontend/dashboard-app/` (`base: /dashboard/`, dev proxy to :8000). `src/api.js`
+wraps the REST endpoints + an `EventSource` SSE subscription; the App shell shows a persona picker +
+"Start simulated call" (POST /api/sim/start) and a live event feed. Built to `dist/`; `main.py` now
+serves the built app at `/dashboard` (falls back to the legacy static page if no build). `dist` is
+committed so `/dashboard` works from a clone without npm; `node_modules` gitignored. `npm run build`
+succeeds (Vite 5). Backend tests unaffected (7 passed).
