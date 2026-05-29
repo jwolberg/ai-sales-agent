@@ -124,6 +124,8 @@ class Turn(Base):
     detected_objection: Mapped[str | None] = mapped_column(String, nullable=True)
     sentiment: Mapped[str | None] = mapped_column(String, nullable=True)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Wall-clock ms to produce this (agent) turn — the brain decision + tool calls (IR7-T1).
+    latency_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     call: Mapped["Call"] = relationship(back_populates="turns")
 

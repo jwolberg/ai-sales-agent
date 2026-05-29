@@ -1302,3 +1302,12 @@ Rewrote `README.md` to the intent-router scope (what it does, architecture, quic
 earlier `BUILD_PLAN.md` banner. Added a core-backend `Dockerfile` (one-command run, no voice extra)
 and `docs/DEPLOY.md` (local Docker + GCP Cloud Run, with the SQLite-ephemeral + sqlite-vec-in-prod
 notes). Phase IR-6 complete.
+
+## 2026-05-28 — IR7-T1: turn-latency instrumentation
+
+Added `Turn.latency_ms` (additive nullable; migration-recreate caution). The engine times the brain
+decision + its tool calls (`time.perf_counter` around `brain.decide`) and stamps the agent reply
+turn. `compute_router_metrics` now returns `turn_latency_ms_p50/p95` (nearest-rank percentile helper).
+This closes the long-standing "latency never measured" gap (old `average_latency_seconds=None`) for
+the brain/tool cost. **Deferred (needs live audio):** the STT-final → first-TTS-audio span in the
+voice path. Tests: latency recorded + rolled up. `ruff` clean.

@@ -77,3 +77,19 @@ def test_compute_metrics_empty_db_is_safe():
     with Session(engine) as s:
         assert compute_metrics(s)["total_calls"] == 0
         assert compute_router_metrics(s)["total_calls"] == 0
+
+
+def test_turn_latency_recorded_and_rolled_up(session):
+    eng = _engine(session)
+    eng.open()
+    eng.run_turn("I want SAT prep")
+    eng.end(outcome=OUTCOME_COMPLETED)
+    # the agent reply turn carries a latency measurement
+    from app.db.models import Turn
+    agent_turns = session.scalars(
+        select(Turn).where(Turn.speaker == "agent", Turn.latency_ms.isnot(None))
+    ).all()
+    assert agent_turns, "expected a timed agent turn"
+    m = compute_router_metrics(session)
+    assert m["turn_latency_ms_p50"] is not None
+    assert m["turn_latency_ms_p95"] is not None

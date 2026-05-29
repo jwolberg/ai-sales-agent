@@ -89,6 +89,7 @@ class CallRecorder:
         detected_objection: str | None = None,
         sentiment: str | None = None,
         confidence: float | None = None,
+        latency_ms: float | None = None,
     ) -> Turn:
         """Append one transcript turn and commit it."""
         turn = Turn(
@@ -100,6 +101,7 @@ class CallRecorder:
             detected_objection=detected_objection,
             sentiment=sentiment,
             confidence=confidence,
+            latency_ms=latency_ms,
         )
         self._session.add(turn)
         self._session.commit()

@@ -18,6 +18,7 @@ improvement loop tests the real path (R10).
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 
 from app.agent import taxonomy as tx
@@ -91,10 +92,12 @@ class IntentRouterEngine:
         if self.recorder is not None:
             turn = self.recorder.record_prospect(user_text, confidence=confidence)
 
-        # 3. The brain decides the turn.
+        # 3. The brain decides the turn (timed — the brain decision + its tool calls, IR7-T1).
+        _t0 = time.perf_counter()
         decision = self.brain.decide(
             history=self.history, lead_fields=self.lead_fields, slots=self.slots
         )
+        latency_ms = round((time.perf_counter() - _t0) * 1000, 1)
         self.slots = decision.slots
 
         # 4. Mis-quote guard (R6): a price the brain wasn't authorized to state is a hard
@@ -131,7 +134,7 @@ class IntentRouterEngine:
             self.recorder.record_brain_decision(
                 decision, turn_id=turn.turn_id if turn is not None else None, missing=missing
             )
-        self._emit_agent(decision.utterance)
+        self._emit_agent(decision.utterance, latency_ms=latency_ms)
 
         return RouterTurnResult(decision=decision, utterance=decision.utterance)
 
@@ -161,10 +164,10 @@ class IntentRouterEngine:
         self._emit_agent(utterance)
         return RouterTurnResult(decision=decision, utterance=utterance)
 
-    def _emit_agent(self, text: str) -> None:
+    def _emit_agent(self, text: str, *, latency_ms: float | None = None) -> None:
         self.history.append(("agent", text))
         if self.recorder is not None:
-            self.recorder.record_agent(text)
+            self.recorder.record_agent(text, latency_ms=latency_ms)
 
     def _emit_kpi(self, event_type: str, *, metadata: dict | None = None) -> None:
         if self.recorder is not None:

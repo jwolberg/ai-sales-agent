@@ -20,6 +20,15 @@ def _rate(numerator: int, denominator: int) -> float | None:
     return round(numerator / denominator, 3) if denominator else None
 
 
+def _percentile(values: list[float], pct: float) -> float | None:
+    """Nearest-rank percentile (pct in 0..100). None for an empty list."""
+    if not values:
+        return None
+    ordered = sorted(values)
+    k = max(0, min(len(ordered) - 1, round((pct / 100) * len(ordered) + 0.5) - 1))
+    return round(ordered[k], 1)
+
+
 def compute_metrics(
     session: Session,
     *,
@@ -89,6 +98,11 @@ def compute_router_metrics(session: Session, *, include_synthetic: bool = True) 
     n_mis_quote = sum(count(c, kpi.MIS_QUOTE_BLOCKED) > 0 for c in calls)
     total_clarify = sum(count(c, kpi.CLARIFY_ASKED) for c in calls)
 
+    # Turn latency over agent turns that recorded a timing (IR7-T1).
+    latencies = [
+        t.latency_ms for c in calls for t in c.turns if t.latency_ms is not None
+    ]
+
     return {
         "total_calls": total,
         "leaf_reached_rate": _rate(n_leaf, total),
@@ -96,4 +110,6 @@ def compute_router_metrics(session: Session, *, include_synthetic: bool = True) 
         "escalation_rate": _rate(n_escalation, total),
         "mis_quote_rate": _rate(n_mis_quote, total),
         "avg_clarifications": round(total_clarify / total, 2) if total else None,
+        "turn_latency_ms_p50": _percentile(latencies, 50),
+        "turn_latency_ms_p95": _percentile(latencies, 95),
     }
