@@ -44,6 +44,10 @@ class Persona:
     traits: tuple[str, ...] = ()
     facts: dict[str, str] = field(default_factory=dict)
     objections: tuple[str, ...] = ()
+    # Intent-router ground truth (IR5-T1): the leaf this caller actually needs, and the line they
+    # open with. The benchmark scores the agent's reached leaf against `target_leaf`.
+    target_leaf: str | None = None
+    opening_line: str | None = None
 
 
 class PersonaLibrary:
@@ -66,6 +70,8 @@ class PersonaLibrary:
                 traits=tuple(p.get("traits", [])),
                 facts=dict(p.get("facts", {})),
                 objections=tuple(p.get("objections", [])),
+                target_leaf=p.get("target_leaf"),
+                opening_line=p.get("opening_line"),
             )
             for p in data.get("personas", [])
         ]
@@ -76,6 +82,10 @@ class PersonaLibrary:
 
     def keys(self) -> list[str]:
         return [p.key for p in self.personas]
+
+    def router_personas(self) -> list[Persona]:
+        """Personas carrying an intent-router ground-truth leaf (IR5-T1 benchmark set)."""
+        return [p for p in self.personas if p.target_leaf]
 
 
 @lru_cache

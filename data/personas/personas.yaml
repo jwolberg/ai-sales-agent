@@ -133,3 +133,110 @@ personas:
     objections:
       - I'm really just looking around for now.
       - Can you guarantee straight A's?
+
+  # --- Intent-router benchmark personas (IR5-T1) ---------------------------------------------
+  # Each carries a ground-truth `target_leaf`; `opening_line` is how they start the call (some
+  # explicit, some deliberately vague so the agent must disambiguate). The benchmark scores the
+  # agent's reached leaf against `target_leaf`.
+  - key: router_sat_explicit
+    name: SAT Parent (explicit)
+    summary: Knows exactly what they want — SAT prep for a junior.
+    converts: true
+    disqualifies: false
+    target_leaf: test_prep/SAT
+    opening_line: Hi, I'm looking to get my daughter ready for the SAT.
+    traits:
+      - Direct and clear about the need.
+    facts:
+      relationship_to_student: parent
+      goal: SAT prep before the fall test
+
+  - key: router_act_ambiguous
+    name: College-Exam Parent (ambiguous)
+    summary: Wants college-entrance-exam prep but doesn't name the test until asked; it's the ACT.
+    converts: true
+    disqualifies: false
+    target_leaf: test_prep/ACT
+    opening_line: We need to start getting ready for college entrance exams.
+    traits:
+      - Opens vaguely ("entrance exams"); only says it's the ACT when the agent asks which test.
+
+  - key: router_psat
+    name: PSAT Parent
+    summary: Sophomore has the PSAT coming up.
+    converts: true
+    disqualifies: false
+    target_leaf: test_prep/PSAT
+    opening_line: My son has the PSAT in a couple of months and wants to be ready.
+    traits:
+      - Clear it's the PSAT specifically.
+
+  - key: router_algebra_ambiguous
+    name: Struggling-Student Parent (ambiguous)
+    summary: Says the student is "struggling in school"; the real need is algebra tutoring.
+    converts: true
+    disqualifies: false
+    target_leaf: tutoring/math/algebra
+    opening_line: My son is really struggling in school and I don't know where to start.
+    traits:
+      - Vague at first; when asked, it's a math class — specifically algebra.
+
+  - key: router_geometry
+    name: Geometry Parent
+    summary: Needs geometry help for a 10th grader.
+    converts: true
+    disqualifies: false
+    target_leaf: tutoring/math/geometry
+    opening_line: He's having a hard time with geometry this semester.
+    traits:
+      - Names geometry directly.
+
+  - key: router_chemistry
+    name: Chemistry Parent
+    summary: Wants a chemistry tutor.
+    converts: true
+    disqualifies: false
+    target_leaf: tutoring/science/chemistry
+    opening_line: I think we need a chemistry tutor for my daughter.
+    traits:
+      - Names chemistry directly.
+
+  - key: router_biology
+    name: Biology Student
+    summary: A student calling about biology help.
+    converts: true
+    disqualifies: false
+    target_leaf: tutoring/science/biology
+    opening_line: I'm having trouble keeping up in biology.
+    traits:
+      - The student themselves; names biology.
+
+  - key: router_physics
+    name: Physics Parent
+    summary: Looking for physics tutoring.
+    converts: true
+    disqualifies: false
+    target_leaf: tutoring/science/physics
+    opening_line: Do you have anyone who can help with physics?
+    traits:
+      - Names physics directly.
+
+  - key: router_science_ambiguous
+    name: Science Parent (ambiguous)
+    summary: Says "science help"; the real need is chemistry.
+    converts: true
+    disqualifies: false
+    target_leaf: tutoring/science/chemistry
+    opening_line: We could use some help with science.
+    traits:
+      - Opens with "science"; when asked which one, it's chemistry.
+
+  - key: router_tutoring_vague
+    name: Vague Tutoring Caller
+    summary: Just asks whether tutoring is offered; the real need is geometry.
+    converts: true
+    disqualifies: false
+    target_leaf: tutoring/math/geometry
+    opening_line: Hi — do you all offer tutoring?
+    traits:
+      - Very vague; reveals it's a math subject, then geometry, only when asked.

@@ -1209,3 +1209,12 @@ PLACEHOLDER copy for the router's informational Q&A. Prices intentionally stay i
 `data/pricing/pricing.yaml`, not the KB (R6). Existing TF-IDF ranking tests (`test_kb`) still pass
 with the two new docs (pricing/scheduling/formats queries still rank their own doc top). KB now 22
 chunks. Phase IR-3 complete.
+
+## 2026-05-28 — IR5-T1: ground-truth router personas
+
+Added `target_leaf` + `opening_line` to `Persona` (additive; legacy discovery personas untouched)
+and `PersonaLibrary.router_personas()`. Appended 10 router personas to `personas.yaml` covering all
+8 leaves, mixing explicit openers ("get my daughter ready for the SAT") with deliberately vague
+ones ("struggling in school" -> algebra; "science help" -> chemistry; "do you offer tutoring?" ->
+geometry) so the benchmark exercises disambiguation. Tests: `tests/test_router_personas.py` (3),
+incl. full-leaf coverage. `ruff` clean.
