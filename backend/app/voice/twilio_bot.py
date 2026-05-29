@@ -45,12 +45,17 @@ from app.voice.bot import EngineProcessor, build_engine
 from app.voice.pipeline import build_services, configure_debug_logging
 
 
-def build_twiml(ws_url: str) -> str:
-    """TwiML that connects the inbound call's audio to our Media Streams WebSocket."""
+def build_twiml(ws_url: str, *, from_number: str | None = None) -> str:
+    """TwiML that connects the inbound call's audio to our Media Streams WebSocket.
+
+    The caller's number (``From``) is passed as a Stream ``<Parameter>`` so it arrives in the Media
+    Streams ``start`` frame's ``customParameters`` — the engine uses it to text the payment link
+    without prompting (caller-ID auto-text)."""
+    param = f'<Parameter name="from" value="{from_number}" />' if from_number else ""
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'
         "<Response>"
-        f"<Connect><Stream url=\"{ws_url}\" /></Connect>"
+        f'<Connect><Stream url="{ws_url}">{param}</Stream></Connect>'
         "</Response>"
     )
 
@@ -65,13 +70,16 @@ def stream_ws_url(settings: Settings, host: str, *, scheme: str = "wss") -> str:
     return f"{scheme}://{host}/voice/twilio/ws"
 
 
-async def _read_start(websocket) -> tuple[str, str | None]:
-    """Consume Twilio's opening frames and return (stream_sid, call_sid)."""
+async def _read_start(websocket) -> tuple[str, str | None, str | None]:
+    """Consume Twilio's opening frames and return (stream_sid, call_sid, caller_number).
+
+    ``caller_number`` is the ``from`` Stream parameter set in the TwiML (caller ID), or None."""
     async for message in websocket.iter_text():
         data = json.loads(message)
         if data.get("event") == "start":
             start = data["start"]
-            return start["streamSid"], start.get("callSid")
+            params = start.get("customParameters") or {}
+            return start["streamSid"], start.get("callSid"), params.get("from")
     raise RuntimeError("Twilio stream closed before a 'start' frame")
 
 
@@ -80,7 +88,7 @@ async def run_twilio_bot(websocket, settings: Settings) -> None:
     if settings.voice_debug:
         configure_debug_logging()
     await websocket.accept()
-    stream_sid, call_sid = await _read_start(websocket)
+    stream_sid, call_sid, caller_number = await _read_start(websocket)
     logger.info(f"twilio stream {stream_sid} (call {call_sid}) connected")
 
     init_db()
@@ -89,7 +97,8 @@ async def run_twilio_bot(websocket, settings: Settings) -> None:
     recorder = CallRecorder(
         db, channel="twilio", **compute_versions(settings).as_dict()
     )
-    engine = build_engine(settings, recorder=recorder)
+    # caller_number = Twilio `From` -> the engine texts the payment link to it without prompting.
+    engine = build_engine(settings, recorder=recorder, caller_number=caller_number)
     processor = EngineProcessor(engine, fillers=settings.fillers)
 
     # auto_hang_up=False keeps us off the Twilio REST SDK (an extra dep): the call ends naturally

@@ -86,9 +86,19 @@ async def twilio_voice(request: Request) -> Response:
         return Response(content=twiml, media_type="application/xml")
     from app.voice.twilio_bot import build_twiml, stream_ws_url
 
+    # The caller's number (Twilio posts `From`) is threaded through the TwiML so the bot can text
+    # the payment link without asking for it (caller-ID auto-text). Parse the urlencoded body with
+    # the stdlib so we don't pull in python-multipart just for this.
+    from_number = request.query_params.get("From")
+    if from_number is None:
+        from urllib.parse import parse_qs
+
+        raw = (await request.body()).decode("utf-8", "ignore")
+        from_number = (parse_qs(raw).get("From") or [None])[0]
     host = request.headers.get("host", request.url.netloc)
     return Response(
-        content=build_twiml(stream_ws_url(settings, host)), media_type="application/xml"
+        content=build_twiml(stream_ws_url(settings, host), from_number=from_number),
+        media_type="application/xml",
     )
 
 

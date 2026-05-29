@@ -1673,3 +1673,21 @@ Added `test_twilio_ws_route_rejects_when_voice_unconfigured` (TestClient WS, set
 it's deterministic regardless of the dev env's real .env keys). Updated DEPLOY.md: image is
 voice-enabled, deploy with `--max-instances 1 --timeout 3600` + voice keys, point Twilio webhook at
 the service URL. **Still needs a real inbound call to validate the live audio loop.** Suite 177.
+
+## 2026-05-29 — Cloud Run deploy fixes + Twilio caller-ID auto-text
+
+Deployed to nerdy-1. Issues found + fixes on the live service:
+- **Dashboard 404:** Dockerfile didn't COPY the built frontend → fixed (copies dashboard-app/dist +
+  demo page).
+- **Simulated call didn't stream live:** Cloud Run's default CPU throttling starved the background
+  sim task + SSE. Fixed with `--no-cpu-throttling` (rev 00004); verified the full event sequence
+  (call_started/turn/decision/kpi) now streams over /api/stream.
+- **Browser Test Call (WebRTC) can't work on Cloud Run:** SmallWebRTC needs inbound UDP for media;
+  Cloud Run only exposes one HTTP/WS port (logs showed ICE timeout). Architectural — the mic Test
+  Call is local-only; the Twilio WebSocket path is the cloud voice path. Documented.
+- **Twilio:** pointed the number's Voice webhook at `…/voice/twilio` (via the Twilio API).
+- **Caller-ID auto-text:** `build_twiml` now passes the caller's `From` as a Stream `<Parameter>`;
+  `server.twilio_voice` reads `From` from the urlencoded webhook body (stdlib parse_qs — no
+  python-multipart dep); `_read_start` extracts `customParameters.from`; `build_engine` gains
+  `caller_number`, so a phone caller who asks to pay gets the link texted to their number with no
+  prompting. 178 tests; ruff clean. (Live audio loop still needs a real inbound call to validate.)

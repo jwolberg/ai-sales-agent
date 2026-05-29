@@ -22,6 +22,13 @@ def test_build_twiml_opens_a_stream():
     assert 'url="wss://example.test/voice/twilio/ws"' in xml
 
 
+def test_build_twiml_passes_caller_id_parameter():
+    xml = build_twiml("wss://example.test/voice/twilio/ws", from_number="+15551234567")
+    assert '<Parameter name="from" value="+15551234567" />' in xml
+    # No caller id -> no Parameter element.
+    assert "<Parameter" not in build_twiml("wss://example.test/voice/twilio/ws")
+
+
 def test_stream_ws_url_from_request_host():
     s = Settings(_env_file=None)
     assert stream_ws_url(s, "abc.ngrok.app") == "wss://abc.ngrok.app/voice/twilio/ws"

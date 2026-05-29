@@ -224,19 +224,22 @@ def build_engine(
     *,
     recorder: CallRecorder | None = None,
     known_fields: dict[str, str] | None = None,
+    caller_number: str | None = None,
 ) -> IntentRouterEngine:
     """Wire the intent-router engine for the live path: the brain (OpenAI when keyed, else the
     offline RuleBrain) + an optional recorder for the transcript/decision trace.
 
     ``known_fields`` seeds the agent with what we already know about this lead (P10-T1) so it
     skips/confirms instead of re-asking (LM-1/LM-3); any that map to taxonomy slots pre-fill the
-    classification state.
+    classification state. ``caller_number`` is the phone call's caller ID, used to text a payment
+    link without prompting (PAY3-T2).
     """
     return IntentRouterEngine(
         brain=get_brain(settings),
         recorder=recorder,
         lead_fields=known_fields,
         settings=settings,
+        caller_number=caller_number,
     )
 
 
