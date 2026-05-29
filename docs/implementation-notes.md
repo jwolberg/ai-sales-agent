@@ -1691,3 +1691,19 @@ Deployed to nerdy-1. Issues found + fixes on the live service:
   python-multipart dep); `_read_start` extracts `customParameters.from`; `build_engine` gains
   `caller_number`, so a phone caller who asks to pay gets the link texted to their number with no
   prompting. 178 tests; ruff clean. (Live audio loop still needs a real inbound call to validate.)
+
+### 2026-05-29 — docs: AGENT_FLOW.md rewritten to as-built
+- Replaced the pre-build mockup (11-stage state machine; `stage`×`selected_action`×`modifier`
+  trace) with the shipped **intent-router** model: one bounded OpenAI tool-calling loop per turn
+  (`brain.decide`), deterministic rails, and slot-filling against a fixed taxonomy → leaf. Added
+  three as-built sections the build produced: how the call **decides** (RouterAction's 7 values,
+  guardrails, payment path), how it **stores data** (SQLite tables, the Decision row, cross-call
+  lead memory, version stamps, payment lifecycle), and how it **grounds answers in the KB
+  vectorstore** (OpenAI `text-embedding-3-small` → `kb_embeddings` table, cosine top-k=3 @ 0.30,
+  TF-IDF fallback, no-hallucination grounding; prices come from `pricing.yaml`, never the model).
+- **Discrepancies recorded in the doc (not fixed here — docs-only change):**
+  (1) `Call.model_version` stamps `settings.anthropic_model` (`claude-sonnet-4-6`) but the live
+  brain runs OpenAI `gpt-4o` — leftover from the pre-pivot Claude design, mis-attributes the model.
+  (2) `Decision.escalation_risk` column is defined but never written. (3) `Decision.stage` just
+  mirrors `selected_action`; the legacy 11-stage enum is not populated. Logged as follow-ups in
+  AGENT_FLOW.md §8.

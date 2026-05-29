@@ -1,392 +1,357 @@
-# Agent Conversation Flow (Mockup)
+# Agent Conversation Flow (As-Built)
 
-> **Status:** Discussion mockup, not yet implemented. This document captures the
-> intended conversation behavior for the voice sales agent so we can align on it
-> before building the orchestrator (BUILD_PLAN P2-T3) and decisioning layer
-> (P3-T3). It expands on the conversation stages in `PRD.md` §17 and the
-> next-action set in `PRD.md` §9.5 (DE-1).
+> **Status:** As-built reference, updated 2026-05-29 on branch
+> `docs/intent-router-pivot`. This document was originally a pre-build *mockup*
+> of an 11-stage sales orchestrator (see §9 for what changed). The call agent
+> now ships as an **intent router**: a single tool-calling brain per turn,
+> wrapped in deterministic rails. This doc describes what the code actually
+> does — how the call **decides**, what it **stores**, and how it **grounds
+> answers in the KB vectorstore**. File:line references point at the live code.
 
-## 1. Core Idea
+## 1. Architecture at a Glance
 
-The sales agent needs to know **where it is in the call**, but it also needs
-permission to do normal human things: greet, acknowledge, clarify, reassure,
-make small talk, buy time, answer side questions, and then **gently return to
-the sales path**.
-
-The agent has two simultaneous jobs:
-
-### Layer 1 — Sales Progression (the structured path)
+A call is a loop of **turns**. On each turn the caller's audio becomes text, the
+**brain** decides one action and an utterance, deterministic **rails** vet that
+decision, the result is **persisted**, and the utterance is spoken back.
 
 ```
-Greeting → Context → Discovery → Need Development → Q&A
-        → Objection Handling → Fit Summary → Close → Wrap-Up
+                ┌─────────────────────── one turn ───────────────────────┐
+  caller audio → STT (Deepgram) → IntentRouterEngine.run_turn()           │
+                                    │                                      │
+                                    ├─ confidence gate (< 0.6 → re-ask)    │
+                                    ├─ brain.decide()  ← OpenAI tool loop   │
+                                    │     tools: slot_fill / kb_lookup /    │
+                                    │            quote_price / escalate /   │
+                                    │            send_payment_link          │
+                                    ├─ payment executor (Stripe + SMS)      │
+                                    ├─ mis-quote guardrail                  │
+                                    ├─ KPI events + Decision row persisted  │
+                                    └─ utterance → TTS (Cartesia) → caller  │
+                └─────────────────────────────────────────────────────────┘
 ```
 
-### Layer 2 — Human Conversation (what makes it sound real)
+The pivot's key simplification: there is **no staged state machine** driving the
+call. The brain re-reads the full transcript + known lead fields + accumulated
+slots every turn and picks the next move. "Where we are in the call" is an
+emergent property of which **slots** are filled and whether a product **leaf**
+has resolved — not a `stage` variable the code advances.
+
+## 2. The Voice Pipeline (STT → Brain → TTS)
+
+Built on the **Pipecat** framework. The frame pipeline
+(`backend/app/voice/bot.py:193`):
 
 ```
-Pleasantries → Acknowledgment → Clarification → Empathy
-        → Reassurance → Banter → Time Fillers → Topic Recovery
+transport.input → STTMuteFilter → DeepgramSTT → EngineProcessor → CartesiaTTS → transport.output
 ```
 
-The voice model should **not** sound like:
-
-> "Question 1. What subject do you need help with? Question 2. What grade is the
-> student in?"
-
-It should sound more like:
-
-> "Got it — math support for your daughter. And just so I understand the
-> situation, is this more about staying caught up day to day, or is there a
-> specific test or class she's worried about right now?"
-
-## 2. Flow Map
-
-```mermaid
-flowchart TD
-    A[Call Starts] --> B[Greeting + Identity]
-    B --> C[Warm Opener / Pleasantry]
-    C --> D{Known Lead Info?}
-
-    D -->|Full info| E[Confirm Context]
-    D -->|Partial info| F[Confirm Known Info + Ask Missing Info]
-    D -->|No info| G[Open Discovery]
-
-    E --> H[Human Check-In]
-    F --> H
-    G --> H
-
-    H --> I{User Response Type}
-
-    I -->|Answers directly| J[Update Lead Profile]
-    I -->|Asks product question| K[Product Q&A via Knowledge Base]
-    I -->|Asks billing/pricing question| L[Billing / Pricing Q&A via Knowledge Base]
-    I -->|Unclear answer| M[Clarify Question]
-    I -->|Concern / hesitation| N[Empathy + Reassurance]
-    I -->|Pushback / objection| O[Objection Handling]
-    I -->|Casual banter| P[Brief Banter / Rapport]
-    I -->|Interrupts / changes topic| Q[Follow User Lead]
-    I -->|Requests human| R[Escalate]
-
-    K --> S[Bridge Back to Conversation]
-    L --> S
-    M --> I
-    N --> T{Resolved?}
-    O --> T
-    P --> S
-    Q --> I
-
-    T -->|Yes| S
-    T -->|No / low confidence| R
-
-    S --> U{Required Discovery Complete?}
-
-    U -->|No| V[Ask Next Best Discovery Question]
-    V --> I
-
-    U -->|Yes| W[Summarize Situation + Confirm]
-    W --> X{User Confirms?}
-
-    X -->|Yes| Y[Recommend Next Step]
-    X -->|Needs correction| M
-    X -->|Still unsure| N
-
-    Y --> Z{Buying Signal?}
-    Z -->|Strong| AA[Soft Close]
-    Z -->|Medium| AB[Value Reinforcement + Trial Close]
-    Z -->|Weak| AC[Ask Readiness / Obstacle Question]
-
-    AA --> AD{Accepted?}
-    AB --> AD
-    AC --> I
-
-    AD -->|Yes| AE[Book / Transfer / Complete Next Step]
-    AD -->|No, objection| O
-    AD -->|No, not ready| AF[Graceful Follow-Up / Nurture]
-    AD -->|Needs human| R
-
-    AE --> AG[Wrap-Up + Confirmation]
-    AF --> AG
-    R --> AG
-    AG --> AH[Call Ends + Log Outcome]
-```
-
-## 3. The Flow Is Not Linear
-
-A realistic sales call has loops:
-
-- Discovery → Q&A → Discovery
-- Discovery → Empathy → Clarification → Discovery
-- Discovery → Objection → Reassurance → Product Explanation → Close
-- Close → Objection → Clarify → Reframe → Close Again
-
-So the agent should be driven by **states and transitions, not a fixed script.**
-
-## 4. Stages and Modifiers
-
-**Decision (resolved):** `PRD.md` §17's 11 stages stay the canonical, logged
-`stage` enum (the `Decision.stage` column in `backend/app/db/models.py`). The
-extra human-layer states from the mockup are **modifiers**, not stages — they
-describe the conversational *move* the agent makes on a given turn without
-advancing the sales arc. The active `stage` persists across modifier turns.
-
-This keeps the decision trace clean (11 stable values to chart KPIs against)
-while still letting the agent be human.
-
-### 4.1 Logged stages (the `stage` enum — 11 values)
-
-| Stage                  | Purpose                                          |
-| ---------------------- | ------------------------------------------------ |
-| `greeting`             | Start call and identify user                     |
-| `context_confirmation` | Confirm known lead data                          |
-| `discovery`            | Collect missing required fields                  |
-| `need_development`     | Explore pain, urgency, motivation                |
-| `knowledge_answer`     | Answer product / pricing / policy questions (KB) |
-| `objection_handling`   | Handle sales resistance                          |
-| `fit_summary`          | Summarize need and confirm understanding         |
-| `close`                | Ask for next-step commitment                     |
-| `escalation`           | Transfer or flag for human                       |
-| `wrap_up`              | Confirm next step and end call                   |
-| `disqualified`         | Lead is not a fit; stop selling                  |
-
-### 4.2 The two fields, decided
-
-**Decision (resolved):** the trace carries two independent dimensions per turn.
-
-- **`selected_action`** always carries the **sales action** — exactly one of
-  `PRD.md` §9.5 (DE-1)'s 10 next-actions. This is the sales-progression intent
-  and is always present on a decision turn.
-- **`modifier`** is a **separate, optional field** for the human-layer move. It
-  is populated only during **ambiguous or non-progressing moments** (the user is
-  unclear, emotional, off-topic, or the agent needs to cover latency). On a clean
-  progression turn it stays empty. It does **not** change the active `stage`.
-
-So the trace reads as: *where the call is* (`stage`) × *the sales intent being
-served* (`selected_action`) × *the human move wrapping it, if any* (`modifier`).
-
-> **Schema impact:** `Decision` has no `modifier` column today
-> (`backend/app/db/models.py:125`). This is a proposed nullable `String` field —
-> not yet implemented.
-
-### 4.3 The `selected_action` vocabulary (PRD §9.5 DE-1 — 10 values)
-
-| `selected_action`        | DE-1 action                     |
-| ------------------------ | ------------------------------- |
-| `ask_required_discovery` | Ask required discovery question |
-| `ask_leading_discovery`  | Ask leading discovery question  |
-| `answer_knowledge`       | Answer knowledge question       |
-| `handle_objection`       | Handle objection                |
-| `summarize_fit`          | Summarize fit                   |
-| `pivot_toward_close`     | Pivot toward close              |
-| `attempt_close`          | Attempt close                   |
-| `escalate`               | Escalate to human               |
-| `disqualify`             | Disqualify lead                 |
-| `end_call`               | End call                        |
-
-### 4.4 The `modifier` vocabulary (optional, ambiguity-time only)
-
-| `modifier`    | Purpose                                              |
-| ------------- | ---------------------------------------------------- |
-| `rapport`     | Brief pleasantry or warm opener                      |
-| `clarify`     | Resolve an ambiguous user answer                     |
-| `reassure`    | Respond to concern or frustration with empathy       |
-| `banter`      | Brief casual response, then return                   |
-| `bridge_back` | Return from a side topic to the sales flow           |
-| `time_filler` | Cover retrieval / reasoning latency purposefully     |
-
-### 4.5 How a mockup state maps to what gets logged
-
-| Mockup state (§2 / §5)      | `stage`                | `selected_action`        | `modifier`    |
-| --------------------------- | ---------------------- | ------------------------ | ------------- |
-| Warm Opener / Pleasantry    | `greeting`             | `ask_required_discovery` | `rapport`     |
-| Confirm Context             | `context_confirmation` | `ask_required_discovery` | —             |
-| Ask Next Best Discovery     | `discovery`            | `ask_required_discovery` | —             |
-| Explore pain / urgency      | `need_development`     | `ask_leading_discovery`  | —             |
-| Clarify an unclear answer   | `discovery` (unchanged)| `ask_required_discovery` | `clarify`     |
-| Product Q&A                 | `knowledge_answer`     | `answer_knowledge`       | —             |
-| Billing / Pricing Q&A       | `knowledge_answer`     | `answer_knowledge`       | —             |
-| Empathy + Reassurance       | *(stage unchanged)*    | `handle_objection`       | `reassure`    |
-| Objection Handling          | `objection_handling`   | `handle_objection`       | —             |
-| Brief Banter                | *(stage unchanged)*    | *(intent being steered)* | `banter`      |
-| Bridge Back                 | *(stage unchanged)*    | *(intent being steered)* | `bridge_back` |
-| Summarize Situation         | `fit_summary`          | `summarize_fit`          | —             |
-| Soft / Trial / Direct Close | `close`                | `attempt_close`          | —             |
-| Escalate                    | `escalation`           | `escalate`               | —             |
-| Wrap-Up + Confirmation      | `wrap_up`              | `end_call`               | —             |
-
-> **One gap to settle:** DE-1's 10 actions are sales-progression-only — there is
-> no "greet" or "confirm context" action. The `greeting` opener happens before any
-> user turn, so it produces no decision row (DE-1 is "after each user turn"), which
-> is fine. But `context_confirmation` *does* follow a user turn, so it currently
-> has to borrow `ask_required_discovery`. Decide later whether to add a
-> `confirm_context` action to DE-1 or keep folding it in. Tracked in §7 #1.
-
-## 5. Stage-by-Stage Behavior
-
-### 5.1 Greeting
-
-Establish identity, tone, and reason for call. Keep it short — do not over-explain.
-
-- "Hi, this is Ava with Varsity Tutors. Am I speaking with Sarah?"
-- "Hey Sarah, thanks for taking the call. I'm reaching out about the tutoring request you submitted."
-
-### 5.2 Permission / Soft Framing
-
-Make the call feel respectful so it doesn't sound like a launched pitch.
-
-- "Do you have a couple minutes to talk through what you're looking for?"
-- "I'll just ask a few quick questions so I can point you in the right direction."
-
-### 5.3 Pleasantry / Light Rapport
-
-Sound human without wasting time. Optional and brief — too much banter from an AI feels fake.
-
-- "How's your day going so far?"
-- "No worries at all — I know schedules get busy."
-- "Totally understand. School stuff can pile up quickly."
-
-### 5.4 Context Confirmation
-
-Use prior info when it exists.
-
-- **Full info:** "I see you were looking for help with 8th grade algebra. Is that still the main thing you're trying to solve?"
-- **Partial info:** "I have that this is for math help, but I don't yet know the grade level or what's been hardest lately."
-- **No info:** "Can you tell me a little bit about who the tutoring would be for?"
-
-### 5.5 Discovery
-
-Learn the sales-relevant details. **Adapt — do not run a checklist.**
-
-Core discovery questions:
-
-- Who needs help?
-- What subject or test?
-- What grade or level?
-- What prompted you to look now?
-- What would success look like?
-- How soon are you hoping to start?
-- Have you tried tutoring before?
-- What kind of schedule would work?
-- Are you the person deciding whether to move forward?
-
-- **Bad:** "What is the subject? What is the grade? What is your timeline?"
-- **Better:** "Got it. And what made you start looking now — was there a recent test, a grade concern, or more of a confidence issue?"
-
-### 5.6 Clarifying Questions
-
-A dedicated clarification state makes the agent sound attentive instead of scripted.
-
-- "When you say she's struggling, do you mean the homework is hard, test scores are dropping, or she's losing confidence?"
-- "Just to make sure I understand — are you looking for ongoing weekly support, or help with something urgent coming up?"
-- "When you say flexible, are evenings usually better, or weekends?"
-
-### 5.7 Product Q&A
-
-The user may ask questions at any time (how it works, tutor selection, online vs in person, changing tutors, subjects covered).
-
-Flow: **User asks → retrieve grounded answer → answer briefly → check if it helped → bridge back.**
-
-> "Great question. Varsity Tutors matches students with tutors based on the
-> subject, goals, schedule, and learning needs... Does that sound like the kind
-> of support you were hoping for?"
-
-Then bridge:
-
-> "Helpful. And for your daughter specifically, is the bigger issue understanding
-> the material, or staying motivated to practice?"
-
-### 5.8 Billing / Pricing Q&A
-
-High-stakes — must be grounded. **Acknowledge → give approved answer → avoid unsupported specifics → offer next step / escalation.**
-
-> "I can definitely help with that. Pricing can depend on the type of support and
-> plan, so I don't want to give you the wrong number. What I can do is understand
-> what you need first, then help get you to the right option."
-
-If specific pricing is unavailable:
-
-> "I don't want to guess on pricing. I can connect you with a specialist who can
-> confirm the exact options."
-
-### 5.9 Empathy and Reassurance
-
-One of the most important layers for a voice sales agent. Emotional moments:
-"My child is falling behind," "We tried tutoring and it didn't work," "She hates
-math," "I'm worried we waited too long," "I don't know what she needs."
-
-Shape: **Acknowledge emotion → normalize → reassure → ask a useful next question.**
-
-> "I completely understand. A lot of parents reach out when it feels like things
-> are starting to snowball. The good news is that once we understand where she's
-> getting stuck, support can be much more targeted. Has this been building for a
-> while, or did something specific happen recently?"
-
-### 5.10 Casual Time Fillers
-
-Useful when the agent needs time for retrieval, reasoning, or tool calls. Silence
-feels broken — but filler must be purposeful, not random.
-
-- **Good:** "Sure — the important distinction is this…" / "Good question — let me separate that into two parts."
-- **Bad:** "Um, yeah, totally, like, you know…"
-
-### 5.11 Objection Handling
-
-Common objections: too expensive, need to talk to spouse, just looking, may use a
-local tutor, tried this before, don't want to commit.
-
-Flow: **Acknowledge → validate → clarify → reframe → ask next-step question.**
-Don't immediately rebut — explore.
-
-> "I hear you. Cost matters, especially when you're not yet sure what level of
-> support your child needs. Can I ask — are you mainly trying to keep the cost
-> low, or are you trying to make sure that if you do invest, it actually works?"
-
-### 5.12 Fit Summary
-
-Summarize before closing. Shows listening, creates trust, sets up the close.
-
-> "Let me make sure I have this right. Your son is in 10th grade geometry, his
-> test scores have dropped over the last month, and you're hoping to get him back
-> on track before finals... Is that accurate?"
-
-### 5.13 Close
-
-Match the close to the user's readiness.
-
-- **Soft Close:** "Based on what you shared, I do think tutoring could be a good fit. The next step would be to look at tutor options and scheduling. Would you like to do that?"
-- **Trial Close:** "Would it be helpful if I walked you through what getting matched would look like?"
-- **Direct Close:** "Would you like to get started with a tutor this week?"
-- **Escalation Close:** "This sounds like a good fit, but I want to make sure you get accurate pricing and plan details. I can connect you with someone who can finalize that with you."
-
-## 6. Key Design Principle
-
-The agent should not ask:
-
-> "What question should I ask next?"
-
-It should ask:
-
-> "What does this moment in the conversation require?"
-
-Sometimes the answer is a discovery question. Sometimes it is reassurance.
-Sometimes it is a product answer. Sometimes it is silence avoidance. Sometimes it
-is clarification. Sometimes it is a close. That is what makes the agent sound
-human in substance and flow.
-
-## 7. Open Questions (for discussion)
-
-1. ~~**State reconciliation** — adopt the 16-state list, or map it back onto the
-   PRD's 11 stages?~~ **Resolved:** keep PRD's 11 stages as the logged `stage`
-   enum (§4.1); `selected_action` carries the sales action (DE-1's 10 values,
-   §4.3); human-layer moves live in a separate optional `modifier` field used only
-   during ambiguous moments (§4.4). *Remaining sub-question:* add a
-   `confirm_context` action to DE-1, or keep folding context confirmation into
-   `ask_required_discovery`? (See §4.5 gap note.)
-2. **Who picks the state?** — single LLM with a structured prompt that emits the
-   chosen state + utterance, vs. a separate decisioning call before generation.
-3. **Latency budget** — Q&A and billing require KB retrieval; how do time fillers
-   cover that gap without sounding canned?
-4. **Loop guards** — what prevents clarification ↔ user-response loops, or repeated
-   failed closes, from running forever before escalation?
-5. **Decision logging** — how do these states/transitions map onto the existing
-   `Decision` model fields (`stage`, `selected_action`, `reason`, `confidence`)?
+| Stage | Provider / SDK | Notes |
+| ----- | -------------- | ----- |
+| **STT** | Deepgram (`DeepgramSTTService`, `pipeline.py:73`) | 16 kHz PCM; word-level confidence read off the transcript (`bot.py:78`) |
+| **Brain** | OpenAI Chat Completions, `gpt-4o` default (`brain.py:290`) | runs in a thread pool — `asyncio.to_thread(engine.run_turn)` (`bot.py:142`) |
+| **TTS** | Cartesia (`CartesiaTTSService`) | voice id configurable (`config.py:85`) |
+| **VAD** | Silero | turn-taking; fires `UserStoppedSpeakingFrame` |
+
+**Two transports, one brain:**
+
+- **Phone** (`twilio_bot.py`): Twilio POSTs `/voice/twilio`; the TwiML opens a
+  `<Stream>` WebSocket to `/voice/twilio/ws` carrying the caller's number as a
+  custom parameter. `TwilioFrameSerializer` decodes μ-law 8 kHz. Channel logged
+  as `"twilio"`. The caller-ID `From` is threaded into the engine so a payment
+  link can be auto-texted (`twilio_bot.py:101`).
+- **Web demo** (`bot.py`): `SmallWebRTCTransport` over a browser WebRTC peer.
+  Channel logged as `"web"`. Can resume a known lead's prior memory.
+
+**Latency** is measured at four monotonic boundaries per turn (`latency.py`):
+`user_stopped → transcript (stt_ms) → brain_done (brain_ms) → bot_started
+(tts_ms)`. The end-to-end total and the `{stt_ms, brain_ms, tts_ms}` split are
+written back onto the agent's `Turn` row (`bot.py:177`) and shown on the
+dashboard.
+
+**Fillers** (`fillers.py`): the moment a final transcript arrives — *before* the
+brain is called — a short phrase is spoken to cover latency. A knowledge-style
+question ("how does…") gets a "working" filler ("Good question — let me check on
+that."); everything else gets a one-word ack ("Sure.", "Got it."). Toggled by
+`settings.fillers` (default on).
+
+## 3. How the Call Makes Decisions
+
+### 3.1 Per-turn sequence — `IntentRouterEngine.run_turn()`
+
+`backend/app/agent/intent_engine.py:100`. In order:
+
+1. **Confidence gate** — STT confidence < 0.6 → ask the caller to repeat, skip
+   the brain entirely (`intent_engine.py:102`).
+2. **Record the prospect turn** to the transcript.
+3. **`brain.decide(history, lead_fields, slots)`** — timed; returns a
+   `BrainDecision`.
+4. **Payment executor** — if the decision is `PAY`, create the Stripe
+   link/invoice and text it (§3.6).
+5. **Mis-quote guardrail** — scan the utterance for dollar amounts; block any
+   the brain wasn't authorized to say (§3.5).
+6. **KPI events** — leaf-reached, clarify-asked, escalation.
+7. **Persist** the `Decision` row, then record the agent turn.
+
+### 3.2 Two brains behind one protocol
+
+`get_brain()` (`brain.py:64`) returns the live brain when an OpenAI key is set,
+else the deterministic one:
+
+- **`OpenAIBrain`** (live, `brain.py:209`) — a bounded **tool-calling loop**
+  (`MAX_TOOL_ROUNDS = 5`) against OpenAI Chat Completions with
+  `tool_choice="auto"`. The model freely calls `slot_fill`, `kb_lookup`,
+  `quote_price`, `escalate`, and (when payments are enabled)
+  `send_payment_link`. When it stops calling tools, its text is the utterance.
+- **`RuleBrain`** (offline, `brain.py:108`) — deterministic keyword matching, no
+  network. Powers the test suite and the self-play simulator so neither needs an
+  API key.
+
+Both emit the same `BrainDecision` and obey the same rails, so behavior is
+consistent between live calls and offline evaluation.
+
+### 3.3 The decision vocabulary — `RouterAction` (7 values)
+
+This **replaces** the mockup's 11 stages / 10 selected-actions / 6 modifiers.
+`backend/app/agent/contract.py:155`:
+
+| `RouterAction` | Meaning |
+| -------------- | ------- |
+| `GREET`        | Opening line (call open, before any user turn) |
+| `ASK`          | Ask the next disambiguating discovery question |
+| `ANSWER`       | Answer an informational question from the KB |
+| `QUOTE`        | State the authoritative price for a resolved leaf |
+| `PAY`          | Send a hosted payment link / invoice |
+| `ESCALATE`     | Hand off to a human |
+| `END`          | Caller declined / wrap up |
+
+### 3.4 Slots, the taxonomy, and leaf resolution
+
+Discovery is modeled as filling **slots** against a fixed product **taxonomy**
+(`backend/app/agent/taxonomy.py`), not as free-form stages:
+
+- **Slot fields, in order:** `category` (`test_prep` | `tutoring`) → then either
+  `test` (`SAT` | `ACT` | `PSAT`, test-prep only) or `subject_area`
+  (`math` | `science`) → `subject` (`algebra`, `geometry`, `chemistry`,
+  `biology`, `physics`, tutoring only).
+- Children imply parents (`subject=chemistry` ⇒ `science` ⇒ `tutoring`).
+- A fully-specified path resolves to a **leaf** (e.g. `test_prep/SAT`,
+  `tutoring/science/chemistry`). The leaf is what unlocks quoting and payment.
+
+`next_unfilled(slots)` decides which question to ask next; once `resolve_leaf()`
+returns a leaf, the agent can quote and transact.
+
+**Decision priority** (how the action is chosen, `brain._infer_action`):
+
+| Condition | Action |
+| --------- | ------ |
+| Escalation trigger detected | `ESCALATE` (short-circuits everything) |
+| Payment intent + leaf resolved + payments enabled | `PAY` |
+| `quote_price` used + leaf resolved | `QUOTE` |
+| `kb_lookup` returned grounded content | `ANSWER` |
+| No leaf yet | `ASK` (next disambiguating question) |
+
+### 3.5 Guardrails (deterministic rails)
+
+`backend/app/agent/guardrails.py` — these run *outside* the model so they can't
+be talked around:
+
+- **Escalation detection** (`detect_escalation`) — first-match-wins cues:
+  human request → legal/safety/privacy → **card data** → price concession →
+  anger/confusion. Card-data cues ("credit card", "card number") **always**
+  escalate — the agent never takes a card in-call (PCI).
+- **Mis-quote guard** (`check_mis_quote`, run in the engine *after* the brain) —
+  extracts every `$X` / "X dollars" from the utterance. If the brain stated any
+  amount it wasn't authorized to (no `quoted_amount`, or a mismatch), the turn is
+  **rewritten to an escalation** and a `MIS_QUOTE_BLOCKED` KPI is emitted. This
+  is the backstop against a hallucinated price.
+- **Price quotes never come from the KB or the model** — only from an exact
+  lookup in `data/pricing/pricing.yaml` keyed by the resolved leaf
+  (`pricing.quote_price`). No price → honest "let me get a specialist" fallback.
+
+### 3.6 The payment decision path
+
+When the brain calls `send_payment_link` (live) or `RuleBrain` detects an
+explicit pay/invoice intent on a resolved, quoted leaf, the engine
+(`intent_engine.py:194`):
+
+1. Creates a Stripe hosted **link** or **invoice** (`create_payment_link` /
+   `create_invoice`).
+2. **Texts** the URL via Twilio SMS to `req.phone or self.caller_number`
+   (best-effort — a send failure doesn't fail the turn).
+3. Writes a `Payment` row (`status = sent`, or `created` if the SMS didn't go).
+4. Emits a `PAYMENT_LINK_SENT` KPI and speaks a confirmation.
+
+A `dev fake mode` (`payments_fake`) swaps in `FakeStripeGateway` +
+`FakeSmsSender` so the whole path runs with no keys and no real charge.
+
+## 4. How the Call Stores Data
+
+**Engine:** SQLite by default (`backend/nerdy_sales.db`), swappable to Postgres
+via `DATABASE_URL`. Tables created by `init_db()`; sessions via `SessionLocal`.
+Turns and decisions are **committed as they happen** so a transcript survives a
+mid-call crash (`recorder.py`).
+
+The recorder (`backend/app/agent/recorder.py`) owns the DB session for a call
+and writes these tables (`backend/app/db/models.py`):
+
+| Table | What it holds |
+| ----- | ------------- |
+| `leads` | Caller/lead profile + **cross-call memory** (§4.2) |
+| `calls` | One row per conversation; channel, outcome, version stamps (§4.3), resolved leaf, quoted price |
+| `turns` | Full transcript — one row per utterance + per-turn latency split |
+| `decisions` | One row per brain decision (§4.1) |
+| `kpi_events` | Escalations and measurable milestones |
+| `payments` | Stripe link/invoice lifecycle (§4.4) |
+| `experiments` / `variants` | A/B config for the improvement loop |
+| `kb_embeddings` | Vectorstore — KB chunks + vectors (§5) |
+
+### 4.1 The `Decision` row (the decision trace)
+
+`models.py:139`. Written by `recorder.record_brain_decision()` each turn:
+
+| Column | Populated | Notes |
+| ------ | --------- | ----- |
+| `selected_action` | ✓ | the `RouterAction` value (`ask`/`answer`/`quote`/`pay`/`escalate`/`end`) |
+| `stage` | ✓ | **as-built, mirrors `selected_action`** — the old 11-stage enum is not populated |
+| `reason` | ✓ | brain's rationale |
+| `confidence` | ✓ | 1.0 once a leaf resolves, lower while disambiguating |
+| `slots` | ✓ | cumulative slot state at this turn |
+| `leaf` | ✓ | resolved product leaf, if any |
+| `missing_fields` | ✓ | required slots still unknown |
+| `kb_sources_used` | ✓ | source filenames cited when answering |
+| `turn_id`, `call_id`, `created_at` | ✓ | linkage + ordering |
+| `escalation_risk` | ✗ | column exists but is **never written** |
+
+> **Reconciled from the mockup:** the doc once proposed a separate `modifier`
+> column for human-layer moves (rapport/clarify/banter/…). The pivot dropped
+> that idea — **there is no `modifier` column**, and `stage` simply echoes
+> `selected_action`. The 7-value `RouterAction` is the whole decision vocabulary.
+
+### 4.2 Lead profile + cross-call memory
+
+`leads` carries nine typed profile columns (`student_name`,
+`relationship_to_student`, `subject`, `grade_level`, `goal`, `urgency`,
+`schedule_constraints`, `decision_maker_status`, `budget_sensitivity`) plus:
+
+- `collected_fields` (JSON) — **every** slot learned, including extras beyond the
+  nine columns, so a returning caller isn't re-asked.
+- `prior_objections` (JSON, de-duped), `prior_summary` (running text), `status`.
+
+`LeadStore.apply_call_outcome()` (`memory/lead_store.py`) folds a finished
+call's slots, objections, and summary back onto the lead. `is_synthetic` marks
+simulator leads so they're excluded from real-call metrics.
+
+### 4.3 Version stamping (reproducibility)
+
+Every `Call` is stamped with content hashes (`agent_version`,
+`playbook_version`, `kb_version`) and a `model_version` so any outcome is
+traceable to the exact config that produced it (`versioning.compute_versions`).
+
+> **Known discrepancy / follow-up:** `model_version` records
+> `settings.anthropic_model` (`claude-sonnet-4-6`), but the **live brain runs
+> OpenAI `gpt-4o`** (`openai_chat_model`). The stamp is a leftover from the
+> pre-pivot Claude design and currently mis-attributes the model. Worth fixing
+> so the trace reflects the brain that actually ran.
+
+### 4.4 Payment lifecycle
+
+`payments` rows move `created → sent → paid` (or `failed`). `provider_ref`
+(indexed Stripe id) is how the Stripe **webhook** finds the row;
+`mark_payment_paid()` flips `status=paid` + `paid_at` idempotently.
+
+## 5. How the Call Uses the Corpus (Vectorstore)
+
+The agent answers factual questions **only** from an approved corpus, retrieved
+by similarity — never from the model's own knowledge.
+
+### 5.1 The corpus
+
+Seven markdown docs in `data/kb/` (`pricing.md`, `offering_overview.md`,
+`subjects_overview.md`, `test_prep_overview.md`,
+`tutoring_formats_and_matching.md`, `policies_and_compliance.md`,
+`scheduling.md`). `ingest.py` splits each at `##` (H2) headings into
+**chunks**, each carrying:
+
+- `chunk_id` (`"<file>#<n>"`), `source` (filename — the **citable id**),
+  `title` (doc + section), and `text`. ~10–15 chunks total.
+
+### 5.2 Embeddings + the index
+
+- **Live:** OpenAI `text-embedding-3-small`. Vectors are serialized as
+  little-endian float32 and stored in the **`kb_embeddings` SQLite table**
+  alongside operational data (`dim` = the vector's length, 1536 for that model).
+  No separate vector DB and no on-disk `.npy`/`.faiss` index — the table *is* the
+  index. Built/rebuilt with `python -m app.kb.index` (clears prior rows first).
+- **Fallback:** with no OpenAI key, a dependency-free **TF-IDF** retriever
+  (`retriever.py`) over the same chunks. Tests use a tiny fake embedder. Both
+  expose the identical `retrieve(query, *, k, min_score)` interface, so the agent
+  never knows which is active.
+
+### 5.3 Retrieval + grounding
+
+- **`VectorRetriever`** scores chunks by **cosine similarity**, returns top
+  `k=3` above `min_score=0.30`. TF-IDF fallback uses a `0.45` bar. No category
+  filter — the small corpus is searched whole.
+- `knowledge.answer_question()` returns a `GroundedAnswer`: if hits clear the
+  bar, the unique `sources` + `snippets`; otherwise `grounded=False` with an
+  honest deferral ("I want to make sure I give you accurate information… I can
+  connect you with a specialist").
+- **In the brain:** the model's `kb_lookup` tool returns the grounded snippets or
+  the literal `"NO_APPROVED_CONTENT"`. The system prompt forbids inventing
+  facts — answer *only* from what `kb_lookup` returns, else offer a specialist.
+  `is_knowledge_question()` keeps social pleasantries ("how's it going?") from
+  triggering a lookup.
+
+So every spoken fact is either (a) a grounded KB snippet with a recorded source,
+(b) an exact price from `pricing.yaml`, or (c) an honest "I'll connect you with a
+specialist." There is no path where the model free-associates a factual claim.
+
+## 6. The Flow Is Still Not Linear
+
+The realism goals of the original mockup still hold — the agent loops
+(discovery → Q&A → discovery; clarify → answer → close) and handles side topics.
+But that non-linearity now comes from the brain re-deciding every turn against
+live slot state, **not** from an explicit state machine. The guiding question is
+unchanged: not *"what question is next?"* but *"what does this moment require?"* —
+answered by the tool the brain reaches for (`slot_fill`, `kb_lookup`,
+`quote_price`, `escalate`, `send_payment_link`) or by plain speech.
+
+## 7. Key Files
+
+| Concern | File |
+| ------- | ---- |
+| Per-turn orchestration | `agent/intent_engine.py` |
+| Brain (live + offline) | `agent/brain.py` |
+| Tools + `RouterAction` + `BrainDecision` | `agent/contract.py` |
+| Taxonomy / leaf resolution | `agent/taxonomy.py` |
+| Guardrails (escalation, mis-quote) | `agent/guardrails.py` |
+| Pricing lookup | `agent/pricing.py` |
+| KB grounding | `agent/knowledge.py` |
+| Vectorstore (chunk, embed, retrieve) | `kb/{ingest,index,vector_retriever,retriever,embeddings}.py` |
+| Persistence | `agent/recorder.py`, `db/models.py` |
+| Cross-call memory | `memory/lead_store.py` |
+| Voice pipeline | `voice/{bot,twilio_bot,pipeline,fillers}.py` |
+| Latency | `agent/latency.py` |
+| Payments | `payments/{stripe_service,webhook,sms,fakes}.py` |
+
+## 8. Known Gaps / Follow-ups
+
+1. `Call.model_version` records the configured Anthropic model, not the OpenAI
+   `gpt-4o` brain that actually runs (§4.3).
+2. `Decision.escalation_risk` is a defined-but-unused column.
+3. `Decision.stage` duplicates `selected_action`; if no consumer needs the
+   legacy column it could be dropped.
+4. The KB corpus is small (~10–15 chunks); retrieval thresholds (0.30 vector /
+   0.45 TF-IDF) are tuned conservatively for that size and will need revisiting
+   as the corpus grows.
+
+## 9. What Changed From the Original Mockup
+
+| Mockup (pre-build) | As-built (intent router) |
+| ------------------ | ------------------------ |
+| 11-stage sales state machine driving the call | No state machine — brain re-decides each turn from slot state |
+| `stage` (11) × `selected_action` (10) × `modifier` (6) trace | Single `RouterAction` (7); `stage` mirrors it; no `modifier` |
+| Separate orchestrator modules (closing/discovery/objections/router…) | Collapsed into one `brain.decide()` + `intent_engine` (old modules are stale `.pyc`) |
+| Open question: one LLM call vs. separate decision call | **Resolved:** one bounded tool-calling loop emits decision + utterance |
+| Discovery as a checklist of stages | Discovery as slot-filling against a fixed product taxonomy → leaf |
+| Claude as the model | OpenAI `gpt-4o` for the brain; OpenAI embeddings for the KB |
