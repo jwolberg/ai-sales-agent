@@ -10,6 +10,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': 'http://localhost:8000',
+      // Test Call (IR8) signals over the voice endpoints; prod is same-origin under FastAPI.
+      '/voice': 'http://localhost:8000',
     },
   },
 })

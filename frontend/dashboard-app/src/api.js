@@ -18,6 +18,16 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ persona }),
     }).then((r) => r.json()),
+
+  // Test Call (IR8): the voice pipeline lives at /voice (not /api). voiceStatus reports
+  // readiness/missing keys; voiceOffer does WebRTC signaling and returns the SDP answer.
+  voiceStatus: () => getJSON('/voice/status'),
+  voiceOffer: (sdp, type) =>
+    fetch('/voice/offer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sdp, type }),
+    }),
 }
 
 // Subscribe to the live event stream. Returns an unsubscribe function.
