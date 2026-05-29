@@ -45,3 +45,24 @@ def test_webhook_returns_twiml_xml():
 
 def test_run_twilio_bot_is_callable():
     assert callable(run_twilio_bot)
+
+
+def test_twilio_ws_route_rejects_when_voice_unconfigured(monkeypatch):
+    """The Media Streams WebSocket is wired and reachable; with no voice keys it closes the stream
+    before accepting (Starlette surfaces that as a handshake rejection). Proves the route is served
+    without needing Deepgram/Cartesia. The same path runs on the voice-enabled container image.
+
+    Stub the settings so the test is deterministic regardless of the dev env's configured keys."""
+    from starlette.websockets import WebSocketDisconnect
+
+    from app.voice import server
+
+    class _Unconfigured:
+        def missing_voice_keys(self):
+            return ["DEEPGRAM_API_KEY", "ANTHROPIC_API_KEY", "CARTESIA_API_KEY"]
+
+    monkeypatch.setattr(server, "get_settings", lambda: _Unconfigured())
+    client = TestClient(app)
+    with pytest.raises(WebSocketDisconnect):
+        with client.websocket_connect("/voice/twilio/ws"):
+            pass

@@ -1,8 +1,8 @@
 # Deploy
 
-The core backend (API + dashboard + intent-router brain + benchmark) ships as a container; the
-live voice path is run locally (it needs WebRTC + a browser/mic). Stack reconciliation rationale is
-in `docs/decision-log.md` (R13 / D-16).
+The backend (API + dashboard + intent-router brain + benchmark **+ the realtime voice extra**)
+ships as a single container, so the Test Call and Twilio phone path run on the deployed image.
+Stack reconciliation rationale is in `docs/decision-log.md` (R13 / D-16).
 
 ## One-command local run (Docker)
 
@@ -35,9 +35,13 @@ gcloud run deploy nerdy-router \
   --allow-unauthenticated \
   --port 8080 \
   --max-instances 1 \
-  --set-env-vars OPENAI_API_KEY=sk-...
+  --timeout 3600 \
+  --set-env-vars OPENAI_API_KEY=sk-...,DEEPGRAM_API_KEY=...,ANTHROPIC_API_KEY=...,CARTESIA_API_KEY=...
 # -> prints the service URL; open <service-url>/dashboard   (health: <service-url>/health)
 ```
+
+The image bundles the voice extra (Pipecat + OpenCV/WebRTC native libs), so the build is heavier and
+the image larger than a core-only one — the first `--source` build takes a few minutes.
 
 Notes:
 - **Pin to one instance for the live dashboard.** The dashboard streams over an **in-process**
@@ -56,19 +60,23 @@ Notes:
 - **sqlite-vec** loads on the slim image's Python (loadable-extension support — D-17), so the
   production KB can use a sqlite-vec index over the same `kb_embeddings` rows.
 
-### Voice / Twilio on Cloud Run (caveat)
+### Voice / Twilio on Cloud Run
 
-⚠️ **The shipped image is core-only — it does NOT include the `voice` extra** (Pipecat + STT/TTS).
-So on the deployed container the `/voice/*` endpoints return **503**, and the in-dashboard Test Call
-and Twilio phone calls won't work there. Two options:
+The image **includes the voice extra**, so `/voice/*` is served on Cloud Run. Verified at the
+container level: the image builds, the full voice path imports (`pipecat`, `aiortc`, `onnxruntime`,
+`cv2`), all voice routes register, and `/voice/twilio/ws` is reachable (it rejects with the
+missing-keys guard until the STT/TTS keys are set). To run voice for real:
 
-- **Recommended:** run the voice path **locally** with a public tunnel (see the Twilio section
-  below) while pointing the local server at the same DB — simplest and what the voice path is
-  designed for (D-16).
-- **Voice-enabled image:** add the extra to the `Dockerfile` install
-  (`pip install -e /app/backend[voice]` — a heavy native build: pipecat, onnxruntime, etc.) and
-  deploy with `--max-instances 1` and a long `--timeout` (Cloud Run supports WebSockets/Media
-  Streams). Telephony sample-rate/echo tuning still needs a real call to validate.
+1. Set the voice keys (above): `DEEPGRAM_API_KEY`, `ANTHROPIC_API_KEY`, `CARTESIA_API_KEY` (use
+   Secret Manager for real values). `/voice/status` should then report `ready: true`.
+2. `--timeout 3600` and `--max-instances 1` matter here: a phone call holds the Media Streams
+   WebSocket open for the whole call, and the dashboard must be the same instance (in-process bus).
+3. Point Twilio's **Voice → A call comes in** webhook at `https://<service-url>/voice/twilio`, and
+   set `PUBLIC_BASE_URL=https://<service-url>` so the `<Stream>` wss URL is correct.
+
+> **Still needs a real inbound call to fully validate** — the container build + imports + route
+> wiring are confirmed, but the live telephony audio loop (μ-law 8 kHz resampling, echo/latency
+> tuning) can only be checked end-to-end on an actual call (see RUNBOOK).
 
 ## Twilio inbound phone line (IR7-T7)
 
@@ -87,8 +95,8 @@ tagged `channel="twilio"` and streams live like a simulated one.
    ngrok http 8000        # -> https://<id>.ngrok.app
    # set PUBLIC_BASE_URL=https://<id>.ngrok.app in backend/.env (so the <Stream> wss URL is correct)
    ```
-   (The core Cloud Run image doesn't serve voice — see the caveat above — so run this locally with a
-   tunnel. If you build a voice-enabled image, set `PUBLIC_BASE_URL` to the Cloud Run service URL.)
+   (For a local run, use the ngrok tunnel above. On Cloud Run the image already serves voice — set
+   `PUBLIC_BASE_URL` to the service URL instead, and point Twilio's webhook at it.)
 3. In the Twilio console, set the phone number's **Voice → A call comes in** webhook to:
    ```
    POST  https://<public-host>/voice/twilio
@@ -143,11 +151,10 @@ checkout → PCI stays SAQ-A; in-call card numbers still escalate to a human).
    `invoice.paid`. (`ngrok http 8000` works for a public URL during local testing — same tunnel as
    the Twilio section.)
 
-> **Note:** the payment endpoints (`/payments/webhook` + the link-creation flow) are part of the
-> **core** app, so they *do* run on the core Cloud Run image — but the webhook must reach the same
-> DB that recorded the `Payment`. Since calls run locally (voice isn't on the core image), keep the
-> webhook pointed at wherever the call ran, or use one shared `DATABASE_URL`. `PAYMENTS_FAKE=true`
-> gives a keyless end-to-end demo (fake links, no real charge).
+> **Note:** the webhook must reach the same DB that recorded the `Payment`. With `--max-instances 1`
+> on Cloud Run the call and the webhook share one instance + DB, so it just works; if you run the
+> voice path locally instead, point the Stripe webhook at that local tunnel (or use one shared
+> `DATABASE_URL`). `PAYMENTS_FAKE=true` gives a keyless end-to-end demo (fake links, no real charge).
 
 ### Out of scope (a specialist handles these)
 

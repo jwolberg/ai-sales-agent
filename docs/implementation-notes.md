@@ -1654,3 +1654,22 @@ InsightsPanel adds a "latency split (ms)" tile rendering the mean stt · brain �
 `router-metrics.turn_latency_breakdown_ms` (shows — until a voice call records a breakdown). The
 p50/p95 tiles now reflect end-to-end voice turnaround. Completes the LAT slice: the latency
 benchmark now measures the caller-perceived end-to-end turn, not just brain time. Build passes.
+
+## 2026-05-29 — Voice in the container image + WebSocket path verified
+
+Added `[voice]` to the Dockerfile so the Test Call + Twilio path run on the deployed image (was
+core-only). Needed system libs: `build-essential` (purged after pip), `libsndfile1` (soundfile),
+and — discovered during the build — the OpenCV runtime libs `libgl1 libglib2.0-0 libxcb1 libsm6
+libxext6 libxrender1` (Pipecat's WebRTC transport pulls in cv2; first run failed on
+`libxcb.so.1`).
+Verified end-to-end at the container level:
+- `docker build` succeeds (~7 min; image is large due to onnxruntime/aiortc/opencv).
+- In-container import of `pipecat, aiortc, onnxruntime, cv2` + the full `app.voice.*` path + all
+  voice routes register (`/voice/offer`, `/voice/status`, `/voice/twilio`, `/voice/twilio/ws`).
+- Ran the container: `/health` ok, `/voice/status` serves (ready:false w/o keys).
+- Real WS connect to `/voice/twilio/ws` → HTTP 403 (Starlette close-before-accept = the missing-keys
+  guard fired), proving the route is live on the voice image.
+Added `test_twilio_ws_route_rejects_when_voice_unconfigured` (TestClient WS, settings stubbed so
+it's deterministic regardless of the dev env's real .env keys). Updated DEPLOY.md: image is
+voice-enabled, deploy with `--max-instances 1 --timeout 3600` + voice keys, point Twilio webhook at
+the service URL. **Still needs a real inbound call to validate the live audio loop.** Suite 177.
