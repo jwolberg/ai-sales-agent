@@ -73,6 +73,19 @@ export default function TestCall({ liveCall }) {
   const { status, error, start, hangup, audioRef } = useTestCall()
   const live = status === 'checking' || status === 'connecting' || status === 'connected'
 
+  // The browser mic Test Call only works against a local backend (WebRTC needs inbound UDP, which
+  // Cloud Run can't do). So show the buttons only in the dev build (`npm run dev`); the production
+  // build points callers at the Twilio number instead.
+  if (!import.meta.env.DEV) {
+    return (
+      <div className="sim-controls">
+        <span style={{ color: '#ff7a00', fontSize: '16px' }}>
+          Call us at 1-986-786-3739 (1-986-R-U-NERDY)
+        </span>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="sim-controls">
