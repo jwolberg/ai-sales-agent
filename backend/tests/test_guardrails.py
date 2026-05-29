@@ -16,6 +16,7 @@ from app.agent.guardrails import (
     QUOTES_PRICE,
     check_agent_output,
     detect_escalation,
+    detect_payment_intent,
     should_stop_selling,
 )
 from app.agent.recorder import CallRecorder
@@ -28,6 +29,31 @@ def session():
     Base.metadata.create_all(engine)
     with Session(engine) as s:
         yield s
+
+
+# --- payment intent + reconcile (PAY3-T3) ----------------------------------------------
+
+def test_detect_payment_intent():
+    assert detect_payment_intent("I'd like to pay now") == "link"
+    assert detect_payment_intent("can you send me an invoice?") == "invoice"
+    assert detect_payment_intent("what's the difference between SAT and ACT?") is None
+
+
+def test_pay_intent_escalates_when_payments_disabled():
+    # Default (flag off): pay-now still escalates exactly as before.
+    assert detect_escalation("I'm ready to pay now").code == PAYMENT
+
+
+def test_pay_intent_does_not_escalate_when_payments_enabled():
+    # Flag on: the engine routes pay-intent to the payment flow, so it's not an escalation.
+    assert detect_escalation("I'm ready to pay now", payments_enabled=True) is None
+
+
+def test_card_data_always_escalates_even_when_payments_enabled():
+    # PCI: we never take a card number in-call, regardless of the flag.
+    assert detect_escalation("here's my card number", payments_enabled=True).code == PAYMENT
+    card = detect_escalation("let me give you my credit card", payments_enabled=True)
+    assert card.code == PAYMENT
 
 
 # --- DE-4 escalation triggers ----------------------------------------------------------

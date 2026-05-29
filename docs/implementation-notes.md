@@ -1520,3 +1520,17 @@ contract.py: added `TOOL_SEND_PAYMENT_LINK` + `PAYMENT_TOOL` schema (`kind` link
 only when enabled, so with the flag off the model never even sees the tool (flag-off path
 unchanged). The brain stays DB/IO-free — it only sets `payment_request`; the engine (PAY3-T2)
 executes the side effects. Updated test_contract to validate the full set + that the tool is gated.
+
+## 2026-05-29 — PAY3-T3: guardrail reconcile + payment KPIs (done before T2)
+
+Did the guardrail reconcile before the engine executor since the brain/engine depend on it.
+Split the PAYMENT escalation cues: **card-data** ("card number", "credit card", "bank account", …)
+ALWAYS escalates (PCI — never take a card number in-call), while pay/invoice **intent** is now a
+separate `detect_payment_intent(text) -> 'link'|'invoice'|None`. `detect_escalation` gained a
+`payments_enabled` flag: when off, pay-intent still escalates (flag-off behavior unchanged); when
+on, pay-intent is left for the engine to route to the payment flow, but card-data still escalates.
+Added KPI constants `PAYMENT_LINK_SENT`, `PAYMENT_COMPLETED`.
+- Minor: when multiple cues co-occur and payments are off, the attributed escalation *code* may
+  differ from before (pay-intent now checked after the cue loop), but the outcome (escalate) is
+  unchanged. Cosmetic only.
+4 new guardrail tests; full guardrail suite 11 passed; ruff clean.

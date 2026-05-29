@@ -53,9 +53,11 @@ _ESCALATION_CUES: list[tuple[str, tuple[str, ...]]] = [
         "lawyer", "sue", "lawsuit", "gdpr", "ccpa", "privacy", "delete my data",
         "report you", "legal action", "unsafe", "safety concern",
     )),
+    # Card-data handling ALWAYS escalates — we never take a card number in-call (PCI; PAY3-T3).
+    # Pay-now / invoice *intent* is handled separately below so it can route to the payment flow.
     (PAYMENT, (
-        "credit card", "card number", "pay now", "make a payment", "billing information",
-        "charge my card", "bank account",
+        "credit card", "card number", "charge my card", "debit card", "bank account",
+        "routing number", "billing information",
     )),
     (PRICE_CONCESSION, (
         "discount", "coupon", "promo code", "lower the price", "price match", "waive the fee",
@@ -76,6 +78,27 @@ _REFUSAL_CUES = (
     "no thanks", "please stop", "remove me", "don't call",
 )
 
+# Pay/invoice *intent* (PAY3-T3) — distinct from card-data handling above. When payments are
+# enabled these route to the payment flow; when disabled they escalate (unchanged behavior).
+_PAY_NOW_CUES = (
+    "pay now", "pay for it", "make a payment", "i want to pay", "i'd like to pay", "ready to pay",
+    "can i pay", "let me pay", "take my payment", "i'll pay",
+)
+_INVOICE_CUES = ("invoice", "send me a bill", "send a bill", "bill me")
+
+
+def detect_payment_intent(text: str) -> str | None:
+    """Classify a caller's pay/invoice intent: 'invoice', 'link' (pay-now), or None (PAY3-T3).
+
+    Card-data phrases ('card number', etc.) are deliberately NOT here — those always escalate via
+    :func:`detect_escalation`, which callers run first."""
+    lowered = text.lower()
+    if any(cue in lowered for cue in _INVOICE_CUES):
+        return "invoice"
+    if any(cue in lowered for cue in _PAY_NOW_CUES):
+        return "link"
+    return None
+
 
 @dataclass(frozen=True)
 class EscalationTrigger:
@@ -90,12 +113,19 @@ def detect_escalation(
     *,
     confidence: float | None = None,
     confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
+    payments_enabled: bool = False,
 ) -> EscalationTrigger | None:
-    """Return the first DE-4 escalation trigger for this turn, or ``None``."""
+    """Return the first DE-4 escalation trigger for this turn, or ``None``.
+
+    Card-data handling always escalates. Pay/invoice *intent* escalates only when payments are
+    disabled (PAY3-T3); when enabled the engine routes it to the payment flow instead, so it isn't
+    treated as an escalation here."""
     lowered = text.lower()
     for code, cues in _ESCALATION_CUES:
         if any(cue in lowered for cue in cues):
             return EscalationTrigger(code=code, reason=f"DE-4 trigger: {code}")
+    if not payments_enabled and detect_payment_intent(lowered) is not None:
+        return EscalationTrigger(code=PAYMENT, reason=f"DE-4 trigger: {PAYMENT}")
     if confidence is not None and confidence < confidence_threshold:
         return EscalationTrigger(
             code=LOW_CONFIDENCE,

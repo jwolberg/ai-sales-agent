@@ -18,3 +18,7 @@ FRUSTRATION = "frustration"
 MIS_QUOTE_BLOCKED = "mis_quote_blocked"  # agent tried to state an off-table price; guard caught it
 LEAF_REACHED = "leaf_reached"            # the brain reached a confident classification leaf
 CLARIFY_ASKED = "clarify_asked"          # the brain asked a disambiguating question
+
+# Payment events (PAY3-T3 / PAY-4).
+PAYMENT_LINK_SENT = "payment_link_sent"  # a hosted payment link/invoice was created for the caller
+PAYMENT_COMPLETED = "payment_completed"  # the Stripe webhook confirmed the payment was paid
