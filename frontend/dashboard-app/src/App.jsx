@@ -5,6 +5,7 @@ import CallBoard from './CallBoard.jsx'
 import CallDetail from './CallDetail.jsx'
 import InsightsPanel from './InsightsPanel.jsx'
 import Catalog from './Catalog.jsx'
+import TestCall from './TestCall.jsx'
 
 function SimControls() {
   const [personas, setPersonas] = useState([])
@@ -69,13 +70,10 @@ export default function App() {
         </span>
       </header>
       <SimControls />
+      <TestCall />
       <section className="panel">
         <h2>Insights</h2>
         <InsightsPanel activeCount={activeCount} />
-      </section>
-      <section className="panel">
-        <h2>What the agent offers</h2>
-        <Catalog />
       </section>
       <div className="layout">
         <section className="panel">
@@ -87,6 +85,10 @@ export default function App() {
           <CallDetail call={selected ? calls[selected] : null} />
         </section>
       </div>
+      <section className="panel">
+        <h2>What the agent offers</h2>
+        <Catalog />
+      </section>
     </div>
   )
 }

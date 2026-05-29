@@ -1410,3 +1410,30 @@ KB-sourced summary; tutoring grouped by subject area. Frontend `Catalog.jsx` ren
 two-column reference panel. Also fixed `test_get_default_retriever_falls_back_to_tfidf` to be
 hermetic (monkeypatch the embedder) — it had assumed no-key/empty-index, which broke once the dev
 env had an OpenAI key + a built KB index. ruff clean; 140 passed.
+
+## 2026-05-29 — IR-8 Test Call (your voice → routing → speaker, in-dashboard)
+
+Added a **"Start Test Call"** control to /dashboard so an operator can drive the real voice path
+with their own mic instead of scripted personas. **Backend was already built** — the standalone
+`/demo` client + `POST /voice/offer` → `run_bot` (Deepgram STT → IntentRouterEngine → Cartesia TTS)
+do the whole loop. So IR-8 is frontend-only: ported the WebRTC signaling from `frontend/client.js`
+into a React hook (`useTestCall.js`) + a `TestCall.jsx` control beside "Start simulated call".
+
+- **Reuse over rebuild:** no backend changes. `run_bot` records `channel="web"`, so a test call
+  auto-appears on the IR7 call board with its live transcript + decision trace (App.jsx already
+  auto-focuses the newest active call). The component deliberately shows only start/stop + status.
+- **Plain connect (per product decision):** dropped the dial/ring SFX and energy-based "pickup"
+  detection from client.js; status goes `idle → checking → connecting → connected` (the moment the
+  agent track arrives) → `ended/error`. Simpler for an internal test tool.
+- **Config gating:** `start()` calls `/voice/status` first; if not ready it shows "Voice not
+  configured — missing: …" and stays idle (needs the `voice` extra + DEEPGRAM/CARTESIA/LLM keys).
+  Mic-permission denial (NotAllowedError) surfaces a clear inline message.
+- **Bug caught in review:** detach `ontrack`/`onconnectionstatechange` before `pc.close()` in
+  teardown — otherwise the resulting `closed` state change was misread as an unexpected drop and
+  overwrote a clean hang-up with an error.
+- **Dev proxy:** added `/voice` to the Vite proxy (was `/api`-only); prod is same-origin under
+  FastAPI so no prod change.
+- **Constraints / follow-ups:** `getUserMedia` needs a secure context (localhost or HTTPS). Client
+  allows one active test call at a time (button disables while live); no server-side concurrency cap
+  added. No automated voice tests exist — validated via `npm run build`; needs a manual smoke
+  (speak, hear the agent, confirm the call + decision trace on the board).
