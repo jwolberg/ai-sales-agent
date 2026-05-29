@@ -1,5 +1,11 @@
 # PRD: Autonomous AI Sales Agent
 
+> **Superseded scope (2026-05-28):** the project narrowed from a full discovery-to-close sales
+> agent to a two-option voice **intent router** (test prep vs. tutoring → leaf → price quote). This
+> PRD is retained as history of the original scope. Current requirements live in
+> `docs/brainstorms/intent-router-agent-requirements.md`; the active plan is
+> `docs/BUILD_PLAN_INTENT_ROUTER.md`. See `docs/decision-log.md` (D-13).
+
 ## 1. Product Summary
 
 Build an autonomous real-time voice AI sales agent for Nerdy / Varsity Tutors that can conduct a complete discovery-to-close sales conversation with prospective tutoring customers.

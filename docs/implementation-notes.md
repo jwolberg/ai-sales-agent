@@ -1293,3 +1293,12 @@ decision trace serializes `slots` + `leaf`; added `GET /api/router-metrics` (com
 This is the read API the IR-7 React dashboard consumes — classification accuracy still comes from the
 benchmark report (needs ground truth), not this endpoint. Tests extended in `test_dashboard.py`
 (router fields + new endpoint). `ruff` clean.
+
+## 2026-05-28 — IR6-T3: docs + deploy reconcile
+
+Rewrote `README.md` to the intent-router scope (what it does, architecture, quick start with
+`OPENAI_API_KEY`, benchmark instead of the old experiments command, docs table). Bannered
+`docs/PRD.md` as superseded scope (pointing at the requirements doc + new build plan), matching the
+earlier `BUILD_PLAN.md` banner. Added a core-backend `Dockerfile` (one-command run, no voice extra)
+and `docs/DEPLOY.md` (local Docker + GCP Cloud Run, with the SQLite-ephemeral + sqlite-vec-in-prod
+notes). Phase IR-6 complete.
