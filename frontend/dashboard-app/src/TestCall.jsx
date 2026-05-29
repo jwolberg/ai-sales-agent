@@ -69,14 +69,25 @@ function BillingLink({ call }) {
   )
 }
 
+// Dev instance = the Vite dev server (`npm run dev`) OR the app served from a loopback host (e.g.
+// uvicorn on 127.0.0.1 serving the built bundle). Keying off build mode alone isn't enough — the
+// production *bundle* served locally is still a "dev instance". Only the deployed (non-loopback)
+// host counts as production.
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]'])
+
+function isDevInstance() {
+  if (import.meta.env.DEV) return true
+  return typeof window !== 'undefined' && LOOPBACK_HOSTS.has(window.location.hostname)
+}
+
 export default function TestCall({ liveCall }) {
   const { status, error, start, hangup, audioRef } = useTestCall()
   const live = status === 'checking' || status === 'connecting' || status === 'connected'
 
   // The browser mic Test Call only works against a local backend (WebRTC needs inbound UDP, which
-  // Cloud Run can't do). So show the buttons only in the dev build (`npm run dev`); the production
-  // build points callers at the Twilio number instead.
-  if (!import.meta.env.DEV) {
+  // Cloud Run can't do). Show the buttons on a dev instance; production points callers at the
+  // Twilio number instead.
+  if (!isDevInstance()) {
     return (
       <div className="sim-controls">
         <span style={{ color: '#ff7a00', fontSize: '16px' }}>
