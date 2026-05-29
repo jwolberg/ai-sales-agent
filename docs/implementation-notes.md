@@ -1241,3 +1241,18 @@ human-approved (returns a report/decision, flips nothing). A variant is a brain 
 gained a `prompt_delta` so live variants are real prompt tweaks; offline tests inject deterministic
 stand-in brains. Built fresh rather than refactoring the old objection-recovery `experiments/*`
 (removed in IR-6). Tests: `tests/test_improvement.py` (3). Phase IR-5 complete. `ruff` clean.
+
+## 2026-05-28 — IR4-T1: voice bot on the intent-router engine
+
+Rewired `voice/bot.py` to build an `IntentRouterEngine` (brain = OpenAI when keyed, else offline
+RuleBrain) instead of the old Orchestrator + DiscoveryDecider + LLMExtractor + synthesizer.
+`EngineProcessor`/pipeline construction unchanged (open/run_turn/end + result.utterance are
+drop-in). `guard_output` keeps the §18 human-claim/guarantee block; the engine already makes the
+utterance mis-quote-safe. `build_engine` simplified (brain + recorder + known_fields seeding); the
+lead write-back-on-end was dropped (the router doesn't produce lead-profile fields) — known-field
+seeding at call start still gives skip-known. Rewrote `tests/test_bot.py` for the new wiring (the
+synthesizer tests move out — `synthesis.py` is removed in IR-6).
+- **Deferred (R12, needs live audio):** the `STTMuteFilter(ALWAYS)` that fixed self-listening is
+  kept as-is; refining it to honor genuine barge-in while suppressing echo requires a real
+  mic/keys call to tune and is left as a live-validation follow-up.
+Full suite **232 passed**; `ruff` clean.

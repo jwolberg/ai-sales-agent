@@ -31,18 +31,15 @@ from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.transports.smallwebrtc.connection import SmallWebRTCConnection
 from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 
-from app.agent.decisioning import DiscoveryDecider
-from app.agent.engine import ConversationEngine
-from app.agent.extraction import LLMExtractor
+from app.agent.brain import get_brain
 from app.agent.guardrails import (
     CLAIMS_HUMAN,
     ESCALATION_MESSAGE,
     PROMISES_GUARANTEE,
     check_agent_output,
 )
-from app.agent.orchestrator import Orchestrator
+from app.agent.intent_engine import IntentRouterEngine
 from app.agent.recorder import CallRecorder
-from app.agent.synthesis import make_synthesizer
 from app.agent.versioning import compute_versions
 from app.config import Settings
 from app.db.session import SessionLocal, init_db
@@ -92,7 +89,7 @@ class EngineProcessor(FrameProcessor):
     worker thread to avoid blocking the pipeline's event loop.
     """
 
-    def __init__(self, engine: ConversationEngine, *, fillers: bool = False) -> None:
+    def __init__(self, engine: IntentRouterEngine, *, fillers: bool = False) -> None:
         super().__init__()
         self._engine = engine
         self._fillers = FillerBank() if fillers else None
@@ -170,31 +167,19 @@ def build_engine(
     *,
     recorder: CallRecorder | None = None,
     known_fields: dict[str, str] | None = None,
-    lead_id: str | None = None,
-    lead_store: LeadStore | None = None,
-    lead: object | None = None,
-) -> ConversationEngine:
-    """Wire the conversation engine for the live path: DiscoveryDecider + LLM extraction + Claude
-    phrasing, with an optional recorder for the transcript/decision trace.
+) -> IntentRouterEngine:
+    """Wire the intent-router engine for the live path: the brain (OpenAI when keyed, else the
+    offline RuleBrain) + an optional recorder for the transcript/decision trace.
 
     ``known_fields`` seeds the agent with what we already know about this lead (P10-T1) so it
-    skips/confirms instead of re-asking (LM-1/LM-3); ``lead_id`` ties the call to that lead.
-    ``lead_store``/``lead`` (P10-T3) let the engine write everything learned back onto the lead
-    when the call ends, so the next call continues from it.
+    skips/confirms instead of re-asking (LM-1/LM-3); any that map to taxonomy slots pre-fill the
+    classification state.
     """
-    orchestrator = Orchestrator(
-        settings=settings,
-        decider=DiscoveryDecider(),
+    return IntentRouterEngine(
+        brain=get_brain(settings),
         recorder=recorder,
-        known_fields=known_fields,
-        lead_id=lead_id,
-        lead_store=lead_store,
-        lead=lead,
-    )
-    return ConversationEngine(
-        orchestrator,
-        extractor=LLMExtractor(settings=settings),
-        synthesize=make_synthesizer(settings),
+        lead_fields=known_fields,
+        settings=settings,
     )
 
 
@@ -218,14 +203,7 @@ async def run_bot(connection: SmallWebRTCConnection, settings: Settings) -> None
     recorder = CallRecorder(
         db, lead_id=lead_id, channel="web", **compute_versions(settings).as_dict()
     )
-    engine = build_engine(
-        settings,
-        recorder=recorder,
-        known_fields=seeded,
-        lead_id=lead_id,
-        lead_store=lead_store,
-        lead=lead,
-    )
+    engine = build_engine(settings, recorder=recorder, known_fields=seeded)
     processor = EngineProcessor(engine, fillers=settings.fillers)
     transport = build_transport(connection, settings)
     task = build_engine_pipeline_task(
