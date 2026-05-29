@@ -43,6 +43,22 @@ gcloud run deploy nerdy-router \
 The image bundles the voice extra (Pipecat + OpenCV/WebRTC native libs), so the build is heavier and
 the image larger than a core-only one — the first `--source` build takes a few minutes.
 
+**Service URL:** assigned by Cloud Run on the first deploy (not known until then). Retrieve and
+record it here after deploying:
+
+```bash
+gcloud run services describe nerdy-router --project nerdy-1 --region us-central1 \
+  --format="value(status.url)"
+# -> https://nerdy-router-XXXXXXXX-uc.a.run.app   (record the printed URL below)
+```
+
+- Live dashboard: `https://<service-url>/dashboard`
+- Health:         `https://<service-url>/health`
+- Twilio webhook: `https://<service-url>/voice/twilio`  (+ `PUBLIC_BASE_URL=https://<service-url>`)
+
+> Not deployed yet as of this writing — enable the APIs (above) and run the deploy; the project's
+> Cloud Run API must be on and `gcloud config set project nerdy-1` active first.
+
 Notes:
 - **Pin to one instance for the live dashboard.** The dashboard streams over an **in-process**
   event bus (`app/events.py`) and reads per-instance SQLite, so a call/sim and the watching
