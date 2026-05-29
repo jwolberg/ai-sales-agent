@@ -1322,3 +1322,14 @@ Dashboard gains dependency-free SSE endpoints `GET /api/stream` and `GET /api/ca
 (StreamingResponse + manual `data:` framing, keepalive every 15s, unsubscribe on disconnect) — no
 sse-starlette dependency. Tests: bus pub/sub + call-id filter + recorder-publishes-lifecycle
 (async). Full suite **132 passed**; `ruff` clean.
+
+## 2026-05-28 — IR7-T3: simulated live feed
+
+`simulator/live_feed.py` `run_sim_call_paced(persona)` drives a router persona through the real
+engine in the background, **paced** (default 1.2s/turn) with sync engine work in `asyncio.to_thread`
+so the SSE stream stays live. Dashboard: `POST /api/sim/start {persona?}` launches it via
+`asyncio.create_task` (defaults to the first persona); `GET /api/sim/personas` lists the 10
+ground-truth personas. This is the "calls come in" demo driver — no mic, no Twilio; offline it uses
+the RuleBrain, with a key the OpenAIBrain. Tested the paced runner directly (StaticPool session) +
+the personas endpoint; `/sim/start`'s background task isn't exercised via TestClient (it would hit
+the real DB + sleep). `ruff` clean; 7 passed.

@@ -13,6 +13,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -20,6 +21,8 @@ from app.db.models import Call
 from app.db.session import get_db
 from app.events import Subscription, bus
 from app.kpis.metrics import compute_metrics, compute_router_metrics
+from app.simulator.live_feed import run_sim_call_paced
+from app.simulator.personas import get_personas
 
 # SSE keepalive cadence (seconds) so proxies don't drop an idle stream.
 _SSE_KEEPALIVE = 15.0
@@ -95,6 +98,34 @@ async def call_stream(call_id: str, request: Request) -> StreamingResponse:
     """Live event stream filtered to one call."""
     sub = bus.subscribe(call_id=call_id)
     return StreamingResponse(_sse(sub, request), media_type="text/event-stream")
+
+
+@router.get("/sim/personas")
+def sim_personas() -> list[dict]:
+    """The ground-truth router personas available to drive a simulated live call (IR7-T3)."""
+    return [
+        {
+            "key": p.key,
+            "name": p.name,
+            "target_leaf": p.target_leaf,
+            "opening_line": p.opening_line,
+        }
+        for p in get_personas().router_personas()
+    ]
+
+
+class SimStartRequest(BaseModel):
+    persona: str | None = None
+
+
+@router.post("/sim/start")
+async def sim_start(payload: SimStartRequest | None = None) -> dict:
+    """Kick off a paced simulated call in the background; it streams over /api/stream (IR7-T3)."""
+    personas = get_personas().router_personas()
+    key = payload.persona if payload else None
+    persona = next((p for p in personas if p.key == key), personas[0])
+    asyncio.create_task(run_sim_call_paced(persona))
+    return {"started": True, "persona": persona.key, "target_leaf": persona.target_leaf}
 
 
 @router.get("/calls")

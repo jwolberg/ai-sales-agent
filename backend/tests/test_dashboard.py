@@ -105,3 +105,10 @@ def test_router_metrics_endpoint(client):
 def test_call_not_found(client):
     tc, _ = client
     assert tc.get("/api/calls/does-not-exist").status_code == 404
+
+
+def test_sim_personas_endpoint(client):
+    tc, _ = client
+    personas = tc.get("/api/sim/personas").json()
+    assert len(personas) == 10
+    assert all(p["target_leaf"] and p["opening_line"] for p in personas)
