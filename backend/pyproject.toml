@@ -11,6 +11,7 @@ dependencies = [
     "tomli>=2.0; python_version < '3.11'",  # TOML config parsing (stdlib tomllib is 3.11+)
     "pyyaml>=6.0",  # agent playbooks (discovery/objections) are YAML
     "openai>=1.40",  # intent-router brain (tool-calling) + KB embeddings (IR-0..IR-3)
+    "stripe>=9.0",  # hosted payment links / invoices (PAY-0); pure-Python, no native build
 ]
 
 [project.optional-dependencies]

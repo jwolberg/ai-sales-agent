@@ -66,7 +66,16 @@ class Settings(BaseSettings):
     # derived from the incoming webhook request unless `public_base_url` overrides it.
     twilio_account_sid: str | None = None
     twilio_auth_token: str | None = None
+    twilio_from_number: str | None = None  # E.164 sender for payment-link SMS (PAY-1)
     public_base_url: str | None = None  # e.g. https://abc123.ngrok.app (no trailing slash)
+
+    # --- Payments (Stripe hosted checkout, PAY-0) ---
+    # Optional so the core app + tests boot without them; payments are a feature flag keyed on
+    # `stripe_api_key`. With the flag off, behavior is exactly as today (payment asks escalate).
+    # Hosted checkout only — our server never touches card data (PCI stays SAQ-A).
+    stripe_api_key: str | None = None      # Stripe secret key (sk_test_… / sk_live_…)
+    stripe_webhook_secret: str | None = None  # verifies inbound webhook signatures (PAY-4)
+    payments_currency: str = "usd"
     # Tunables (override via env). Default to a capable Claude model; switch to
     # claude-haiku-4-5 for lower latency if needed.
     anthropic_model: str = "claude-sonnet-4-6"
@@ -112,6 +121,19 @@ class Settings(BaseSettings):
     def openai_enabled(self) -> bool:
         """True when an OpenAI key is configured (brain + embeddings use the live path)."""
         return bool(self.openai_api_key)
+
+    @property
+    def payments_enabled(self) -> bool:
+        """True when Stripe is configured. The whole payment flow is gated on this — with it off,
+        payment asks escalate exactly as today (PAY-0). The approved-price gate (pricing.yaml) is a
+        separate, always-on guard against charging placeholder prices."""
+        return bool(self.stripe_api_key)
+
+    @property
+    def sms_enabled(self) -> bool:
+        """True when Twilio SMS can send (account SID + auth token + a from-number). The payment
+        link is still created when this is off; the engine just can't text it (PAY-1)."""
+        return bool(self.twilio_account_sid and self.twilio_auth_token and self.twilio_from_number)
 
 
 @lru_cache

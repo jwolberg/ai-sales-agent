@@ -1458,3 +1458,14 @@ Caveats noted but NOT changed: the dashboard's latency tiles pool **all calls** 
 no time window) and `latency_ms` times only `brain.decide()`, not end-to-end STT→TTS (the IR7-T1
 stt/brain/tts breakdown in voice/bot.py was never added). Flag for a follow-up if we want per-call
 or end-to-end latency.
+
+## 2026-05-29 — PAY-0: payments config + feature flag
+
+Starting BUILD_PLAN_PAYMENTS. PAY0-T1: added `stripe>=9.0` to **core** deps (pure-Python, no
+native build — unlike the heavy `voice` extra, so no separate extra needed) and config fields
+`stripe_api_key`, `stripe_webhook_secret`, `payments_currency="usd"`, plus `twilio_from_number`
+(E.164 SMS sender, needed in PAY-1). Added `payments_enabled` (= `bool(stripe_api_key)`) and
+`sms_enabled` (Twilio SID+token+from-number) properties. Decision: stripe in core deps, not an
+optional extra, so the PAY-1 service + its fake-client tests are importable everywhere; the flag is
+the KEY, not the package. Flag off by default → behavior unchanged (payment asks still escalate).
+Full suite 141 passed; ruff clean.
