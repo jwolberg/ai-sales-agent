@@ -1361,3 +1361,17 @@ a live tile. **End-to-end smoke (offline RuleBrain, real uvicorn):** `/health` o
 serves the built app (200), `POST /api/sim/start` → call classified `tutoring/science/chemistry`,
 quoted $80, `/api/router-metrics` reported leaf_reached 1.0 / mis_quote 0.0 / latency p50 6.7ms.
 Phase IR-7 dashboard (T4–T6) complete; T7 (Twilio) remains deferred.
+
+## 2026-05-28 — IR7-T7: Twilio inbound (deferred, as planned)
+
+Left as a documented follow-on per the build plan (stretch / not a v1 blocker). It needs a real
+Twilio account + number and a Media Streams ↔ Pipecat-STT bridge that can only be validated against
+live telephony, so it isn't built here. **Design when picked up:** a Twilio Voice webhook returns
+TwiML that opens a Media Stream to a WS endpoint; the inbound audio feeds the existing Pipecat STT
+path (same `IntentRouterEngine`), and the call surfaces on the live SSE stream tagged
+`channel="twilio"` — no dashboard changes needed (it already renders any channel). Everything else in
+the plan (IR-0 … IR-7 T1–T6) is implemented, tested, and committed.
+
+### Build complete — summary
+25 of 26 tickets done (IR7-T7 intentionally deferred). Backend: `ruff` clean, **134 passed**.
+Frontend: Vite build succeeds; full-stack smoke verified (sim call → classify → quote → metrics).
