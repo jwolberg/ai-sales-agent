@@ -168,6 +168,43 @@ transcript (prospect + agent), per-turn decision trace, and turn-latency + insig
 
 ---
 
+## Phase IR-8 — Test Call (your voice → routing → speaker, in-dashboard)
+A **"Start Test Call"** button on the dashboard that drives the **real** voice path with the
+operator's own mic: browser captures audio → existing `POST /voice/offer` (WebRTC) → `run_bot`
+(Deepgram STT → `IntentRouterEngine` → Cartesia TTS) → agent speech plays back through the speaker.
+Lets an operator pressure-test routing/decisioning live instead of via scripted personas. **Backend
+is already built** (IR-4/`voice/bot.py` + `voice/server.py`); the standalone `/demo` client proves
+the flow. This phase is **frontend-only**: surface that flow inside the React dashboard. Because
+`run_bot` records as `channel="web"`, a test call auto-appears on the IR7 call board with its live
+transcript + decision trace — no new observe wiring. *(reuses IR-4 voice path + IR-7 board)*
+
+- **IR8-T1 — Dev proxy + voice API client.** Add `/voice` to the Vite dev proxy in
+  `frontend/dashboard-app/vite.config.js` (today only `/api` is proxied to `:8000`); production is
+  same-origin under FastAPI, so no prod change. Add `voiceStatus()` (`GET /voice/status`) and
+  `voiceOffer(sdp, type)` (`POST /voice/offer`) to `src/api.js`. *(R13)*
+- **IR8-T2 — `useTestCall` WebRTC hook.** Port/trim the signaling from `frontend/client.js` into
+  `src/useTestCall.js`: `getUserMedia({echoCancellation,noiseSuppression,autoGainControl})` →
+  `RTCPeerConnection` (Google STUN) → create offer → await ICE gathering → `POST /voice/offer` → set
+  remote answer → route the inbound track to an `<audio autoplay>`. Exposes `{status, start, stop}`
+  with states `idle → checking → connecting → connected → ended/error`. **Plain connect** (no
+  dial/ring SFX, no energy-based pickup detection — `connected` once the track arrives). `start()`
+  first checks `/voice/status`; if `!ready`, surfaces "Voice not configured — missing: …" and stays
+  idle. Mic-permission denial shows a clear inline message.
+- **IR8-T3 — `TestCall` component + placement.** New `src/TestCall.jsx` rendered beside the existing
+  "Start simulated call" control (top test bar): **▶ Start Test Call** / **■ Hang up**, a one-line
+  status, and the hidden `<audio>`. Disabled with an explanation when `/voice/status` is not ready.
+  Transcript + decision trace are intentionally delegated to the existing IR7 board/detail panels
+  (the call auto-focuses via `App.jsx`’s newest-active-call effect).
+
+> **Constraints:** requires the `voice` extra (`pip install -e '.[voice]'`) and keys
+> (`DEEPGRAM_API_KEY`, `CARTESIA_API_KEY`, Anthropic/OpenAI) — the button explains rather than fails
+> when `/voice/status` reports them missing. `getUserMedia` needs a secure context (localhost or
+> HTTPS). Client limits one active test call at a time (button disables while live); no server-side
+> concurrency cap added. No automated voice tests exist — validate via `npm run build` + a manual
+> smoke (speak, hear the agent, confirm the call + decision trace on the board).
+
+---
+
 ## Data-model notes
 - `db/models.py` is largely reusable. Additive columns likely needed on `Call`: `reached_leaf`,
   `quoted_price`; slot state can ride in `Lead.collected_fields` (JSON) + the `Decision` trace.
