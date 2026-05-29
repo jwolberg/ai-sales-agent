@@ -77,11 +77,29 @@ def test_calls_list_and_detail(client):
     assert len(calls) == 1 and calls[0]["call_id"] == call_id
     assert calls[0]["num_turns"] > 0
 
+    # Call-level router result is surfaced (IR6-T2).
+    assert calls[0]["reached_leaf"] == "tutoring/science/chemistry"
+    assert calls[0]["quoted_price"] == 80.0
+
     detail = tc.get(f"/api/calls/{call_id}").json()
     assert any(t["speaker"] == "prospect" for t in detail["turns"])
     assert any(t["speaker"] == "agent" for t in detail["turns"])
     assert detail["decisions"] and detail["decisions"][0]["selected_action"]
+    # Decision trace carries the slot state + reached leaf (IR6-T2).
+    quote = next(d for d in detail["decisions"] if d["selected_action"] == "quote")
+    assert quote["leaf"] == "tutoring/science/chemistry"
+    assert quote["slots"]["subject"] == "chemistry"
     assert any(e["event_type"] == "escalation" for e in detail["kpi_events"])
+
+
+def test_router_metrics_endpoint(client):
+    tc, sessions = client
+    _seed_call(sessions)
+    m = tc.get("/api/router-metrics").json()
+    assert m["total_calls"] == 1
+    assert m["leaf_reached_rate"] == 1.0
+    assert m["escalation_rate"] == 1.0
+    assert m["mis_quote_rate"] == 0.0
 
 
 def test_call_not_found(client):

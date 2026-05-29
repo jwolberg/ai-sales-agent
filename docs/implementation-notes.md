@@ -1285,3 +1285,11 @@ nothing imports the old modules.
   the closing/orchestrator imports. Trimmed/rewrote `test_{lead_store,transcript,guardrails,
   knowledge,kpis,dashboard}.py` to drop old-engine setup and exercise the router engine instead.
 Full suite **127 passed**; `ruff` clean across app + tests.
+
+## 2026-05-28 — IR6-T2: dashboard API fields
+
+Extended `dashboard/router.py`: call summaries now include `reached_leaf` + `quoted_price`; the
+decision trace serializes `slots` + `leaf`; added `GET /api/router-metrics` (compute_router_metrics).
+This is the read API the IR-7 React dashboard consumes — classification accuracy still comes from the
+benchmark report (needs ground truth), not this endpoint. Tests extended in `test_dashboard.py`
+(router fields + new endpoint). `ruff` clean.

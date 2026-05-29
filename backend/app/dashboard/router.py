@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Call
 from app.db.session import get_db
-from app.kpis.metrics import compute_metrics
+from app.kpis.metrics import compute_metrics, compute_router_metrics
 
 router = APIRouter(prefix="/api", tags=["observability"])
 
@@ -38,6 +38,9 @@ def _call_summary(call: Call) -> dict:
         "model_version": call.model_version,
         "is_synthetic": call.is_synthetic,
         "num_turns": len(call.turns),
+        # Intent-router result (IR6-T2): the leaf the call reached and the price quoted.
+        "reached_leaf": call.reached_leaf,
+        "quoted_price": call.quoted_price,
     }
 
 
@@ -49,6 +52,14 @@ def metrics(
 ) -> dict:
     """Aggregate §16 KPIs across calls (optionally sliced by version/variant)."""
     return compute_metrics(db, agent_version=agent_version, variant_id=variant_id)
+
+
+@router.get("/router-metrics")
+def router_metrics(db: Db, include_synthetic: bool = True) -> dict:
+    """Intent-router KPIs derivable from persisted calls (IR6-T2): leaf-reached / quote /
+    escalation / mis-quote rates + avg clarifications. Classification accuracy needs ground
+    truth and is reported by the benchmark, not here."""
+    return compute_router_metrics(db, include_synthetic=include_synthetic)
 
 
 @router.get("/calls")
@@ -87,6 +98,9 @@ def call_detail(call_id: str, db: Db) -> dict:
                 "missing_fields": d.missing_fields,
                 "kb_sources_used": d.kb_sources_used,
                 "escalation_risk": d.escalation_risk,
+                # Intent-router trace (IR6-T2): cumulative slot state + resolved leaf this turn.
+                "slots": d.slots,
+                "leaf": d.leaf,
                 "turn_id": d.turn_id,
                 "created_at": _iso(d.created_at),
             }
