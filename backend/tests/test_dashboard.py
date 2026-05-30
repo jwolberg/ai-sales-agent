@@ -92,6 +92,34 @@ def test_calls_list_and_detail(client):
     assert any(e["event_type"] == "escalation" for e in detail["kpi_events"])
 
 
+def test_vad_eval_uses_recorded_params(client):
+    tc, sessions = client
+    db = sessions()
+    rec = CallRecorder(
+        db, channel="web", vad_params={"stop_secs": 0.8, "start_secs": 0.2,
+                                       "confidence": 0.7, "min_volume": 0.6}
+    )
+    call_id = rec.call_id
+    db.commit()
+    db.close()
+
+    ev = tc.get(f"/api/calls/{call_id}").json()["vad_eval"]
+    assert ev["from_call"] is True
+    assert ev["params"]["stop_secs"] == 0.8
+    assert "--stop-secs 0.8" in ev["command"]
+    assert ev["clip_placeholder"] in ev["command"]
+    # The sweep includes the call's own stop_secs so its row always shows up.
+    assert "0.8" in ev["sweep_command"]
+
+
+def test_vad_eval_falls_back_to_current_config(client):
+    tc, sessions = client
+    call_id = _seed_call(sessions)  # seeded without vad_params (pre-VAD-T3 style)
+    ev = tc.get(f"/api/calls/{call_id}").json()["vad_eval"]
+    assert ev["from_call"] is False  # flagged: params are today's config, not the call's record
+    assert set(ev["params"]) == {"stop_secs", "start_secs", "confidence", "min_volume"}
+
+
 def test_router_metrics_endpoint(client):
     tc, sessions = client
     _seed_call(sessions)

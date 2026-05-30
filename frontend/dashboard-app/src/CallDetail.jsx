@@ -1,6 +1,28 @@
 import React, { useEffect, useState } from 'react'
 import { api } from './api.js'
 
+// A command + a button that copies it to the clipboard, with brief "Copied" feedback.
+function CopyCommand({ command }) {
+  const [copied, setCopied] = useState(false)
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(command)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      /* clipboard blocked (e.g. insecure origin); the command is still selectable in the <pre> */
+    }
+  }
+  return (
+    <div className="row" style={{ alignItems: 'flex-start', gap: 8 }}>
+      <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all', flex: 1, margin: 0 }}>
+        {command}
+      </pre>
+      <button onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+    </div>
+  )
+}
+
 // Shows a call's streaming transcript + decision trace. For a live call we render the
 // accumulating live object; for a historical one (no streamed turns) we fetch the snapshot.
 export default function CallDetail({ call }) {
@@ -21,6 +43,8 @@ export default function CallDetail({ call }) {
   const price = call.quoted_price ?? fetched?.quoted_price
   // Prefer the full payment list from the fetched snapshot; fall back to the live latest-payment.
   const payments = fetched?.payments?.length ? fetched.payments : call.payment ? [call.payment] : []
+  // Turn-taking evaluator: only on the fetched historical snapshot (a live call isn't over yet).
+  const vadEval = fetched?.vad_eval || call.vad_eval || null
 
   return (
     <div>
@@ -77,6 +101,32 @@ export default function CallDetail({ call }) {
               )
             })}
           </ul>
+        </>
+      )}
+
+      {vadEval && (
+        <>
+          <h2 style={{ marginTop: 16 }}>Turn-taking (VAD)</h2>
+          <p className="muted">
+            {vadEval.from_call
+              ? 'Endpointing dials this call ran under. '
+              : 'This call predates per-call recording — showing the current config. '}
+            The agent starts talking after <code>stop_secs</code> of silence; raise it if it jumps
+            in too soon.
+          </p>
+          <div className="slots">
+            stop_secs {vadEval.params.stop_secs} · start_secs {vadEval.params.start_secs} ·
+            confidence {vadEval.params.confidence} · min_volume {vadEval.params.min_volume}
+          </div>
+          <p className="muted" style={{ marginTop: 10 }}>
+            Record a clip with natural pauses (replace {vadEval.clip_placeholder}), then replay it at
+            this call's dials:
+          </p>
+          <CopyCommand command={vadEval.command} />
+          <p className="muted" style={{ marginTop: 10 }}>
+            Or sweep <code>stop_secs</code> to find the smallest value that stops cutting you off:
+          </p>
+          <CopyCommand command={vadEval.sweep_command} />
         </>
       )}
     </div>

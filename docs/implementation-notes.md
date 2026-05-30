@@ -1755,3 +1755,17 @@ Deployed to nerdy-1. Issues found + fixes on the live service:
   dev DB. This is the migration-free pattern to reuse for future additive columns.
 - Tests: `test_vad_params_shape`, `test_recorder_stamps_vad_params`, `test_db_backfill.py`. Updated
   `test_vad_config_defaults` (now 0.2). 190 tests; ruff clean.
+
+### 2026-05-29 — VAD-T4: dashboard "Turn-taking (VAD)" evaluator panel
+- **Decision (per user):** the "evaluate a call" button is the *light* path — no call-audio storage
+  (audio still isn't captured; that was the rejected heavier option). The panel surfaces the VAD
+  dials the call ran under and a ready-to-run `vad_replay` command + sweep, prefilled with them;
+  the operator records their own clip (a `<your-clip.wav>` placeholder marks where it goes).
+- Backend: `call_detail` now returns a `vad_eval` block (`_vad_eval` in `dashboard/router.py`):
+  `params` (from `call.vad_params`, or the current config flagged `from_call: false` for pre-VAD-T3
+  calls), a `command`, and a `sweep_command` whose values always include the call's own `stop_secs`.
+- Frontend: `CallDetail.jsx` renders the panel on the fetched historical snapshot (a live call
+  isn't over yet) with a small `CopyCommand` (clipboard + "Copied" feedback). Reuses existing CSS.
+- Validation: 192 backend tests + `vite build` clean. **Manual check still useful:** open the
+  dashboard, pick an ended voice call, confirm the panel shows the dials and Copy works (clipboard
+  needs a secure/localhost origin).
