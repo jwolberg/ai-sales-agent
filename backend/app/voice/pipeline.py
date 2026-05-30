@@ -13,6 +13,7 @@ from pathlib import Path
 
 from loguru import logger
 from pipecat.audio.vad.silero import SileroVADAnalyzer
+from pipecat.audio.vad.vad_analyzer import VADParams
 from pipecat.frames.frames import (
     Frame,
     InputAudioRawFrame,
@@ -45,6 +46,7 @@ __all__ = [
     "build_services",
     "build_pipeline_task",
     "build_transport",
+    "build_vad_analyzer",
 ]
 
 # Deepgram requires an explicit sample rate with linear16. The transport must declare it
@@ -209,6 +211,22 @@ def build_pipeline_task(
     )
 
 
+def build_vad_analyzer(settings: Settings) -> SileroVADAnalyzer:
+    """Build the Silero VAD with the configured endpointing dials (VAD-T1).
+
+    Centralizing this keeps the WebRTC and Twilio paths on identical turn-taking behavior.
+    ``vad_stop_secs`` is the dominant lever for "agent jumps in too soon" — see config.py.
+    """
+    return SileroVADAnalyzer(
+        params=VADParams(
+            stop_secs=settings.vad_stop_secs,
+            start_secs=settings.vad_start_secs,
+            confidence=settings.vad_confidence,
+            min_volume=settings.vad_min_volume,
+        )
+    )
+
+
 def build_transport(
     connection: SmallWebRTCConnection, settings: Settings | None = None
 ) -> SmallWebRTCTransport:
@@ -222,7 +240,7 @@ def build_transport(
         audio_out_enabled=True,
         audio_in_sample_rate=AUDIO_IN_SAMPLE_RATE,
         audio_out_sample_rate=settings.audio_out_sample_rate,
-        vad_analyzer=SileroVADAnalyzer(),
+        vad_analyzer=build_vad_analyzer(settings),
     )
     if settings.ambient_noise:
         params_kwargs["audio_out_mixer"] = _build_ambient_mixer(settings)

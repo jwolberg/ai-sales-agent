@@ -22,7 +22,6 @@ from __future__ import annotations
 import json
 
 from loguru import logger
-from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -42,7 +41,7 @@ from app.agent.versioning import compute_versions
 from app.config import Settings
 from app.db.session import SessionLocal, init_db
 from app.voice.bot import EngineProcessor, build_engine
-from app.voice.pipeline import build_services, configure_debug_logging
+from app.voice.pipeline import build_services, build_vad_analyzer, configure_debug_logging
 
 
 def build_twiml(ws_url: str, *, from_number: str | None = None) -> str:
@@ -116,7 +115,7 @@ async def run_twilio_bot(websocket, settings: Settings) -> None:
             audio_in_enabled=True,
             audio_out_enabled=True,
             add_wav_header=False,
-            vad_analyzer=SileroVADAnalyzer(),
+            vad_analyzer=build_vad_analyzer(settings),
             serializer=serializer,
         ),
     )

@@ -26,6 +26,27 @@ def test_latency_config_defaults():
     assert s.audio_out_sample_rate == 24000  # matches data/audio/ambient.wav
 
 
+def test_vad_config_defaults():
+    s = Settings(_env_file=None)
+    # stop_secs is the "jumps in too soon" lever; we default above pipecat's aggressive 0.2.
+    assert s.vad_stop_secs == 0.6
+    assert s.vad_start_secs == 0.2
+    assert s.vad_confidence == 0.7
+    assert s.vad_min_volume == 0.6
+
+
+def test_build_vad_analyzer_applies_settings():
+    """The VAD dials flow from Settings into the Silero analyzer's params."""
+    pytest.importorskip("pipecat")
+    from app.voice.pipeline import build_vad_analyzer
+
+    s = Settings(_env_file=None, vad_stop_secs=1.1, vad_start_secs=0.3)
+    analyzer = build_vad_analyzer(s)
+    assert analyzer.params.stop_secs == 1.1
+    assert analyzer.params.start_secs == 0.3
+    assert analyzer.params.confidence == 0.7  # untouched default
+
+
 def test_pipeline_builds_with_dummy_keys():
     """The pipeline wires together without network/keys (construction only)."""
     pytest.importorskip("pipecat")

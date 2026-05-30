@@ -1707,3 +1707,19 @@ Deployed to nerdy-1. Issues found + fixes on the live service:
   (2) `Decision.escalation_risk` column is defined but never written. (3) `Decision.stage` just
   mirrors `selected_action`; the legacy 11-stage enum is not populated. Logged as follow-ups in
   AGENT_FLOW.md §8.
+
+### 2026-05-29 — VAD-T1: expose turn-taking (VAD) dials
+- **Why:** the live agent "jumps in too soon." Root cause: both live paths built
+  `SileroVADAnalyzer()` with no params, so endpointing used pipecat's default
+  `VAD_STOP_SECS = 0.2` — only 0.2s of silence ends the caller's turn, which a normal
+  mid-sentence breath trips. The brain never decided this; it's pure VAD timing.
+- Added four dials to `Settings` (`vad_stop_secs`, `vad_start_secs`, `vad_confidence`,
+  `vad_min_volume`) and a shared `build_vad_analyzer(settings)` in `voice/pipeline.py`, used by
+  both `build_transport` (WebRTC) and `twilio_bot.py` so the two paths can't drift.
+- **Deliberate deviation from pipecat default:** `vad_stop_secs` defaults to **0.6** (not 0.2).
+  This is a behavior change — the agent now waits ~3× longer before treating a pause as
+  end-of-turn. Trade-off: slightly less snappy, far fewer premature interruptions. Tune per the
+  VAD-T2 replay harness; raise to 0.8–1.2 if it still interrupts, lower toward 0.3 for snappier.
+- Tests: `test_vad_config_defaults`, `test_build_vad_analyzer_applies_settings`. 180 tests pass;
+  ruff clean. (Perceived improvement still needs a real call to confirm — VAD-T2 makes the
+  timing measurable offline first.)
