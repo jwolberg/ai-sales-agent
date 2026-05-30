@@ -1723,3 +1723,20 @@ Deployed to nerdy-1. Issues found + fixes on the live service:
 - Tests: `test_vad_config_defaults`, `test_build_vad_analyzer_applies_settings`. 180 tests pass;
   ruff clean. (Perceived improvement still needs a real call to confirm — VAD-T2 makes the
   timing measurable offline first.)
+
+### 2026-05-29 — VAD-T2: offline VAD replay harness
+- **Why:** the text simulator (`simulator/benchmark.py`) feeds `engine.run_turn` strings and never
+  runs audio/VAD, so it is structurally blind to "jumps in too soon." Endpointing can only be
+  measured where the audio runs. The harness fills that gap without needing a phone.
+- `app/simulator/vad_replay.py`: loads a WAV (stdlib `wave`+`audioop` handle width/stereo/rate so
+  any clip works → 512-sample 16 kHz frames), feeds it one frame at a time into the **real**
+  `SileroVADAnalyzer`, and collapses the per-frame `VADState` stream into caller turns. A turn ends
+  when VAD returns to `QUIET` — the same signal the live agent acts on. `sweep_stop_secs` reuses
+  the decoded frames across several `stop_secs` values and reports the turn count for each. CLI:
+  `python -m app.simulator.vad_replay clip.wav --sweep 0.2,0.4,0.6,0.8,1.0`.
+- **Decision — testing seam:** Silero confidence can't be driven from synthetic audio, so the
+  segment/sweep logic is tested with a scripted fake VAD (`tests/test_vad_replay.py`), and the WAV
+  loader with generated clips. The real Silero path is smoke-run manually (correctly reports 0
+  turns on silence) and documented in RUNBOOK §11.4 — speech-detection accuracy needs a real clip.
+- **Follow-up:** check in 2–3 recorded pause-heavy fixtures under `data/audio/` so the sweep has a
+  canonical input, and consider asserting the real path against one in CI. 186 tests; ruff clean.

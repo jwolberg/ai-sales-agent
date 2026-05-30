@@ -186,3 +186,28 @@ the agent greets you first. Check readiness any time at
 > A browser + microphone are required; the voice path can't be exercised headlessly.
 > Construction/wiring is covered by `tests/test_voice_pipeline.py` (skips automatically
 > when the `voice` extra isn't installed).
+
+### 11.4 Tune turn-taking — "the agent jumps in too soon" (VAD-T1/T2)
+
+When the caller turn ends is decided by Silero VAD, not the brain. The lever is
+`vad_stop_secs` (config.toml / `Settings`): the trailing silence before the turn is
+declared over. It defaults to **0.6s** (pipecat's own default is an aggressive 0.2s,
+which trips on a normal mid-sentence breath). Raise it (0.8–1.2) if the agent still
+interrupts; lower it (toward 0.3) for snappier turns.
+
+Tune it offline first — no phone needed. Record a few short clips of yourself speaking
+*with natural pauses* (mid-sentence "um…", trailing "so…") as 16-bit WAV, then sweep:
+
+```bash
+.venv/bin/python -m app.simulator.vad_replay path/to/clip.wav --sweep 0.2,0.4,0.6,0.8,1.0
+```
+
+Each row prints how many turns that `stop_secs` produced. A clip that is *one* utterance
+with pauses should yield **1 turn** — pick the smallest `stop_secs` that does, then set it
+as `vad_stop_secs`. Too-low values split the utterance (the agent jumps in mid-thought);
+too-high only adds latency. Confirm the final value with one live call.
+
+> The harness runs the real Silero VAD but no STT/LLM/network. The timing logic is covered
+> by `tests/test_vad_replay.py`; the speech-detection accuracy needs a real recorded clip.
+> Tip: while tuning, set `fillers=false` so a premature endpoint isn't masked by the instant
+> "Sure,…" filler — it makes early jump-ins easier to hear.
