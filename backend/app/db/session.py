@@ -29,29 +29,35 @@ def get_db() -> Iterator[Session]:
         db.close()
 
 
-# Columns added after a table first shipped. create_all() never ALTERs existing tables and this
-# project has no migration tool, so we additively backfill these on SQLite to keep an existing
-# committed DB working. {table: {column: SQL type}}. Keep entries forever — it's idempotent.
-_ADDED_COLUMNS = {
-    "calls": {"vad_params": "JSON"},  # VAD-T3
-}
-
-
 def _backfill_columns(target_engine=None) -> None:
-    """Add any missing additive columns to existing SQLite tables (no-op if already present)."""
+    """Add any column the models define but an existing SQLite table is missing.
+
+    create_all() never ALTERs existing tables and this project has no migration tool, so a DB
+    created before a column was added (e.g. turns.latency_breakdown, calls.vad_params) raises
+    "no such column" at query time. This additively heals such drift: for every model table that
+    already exists, ADD COLUMN each missing column as a plain nullable, typed column. We emit only
+    the type (no FK/PK/constraints) — that's all SQLite's ALTER ADD COLUMN reliably supports, and
+    it's enough to keep an old dev DB queryable. Fresh DBs get full schemas from create_all.
+    Idempotent and self-maintaining (no hardcoded column list to keep in sync).
+    """
     target_engine = target_engine or engine
     if not target_engine.url.get_backend_name().startswith("sqlite"):
         return
+    from app.db.models import Base
+
     inspector = inspect(target_engine)
     existing_tables = set(inspector.get_table_names())
     with target_engine.begin() as conn:
-        for table, columns in _ADDED_COLUMNS.items():
-            if table not in existing_tables:
+        for table in Base.metadata.tables.values():
+            if table.name not in existing_tables:
                 continue  # create_all will make it fresh with all columns
-            present = {col["name"] for col in inspector.get_columns(table)}
-            for name, sql_type in columns.items():
-                if name not in present:
-                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {sql_type}"))
+            present = {col["name"] for col in inspector.get_columns(table.name)}
+            for column in table.columns:
+                if column.name not in present:
+                    col_type = column.type.compile(dialect=target_engine.dialect)
+                    conn.execute(
+                        text(f"ALTER TABLE {table.name} ADD COLUMN {column.name} {col_type}")
+                    )
 
 
 def init_db() -> None:

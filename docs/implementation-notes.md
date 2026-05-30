@@ -1784,3 +1784,18 @@ Deployed to nerdy-1. Issues found + fixes on the live service:
 - `tests/test_vad_replay.py` now asserts the **real Silero path** against the fixtures (on
   relationships, not exact counts, so a model bump won't be brittle; skips if fixtures absent).
   194 tests; ruff clean.
+
+### 2026-05-29 — fix: generalize the schema self-heal (dashboard 500 on drifted DBs)
+- **Bug found while reviewing VAD-T4 in the live dashboard:** `/api/calls` 500'd with
+  `no such column: turns.latency_breakdown`. That column was added in LAT-T1 with no migration, so
+  the committed dev DB (and any DB predating it) lacked it — unrelated to the VAD work, but it
+  blocks the whole dashboard.
+- **Fix:** generalized VAD-T3's `_backfill_columns` from a hardcoded one-column list to a
+  model-driven heal — for every existing table, ADD COLUMN any column the SQLAlchemy model defines
+  but the table lacks (type only, nullable; no FK/PK/constraints, all SQLite's ALTER reliably
+  supports). Self-maintaining: future columns added without a migration heal automatically.
+- **Trade-off:** healed columns lack FK/constraints on an old DB (SQLite has FKs off by default, so
+  harmless); fresh DBs still get full schemas from `create_all`. Healed the committed dev DB.
+- Tests: generic multi-column heal + a `turns.latency_breakdown` regression. Verified end-to-end by
+  loading `/dashboard`, opening a call, and confirming the "Turn-taking (VAD)" panel renders with
+  the dials + copyable commands. 195 tests; ruff clean.
