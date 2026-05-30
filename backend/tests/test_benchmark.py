@@ -65,7 +65,7 @@ def test_injected_prospect_overrides_default(session):
         def opening(self):
             return "I need physics help."  # regardless of the persona's true leaf
 
-        def next(self):
+        def next(self, agent_text=""):
             return "physics"
 
     chem = next(p for p in get_personas().router_personas() if p.key == "router_chemistry")

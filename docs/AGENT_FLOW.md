@@ -13,7 +13,7 @@
 A call is a loop of **turns**. On each turn the caller's audio becomes text, the
 **brain** decides one action and an utterance, deterministic **rails** vet that
 decision, the result is **persisted**, and the utterance is spoken back.
-
+ 
 ```
                 ┌─────────────────────── one turn ───────────────────────┐
   caller audio → STT (Deepgram) → IntentRouterEngine.run_turn()           │

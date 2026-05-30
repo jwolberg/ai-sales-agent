@@ -7,14 +7,24 @@ test/subject, **quotes that program's price**, and answers informational questio
 knowledge base. Every call captures a transcript, a per-turn decision trace, and KPIs, and a
 synthetic-persona benchmark grades the agent on **classification accuracy**.
 
-> **Status:** MVP / in progress. The backend classify→quote→KB core, the accuracy benchmark, and
-> the improvement loop are implemented and unit-tested offline. The live voice loop needs a real
-> keys+mic run to validate. KB and pricing content are **placeholder**, not approved Nerdy content.
-> See `docs/limitations.md`. This narrows the earlier discovery-to-close agent — see
-> `docs/decision-log.md` (D-13).
 
+- **Control panel page: https://your-service.example.com/dashboard/**
+- **Live AI Sales Agent: 1-986-786-3739 (1-986-R-U-NERDY)**
+- **Demo video: https://www.loom.com/share/02b8f575d0c44b388b11a7497dd2813c**
+- **Recursive improvement:** [`docs/recursive-improvement-summary.md`](docs/recursive-improvement-summary.md)
+#
+## Key Features ##
+- Confidence scoring to handles ambiguous responses
+- Conversational context
+- Slot filling decision tree
+- Knowledgebase retrieval via RAG
+- Product pricing lookup
+- Hooks for payment via text integration (Stripe)
+![Transcript 1 of 2: ](docs/img/call1.png)
+![Transcript 2 of 2: ](docs/img/call2.png)
+
+#
 ## What it does
-
 - **Live voice** (browser/WebRTC): Deepgram STT → LLM brain → Cartesia TTS, with VAD turn-taking.
 - **LLM-driven core:** an OpenAI tool-calling brain owns each turn — it slot-fills the taxonomy
   from what the caller says, asks the next disambiguating question when unsure, answers from the
@@ -30,6 +40,7 @@ synthetic-persona benchmark grades the agent on **classification accuracy**.
   confidence, slot state, reached leaf), KPI events, and the quoted price; a dashboard reads the API.
 - **Improvement loop:** run brain variants against ground-truth personas; promote one only if it
   raises Classification Accuracy without regressing the guardrail rates (human-approved).
+#
 
 ## Architecture at a glance
 

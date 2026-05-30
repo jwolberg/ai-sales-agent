@@ -38,7 +38,8 @@ class RouterProspect:
     def opening(self) -> str:
         return self.persona.opening_line or "Hi, I have a question."
 
-    def next(self) -> str:
+    def next(self, agent_text: str = "") -> str:
+        # Deterministic reveal sequence — ignores the agent's wording (unlike LLMProspect).
         if self._i < len(self._reveals):
             phrase = self._reveals[self._i]
             self._i += 1
@@ -82,7 +83,9 @@ def run_router_call(
         last_action = result.action
         if result.action in _TERMINAL:
             break
-        user_text = prospect.next()
+        # Hand the agent's reply to the prospect so an LLM-driven caller can react to it (the
+        # deterministic prospect ignores it).
+        user_text = prospect.next(result.utterance)
 
     target = persona.target_leaf
     reached = engine.reached_leaf

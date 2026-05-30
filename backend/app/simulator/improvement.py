@@ -89,12 +89,18 @@ def run_improvement(
     personas: list[Persona] | None = None,
     settings: Settings | None = None,
     max_turns: int = 8,
+    prospect_factory=None,
 ) -> ImprovementReport:
     settings = settings or Settings(_env_file=None)
 
     def bench(brain: Brain) -> dict:
         return run_benchmark(
-            session, brain=brain, personas=personas, settings=settings, max_turns=max_turns
+            session,
+            brain=brain,
+            personas=personas,
+            settings=settings,
+            max_turns=max_turns,
+            prospect_factory=prospect_factory,
         )["metrics"]
 
     baseline = VariantMetrics(BASELINE_KEY, bench(baseline_brain))
