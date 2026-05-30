@@ -104,6 +104,7 @@ def test_vad_eval_uses_recorded_params(client):
     db.close()
 
     ev = tc.get(f"/api/calls/{call_id}").json()["vad_eval"]
+    assert ev["applicable"] is True  # web is a voice channel
     assert ev["from_call"] is True
     assert ev["params"]["stop_secs"] == 0.8
     assert "--stop-secs 0.8" in ev["command"]
@@ -118,6 +119,19 @@ def test_vad_eval_falls_back_to_current_config(client):
     ev = tc.get(f"/api/calls/{call_id}").json()["vad_eval"]
     assert ev["from_call"] is False  # flagged: params are today's config, not the call's record
     assert set(ev["params"]) == {"stop_secs", "start_secs", "confidence", "min_volume"}
+
+
+def test_vad_eval_not_applicable_for_text_sim_calls(client):
+    tc, sessions = client
+    db = sessions()
+    rec = CallRecorder(db, channel="sim", is_synthetic=True)  # text simulation: no audio/VAD
+    call_id = rec.call_id
+    db.commit()
+    db.close()
+
+    ev = tc.get(f"/api/calls/{call_id}").json()["vad_eval"]
+    assert ev["applicable"] is False  # the UI explains "no turn-taking" instead of showing dials
+    assert ev["channel"] == "sim"
 
 
 def test_router_metrics_endpoint(client):

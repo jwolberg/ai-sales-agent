@@ -1813,3 +1813,16 @@ Deployed to nerdy-1. Issues found + fixes on the live service:
 - Tests: added real-VAD assertions for `disfluent_ums` (shred-then-ride-through) and
   `edge_short_turns` (deliberate turns survive); kept the midsentence/two-utterance ones (still
   hold). README has the full per-fixture table. 197 tests; ruff clean.
+
+### 2026-05-29 — VAD-T7: make the evaluator panel channel-aware
+- **Reported confusion:** running calls from the "Start simulated call" dropdown didn't change the
+  Turn-taking panel. Root cause: those are *text* simulations (`run_sim_call_paced`, channel `sim`)
+  — they drive the brain with strings and never run audio/Silero VAD, so there are no per-call VAD
+  params. The panel's "predates per-call recording" fallback was misleading for them.
+- Only the **voice** paths record VAD params: "Start Test Call" (browser mic → `run_bot`, channel
+  `web`) and Twilio (`run_twilio_bot`). The sim dropdown is text-only by design.
+- Fix: `_vad_eval` now returns `applicable` (True only for channels `web`/`twilio`) + `channel`.
+  `CallDetail.jsx` shows a plain explanation for text sims ("no turn-taking to evaluate — use Start
+  Test Call") instead of the dials/commands. Verified live: a `sim` call now renders the note.
+- Tests: `test_vad_eval_not_applicable_for_text_sim_calls`; existing voice-call assertions gained an
+  `applicable` check. 198 tests; ruff clean; `vite build` clean.

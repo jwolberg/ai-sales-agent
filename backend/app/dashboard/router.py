@@ -73,20 +73,24 @@ _VAD_SWEEP_BASE = [0.2, 0.4, 0.6, 0.8, 1.0]
 # Audio isn't stored per call (see docs/implementation-notes.md VAD-T2/T3), so the operator points
 # the harness at a clip they record. This placeholder marks where that path goes in the command.
 _VAD_CLIP_PLACEHOLDER = "<your-clip.wav>"
+# Channels that actually run audio through the Silero VAD. "sim"/"benchmark" calls are text-only —
+# they drive the brain with strings and never touch turn-taking, so VAD evaluation doesn't apply.
+_VOICE_CHANNELS = {"web", "twilio"}
 
 
 def _vad_eval(call: Call) -> dict:
-    """Per-call turn-taking evaluator payload (VAD-T4).
+    """Per-call turn-taking evaluator payload (VAD-T4; channel-aware VAD-T7).
 
-    Exposes the VAD dials the call ran under (or the current config, flagged, for calls recorded
-    before VAD-T3) and a ready-to-run ``vad_replay`` command + sweep prefilled with them. The
-    operator records a clip with natural pauses and runs the command to see where the agent would
-    have started talking — the way to tune "the agent jumps in too soon" without a live call.
+    Exposes the VAD dials the call ran under (or the current config, flagged, for voice calls
+    recorded before VAD-T3) and a ready-to-run ``vad_replay`` command + sweep prefilled with them.
+    ``applicable`` is False for text simulations (channel sim/benchmark), which never run the VAD —
+    the UI uses it to say "no turn-taking here" instead of implying the call is just old.
     """
+    applicable = call.channel in _VOICE_CHANNELS
     params = call.vad_params
     from_call = params is not None
     if params is None:
-        params = get_settings().vad_params()  # older call: show today's config, clearly flagged
+        params = get_settings().vad_params()  # no record: show today's config, clearly flagged
 
     def _fmt(p: dict) -> str:
         return (
@@ -97,6 +101,9 @@ def _vad_eval(call: Call) -> dict:
     sweep = sorted({*_VAD_SWEEP_BASE, params["stop_secs"]})
     base = f"python -m app.simulator.vad_replay {_VAD_CLIP_PLACEHOLDER}"
     return {
+        # False → text sim (no audio/VAD); the UI explains rather than offering to tune.
+        "applicable": applicable,
+        "channel": call.channel,
         "params": params,
         "from_call": from_call,  # False → params are the current config, not this call's record
         # Replays a clip at the exact dials this call used.

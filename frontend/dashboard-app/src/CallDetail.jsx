@@ -107,26 +107,36 @@ export default function CallDetail({ call }) {
       {vadEval && (
         <>
           <h2 style={{ marginTop: 16 }}>Turn-taking (VAD)</h2>
-          <p className="muted">
-            {vadEval.from_call
-              ? 'Endpointing dials this call ran under. '
-              : 'This call predates per-call recording — showing the current config. '}
-            The agent starts talking after <code>stop_secs</code> of silence; raise it if it jumps
-            in too soon.
-          </p>
-          <div className="slots">
-            stop_secs {vadEval.params.stop_secs} · start_secs {vadEval.params.start_secs} ·
-            confidence {vadEval.params.confidence} · min_volume {vadEval.params.min_volume}
-          </div>
-          <p className="muted" style={{ marginTop: 10 }}>
-            Record a clip with natural pauses (replace {vadEval.clip_placeholder}), then replay it at
-            this call's dials:
-          </p>
-          <CopyCommand command={vadEval.command} />
-          <p className="muted" style={{ marginTop: 10 }}>
-            Or sweep <code>stop_secs</code> to find the smallest value that stops cutting you off:
-          </p>
-          <CopyCommand command={vadEval.sweep_command} />
+          {!vadEval.applicable ? (
+            <p className="muted">
+              This is a text simulation ({vadEval.channel || 'sim'}) — it drives the brain with text
+              and never runs audio, so there's no turn-taking to evaluate. Use <b>Start Test Call</b>
+              {' '}(or a phone call) to place a real voice call, which records the VAD dials it used.
+            </p>
+          ) : (
+            <>
+              <p className="muted">
+                {vadEval.from_call
+                  ? 'Endpointing dials this call ran under. '
+                  : 'This call predates per-call recording — showing the current config. '}
+                The agent starts talking after <code>stop_secs</code> of silence; raise it if it
+                jumps in too soon.
+              </p>
+              <div className="slots">
+                stop_secs {vadEval.params.stop_secs} · start_secs {vadEval.params.start_secs} ·
+                confidence {vadEval.params.confidence} · min_volume {vadEval.params.min_volume}
+              </div>
+              <p className="muted" style={{ marginTop: 10 }}>
+                Record a clip with natural pauses (replace {vadEval.clip_placeholder}), then replay
+                it at this call's dials:
+              </p>
+              <CopyCommand command={vadEval.command} />
+              <p className="muted" style={{ marginTop: 10 }}>
+                Or sweep <code>stop_secs</code> to find the smallest value that stops cutting you off:
+              </p>
+              <CopyCommand command={vadEval.sweep_command} />
+            </>
+          )}
         </>
       )}
     </div>
