@@ -48,17 +48,29 @@ volume=…, loop=True)` attached via `TransportParams(audio_out_mixer=…)`, gat
 
 Canonical inputs for the offline turn-taking evaluator (`app.simulator.vad_replay`). Unlike the
 ambient bed, these are **inbound-speech** clips — synthesized with macOS `say` (offline, no API
-keys) with *deliberate* pauses so the evaluator has a stable, committed thing to sweep. 16 kHz
+keys) with *deliberate* pauses and disfluencies, so the evaluator has stable, committed,
+realistically-long callers to sweep. Content is domain-relevant (Nerdy tutoring sales). 16 kHz
 mono PCM s16 (what Silero/the harness want).
 
-- **`midsentence_pause.wav`** — one utterance with a ~0.7 s mid-sentence pause. The "agent jumps in
-  too soon" case: splits into 2 turns at `stop_secs` ≤ 0.6, merges to 1 at ≥ 0.8.
-- **`trailing_filler.wav`** — utterance ending in a hesitation ("…so"); same split-then-merge.
-- **`two_utterances.wav`** — two genuine utterances with a ~1.5 s gap; a *control* that stays 2
-  turns even when relaxed, proving a higher `stop_secs` doesn't swallow real turn boundaries.
+Turn counts below are from the real Silero VAD at `stop_secs` 0.2 → 1.0 (`--sweep`). The pattern
+to notice: the aggressive 0.2 default shreds a single thought into many turns (the agent jumps in);
+a larger `stop_secs` merges them — *without* swallowing genuinely separate turns.
+
+| fixture | what it is | turns 0.2 → 1.0 |
+|---|---|---|
+| **`midsentence_pause.wav`** | multi-sentence turn with a ~0.7 s mid-thought pause + an "um" | 6 → 3 → 3 → 2 → **1** |
+| **`trailing_filler.wav`** | caller trailing off into a hesitation ("…so") | 3 → 3 → 2 → **1** → 1 |
+| **`two_utterances.wav`** | two genuine turns, ~1.6 s gap — *control* | 4 → **2** → 2 → 2 → 2 |
+| **`disfluent_ums.wav`** | heavy um/uh + restarts — fillers should be ridden through | 10 → 4 → **1** → 1 → 1 |
+| **`chem_vs_bio.wav`** | long "is it chemistry or biology?" question, clause pauses | 7 → 5 → 3 → 3 → 2 |
+| **`payment.wav`** | "how does paying work?" + a spoken card/phone number | 6 → 5 → 3 → 3 → 2 |
+| **`edge_short_turns.wav`** | three one-word turns, ~1.4 s gaps — edge case | **3 at every value** |
+
+`edge_short_turns` is the counterweight to the others: its gaps exceed every tested `stop_secs`, so
+the count never collapses — proof the dial merges *hesitation* pauses, not *deliberate* turn breaks.
 
 Regenerate with `bash data/audio/vad_fixtures/generate.sh`. The real-VAD path is asserted against
-them in `backend/tests/test_vad_replay.py` (skips if they're absent).
+several of these in `backend/tests/test_vad_replay.py` (skips if they're absent).
 
 ## Honesty note (§18)
 

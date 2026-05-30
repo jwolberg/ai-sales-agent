@@ -122,6 +122,27 @@ def test_midsentence_pause_splits_when_too_aggressive_but_merges_when_relaxed():
 @real_vad
 def test_two_real_utterances_are_not_merged_by_a_relaxed_stop_secs():
     clip = _FIXTURES / "two_utterances.wav"
-    # A genuine ~1.5s gap stays two turns even when relaxed — raising the dial must not swallow
+    # A genuine ~1.6s gap stays two turns even when relaxed — raising the dial must not swallow
     # real turn boundaries.
     assert len(analyze_clip(clip, stop_secs=1.0)) >= 2
+
+
+@real_vad
+def test_disfluencies_shred_at_low_stop_secs_but_ride_through_when_relaxed():
+    clip = _FIXTURES / "disfluent_ums.wav"
+    aggressive = analyze_clip(clip, stop_secs=0.2)
+    relaxed = analyze_clip(clip, stop_secs=0.6)
+    # One rambling, um/uh-filled answer: the 0.2s default cuts at every hesitation (many turns),
+    # while a modest stop_secs treats the fillers as one continuous turn.
+    assert len(aggressive) >= 5
+    assert len(relaxed) <= 2
+    assert len(aggressive) > len(relaxed)
+
+
+@real_vad
+def test_deliberate_short_turns_survive_every_stop_secs():
+    clip = _FIXTURES / "edge_short_turns.wav"
+    # Three one-word turns separated by ~1.4s gaps (longer than any tested stop_secs): the count
+    # must NOT collapse — the dial merges hesitation pauses, not real turn breaks.
+    assert len(analyze_clip(clip, stop_secs=0.2)) >= 3
+    assert len(analyze_clip(clip, stop_secs=1.0)) >= 3

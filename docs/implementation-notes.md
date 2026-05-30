@@ -1799,3 +1799,17 @@ Deployed to nerdy-1. Issues found + fixes on the live service:
 - Tests: generic multi-column heal + a `turns.latency_breakdown` regression. Verified end-to-end by
   loading `/dashboard`, opening a call, and confirming the "Turn-taking (VAD)" panel renders with
   the dials + copyable commands. 195 tests; ruff clean.
+
+### 2026-05-29 — VAD-T6: extend fixtures (longer, disfluencies, domain, edge cases)
+- The VAD-T5 fixtures were minimal one-liners. Extended `generate.sh` to 7 realistically-long,
+  domain-relevant clips (Nerdy tutoring sales) so the evaluator exercises real caller behavior:
+  multi-sentence `midsentence_pause`, `trailing_filler`, `two_utterances` (control), plus new
+  `disfluent_ums` (heavy um/uh + restarts), `chem_vs_bio` (long "chemistry or biology?" question),
+  `payment` (incl. a spoken card/phone number), and `edge_short_turns` (one-word turns, long gaps).
+- Measured turn counts through the real VAD (0.2→1.0): the aggressive 0.2 default shreds a single
+  thought into many turns (`disfluent_ums` 10→1; `midsentence_pause` 6→1), while a larger
+  `stop_secs` merges fillers/hesitations. `edge_short_turns` stays 3 at every value — its ~1.4s
+  gaps exceed all `stop_secs`, proving the dial merges hesitation pauses, not deliberate turns.
+- Tests: added real-VAD assertions for `disfluent_ums` (shred-then-ride-through) and
+  `edge_short_turns` (deliberate turns survive); kept the midsentence/two-utterance ones (still
+  hold). README has the full per-fixture table. 197 tests; ruff clean.

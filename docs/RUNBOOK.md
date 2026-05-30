@@ -207,8 +207,10 @@ yourself speaking *with natural pauses* (mid-sentence "um…", trailing "so…")
 .venv/bin/python -m app.simulator.vad_replay path/to/clip.wav --sweep 0.2,0.4,0.6,0.8,1.0
 ```
 
-On `midsentence_pause.wav` you'll see it split into 2 turns at `stop_secs` ≤ 0.6 (the agent
-jumps in during the pause) and merge to 1 at ≥ 0.8 — the dial doing its job.
+On `midsentence_pause.wav` you'll see one caller turn shredded into ~6 turns at the aggressive
+0.2 default (the agent would jump in repeatedly) and merge down to a single turn by 1.0 — the
+dial doing its job. `disfluent_ums.wav` is even starker (10 → 1). See
+`data/audio/vad_fixtures/` (README) for the full table and what each clip targets.
 
 Each row prints how many turns that `stop_secs` produced. A clip that is *one* utterance
 with pauses should yield **1 turn** — pick the smallest `stop_secs` that does, then set it
