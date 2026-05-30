@@ -62,6 +62,7 @@ class CallRecorder:
         model_version: str | None = None,
         experiment_id: str | None = None,
         variant_id: str | None = None,
+        vad_params: dict | None = None,
     ) -> None:
         self._session = session
         self._call = Call(
@@ -74,6 +75,7 @@ class CallRecorder:
             model_version=model_version,
             experiment_id=experiment_id,  # variant attribution (P7)
             variant_id=variant_id,
+            vad_params=vad_params,  # turn-taking dials this call ran under (VAD-T3)
         )
         session.add(self._call)
         session.flush()  # assign call_id without ending the surrounding transaction

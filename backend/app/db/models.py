@@ -92,6 +92,10 @@ class Call(Base):
     outcome: Mapped[str | None] = mapped_column(String, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     recording_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Turn-taking (VAD) endpointing dials this call ran under (VAD-T3): {stop_secs, start_secs,
+    # confidence, min_volume}. Stamped at call start so the dashboard evaluator can show what a
+    # given call used. Null for text/synthetic calls (no audio/VAD).
+    vad_params: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # Intent-router result (IR2-T3): the leaf the call resolved to and the price quoted, if any.
     reached_leaf: Mapped[str | None] = mapped_column(String, nullable=True)
     quoted_price: Mapped[float | None] = mapped_column(Float, nullable=True)

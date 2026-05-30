@@ -261,7 +261,11 @@ async def run_bot(connection: SmallWebRTCConnection, settings: Settings) -> None
     if lead is not None:
         logger.info(f"continuing lead {lead_id} with known fields: {sorted(seeded)}")
     recorder = CallRecorder(
-        db, lead_id=lead_id, channel="web", **compute_versions(settings).as_dict()
+        db,
+        lead_id=lead_id,
+        channel="web",
+        vad_params=settings.vad_params(),  # record turn-taking dials for the dashboard evaluator
+        **compute_versions(settings).as_dict(),
     )
     engine = build_engine(settings, recorder=recorder, known_fields=seeded)
     processor = EngineProcessor(engine, fillers=settings.fillers)

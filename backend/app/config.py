@@ -112,16 +112,29 @@ class Settings(BaseSettings):
     ambient_volume: float = 0.15  # 0.0-1.0; keep subtle
 
     # --- Turn-taking / VAD endpointing (VAD-T1) ---
-    # Silero VAD dials that decide *when the caller's turn is over* (and thus when the agent
-    # starts talking). The dominant lever for "agent jumps in too soon" is vad_stop_secs: the
-    # silence the VAD must observe before declaring the turn finished. Pipecat's default is an
-    # aggressive 0.2s, which trips on a normal mid-sentence breath — we default higher (0.6s) for
-    # natural conversation. Raise further (0.8–1.2) if the agent still interrupts; lower toward
-    # 0.3 to make it snappier. Tune offline with app.simulator.vad_replay before a live call.
-    vad_stop_secs: float = 0.6
-    vad_start_secs: float = 0.2  # silence-to-speech the VAD waits before confirming speech start
+    # Silero VAD dials that decide *when the caller's turn is over* (and thus when the agent starts
+    # talking). The dominant lever for "agent jumps in too soon" is vad_stop_secs: the silence the
+    # VAD must observe before declaring the turn finished. Defaults match pipecat's own defaults, so
+    # live behavior is unchanged until you deliberately tune. Measure first with the offline
+    # evaluator (app.simulator.vad_replay) — the dashboard's per-call "Evaluate turn-taking" panel
+    # prefills its command — then raise vad_stop_secs (0.6–1.2) if the agent interrupts.
+    vad_stop_secs: float = 0.2  # trailing silence before the turn ends (pipecat default)
+    vad_start_secs: float = 0.2  # speech the VAD waits for before confirming the turn started
     vad_confidence: float = 0.7  # min model confidence to count audio as speech (0.0-1.0)
     vad_min_volume: float = 0.6  # min volume to count as speech; filters quiet background noise
+
+    def vad_params(self) -> dict[str, float]:
+        """The VAD endpointing dials this process applies to every call (VAD-T3).
+
+        Stamped onto each Call so the dashboard evaluator can show the exact turn-taking params a
+        given call ran under. Keys match the offline harness / VADParams fields.
+        """
+        return {
+            "stop_secs": self.vad_stop_secs,
+            "start_secs": self.vad_start_secs,
+            "confidence": self.vad_confidence,
+            "min_volume": self.vad_min_volume,
+        }
 
     def missing_voice_keys(self) -> list[str]:
         """Return the env-var names of any unset voice provider keys."""

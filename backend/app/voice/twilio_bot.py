@@ -94,7 +94,10 @@ async def run_twilio_bot(websocket, settings: Settings) -> None:
     stt, _llm, tts = build_services(settings)  # _llm unused: the engine owns reasoning
     db = SessionLocal()
     recorder = CallRecorder(
-        db, channel="twilio", **compute_versions(settings).as_dict()
+        db,
+        channel="twilio",
+        vad_params=settings.vad_params(),  # record turn-taking dials for the dashboard evaluator
+        **compute_versions(settings).as_dict(),
     )
     # caller_number = Twilio `From` -> the engine texts the payment link to it without prompting.
     engine = build_engine(settings, recorder=recorder, caller_number=caller_number)

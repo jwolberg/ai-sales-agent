@@ -1740,3 +1740,18 @@ Deployed to nerdy-1. Issues found + fixes on the live service:
   turns on silence) and documented in RUNBOOK §11.4 — speech-detection accuracy needs a real clip.
 - **Follow-up:** check in 2–3 recorded pause-heavy fixtures under `data/audio/` so the sweep has a
   canonical input, and consider asserting the real path against one in CI. 186 tests; ruff clean.
+
+### 2026-05-29 — VAD-T3: revert tuning default + record per-call VAD params
+- **Why (user decision):** the VAD-T1 default bump (`vad_stop_secs` 0.2→0.6) changed live
+  turn-taking behavior, which the user did not want shipped before measuring. Reverted the value to
+  **0.2** (= pipecat's default), so the live agent behaves exactly as before VAD-T1. Kept the dials
+  and `build_vad_analyzer` — they're needed to record what each call used.
+- **Record per-call params (for the dashboard evaluator):** added a `vad_params` JSON column to
+  `Call`, a `Settings.vad_params()` helper, and stamped it via `CallRecorder` in both live paths
+  (`run_bot`, `run_twilio_bot`). Text/synthetic calls leave it null (no audio/VAD).
+- **Decision — schema self-heal:** this project has no migration tool (schema = `create_all`), and
+  `create_all` never ALTERs existing tables, so an additive `_backfill_columns()` in `init_db`
+  adds missing columns on SQLite (driven by `_ADDED_COLUMNS`). Idempotent; healed the committed
+  dev DB. This is the migration-free pattern to reuse for future additive columns.
+- Tests: `test_vad_params_shape`, `test_recorder_stamps_vad_params`, `test_db_backfill.py`. Updated
+  `test_vad_config_defaults` (now 0.2). 190 tests; ruff clean.

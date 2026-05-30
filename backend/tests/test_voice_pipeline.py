@@ -1,4 +1,6 @@
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
 from app.config import Settings
 
@@ -28,11 +30,41 @@ def test_latency_config_defaults():
 
 def test_vad_config_defaults():
     s = Settings(_env_file=None)
-    # stop_secs is the "jumps in too soon" lever; we default above pipecat's aggressive 0.2.
-    assert s.vad_stop_secs == 0.6
+    # Defaults match pipecat's own, so live turn-taking is unchanged until deliberately tuned.
+    assert s.vad_stop_secs == 0.2
     assert s.vad_start_secs == 0.2
     assert s.vad_confidence == 0.7
     assert s.vad_min_volume == 0.6
+
+
+def test_vad_params_shape():
+    s = Settings(_env_file=None, vad_stop_secs=0.8)
+    assert s.vad_params() == {
+        "stop_secs": 0.8,
+        "start_secs": 0.2,
+        "confidence": 0.7,
+        "min_volume": 0.6,
+    }
+
+
+def test_recorder_stamps_vad_params():
+    """A call records the VAD dials it ran under so the dashboard evaluator can show them."""
+    from app.agent.recorder import CallRecorder
+    from app.db.models import Base, Call
+
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(engine)
+    s = Settings(_env_file=None, vad_stop_secs=0.7)
+    with Session(engine) as session:
+        recorder = CallRecorder(session, channel="web", vad_params=s.vad_params())
+        session.commit()
+        stored = session.get(Call, recorder.call.call_id)
+        assert stored.vad_params == {
+            "stop_secs": 0.7,
+            "start_secs": 0.2,
+            "confidence": 0.7,
+            "min_volume": 0.6,
+        }
 
 
 def test_build_vad_analyzer_applies_settings():
