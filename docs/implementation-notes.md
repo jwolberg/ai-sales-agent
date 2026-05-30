@@ -1769,3 +1769,18 @@ Deployed to nerdy-1. Issues found + fixes on the live service:
 - Validation: 192 backend tests + `vite build` clean. **Manual check still useful:** open the
   dashboard, pick an ended voice call, confirm the panel shows the dials and Copy works (clipboard
   needs a secure/localhost origin).
+
+### 2026-05-29 — VAD-T5: canonical VAD replay fixtures
+- Closed the VAD-T2 follow-up: committed 3 fixtures under `data/audio/vad_fixtures/` so the
+  evaluator has a stable input and the real audio→VAD path is tested end-to-end.
+- **Decision — synthesized, not recorded:** I can't record a human voice, and Silero needs *real*
+  speech (tones won't trip it), so fixtures are macOS `say` output (offline, no API keys) with
+  `[[slnc ms]]` pauses, converted to 16 kHz mono PCM s16 via ffmpeg. Reproducible via
+  `generate.sh`. Trade-off: synthetic prosody isn't identical to a real caller, but the pause
+  structure — the thing that drives endpointing — is exactly controllable, which is what we need.
+- Verified behavior through the real harness: `midsentence_pause` and `trailing_filler` split into
+  2 turns at stop_secs ≤ 0.6 and merge to 1 at ≥ 0.8 (the "jumps in too soon" bug + its fix);
+  `two_utterances` (control) stays 2 turns when relaxed.
+- `tests/test_vad_replay.py` now asserts the **real Silero path** against the fixtures (on
+  relationships, not exact counts, so a model bump won't be brittle; skips if fixtures absent).
+  194 tests; ruff clean.

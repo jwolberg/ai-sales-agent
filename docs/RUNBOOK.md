@@ -195,12 +195,20 @@ declared over. It defaults to **0.6s** (pipecat's own default is an aggressive 0
 which trips on a normal mid-sentence breath). Raise it (0.8–1.2) if the agent still
 interrupts; lower it (toward 0.3) for snappier turns.
 
-Tune it offline first — no phone needed. Record a few short clips of yourself speaking
-*with natural pauses* (mid-sentence "um…", trailing "so…") as 16-bit WAV, then sweep:
+Tune it offline first — no phone needed. Committed fixtures let you try it immediately
+(`data/audio/vad_fixtures/`, see that dir's README), or record your own short clips of
+yourself speaking *with natural pauses* (mid-sentence "um…", trailing "so…") as 16-bit WAV:
 
 ```bash
+# canonical fixture (one utterance with a mid-sentence pause):
+.venv/bin/python -m app.simulator.vad_replay \
+  ../data/audio/vad_fixtures/midsentence_pause.wav --sweep 0.2,0.4,0.6,0.8,1.0
+# or your own clip:
 .venv/bin/python -m app.simulator.vad_replay path/to/clip.wav --sweep 0.2,0.4,0.6,0.8,1.0
 ```
+
+On `midsentence_pause.wav` you'll see it split into 2 turns at `stop_secs` ≤ 0.6 (the agent
+jumps in during the pause) and merge to 1 at ≥ 0.8 — the dial doing its job.
 
 Each row prints how many turns that `stop_secs` produced. A clip that is *one* utterance
 with pauses should yield **1 turn** — pick the smallest `stop_secs` that does, then set it

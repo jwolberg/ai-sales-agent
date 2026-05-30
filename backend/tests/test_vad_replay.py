@@ -8,6 +8,7 @@ is exercised only when a clip is provided — see docs/RUNBOOK.md.
 from __future__ import annotations
 
 import wave
+from pathlib import Path
 
 import pytest
 
@@ -94,3 +95,33 @@ def test_load_wav_frames_resamples_and_downmixes(tmp_path):
     wav = tmp_path / "b.wav"
     _write_wav(wav, framerate=8000, n_channels=2, n_samples=512 * 4)
     assert len(load_wav_frames(wav)) > 0
+
+
+# --- Real Silero VAD against the committed fixtures (VAD-T5) -----------------------------------
+# These exercise the full audio→VAD path end-to-end on canonical clips, so the harness can't
+# silently rot. Assertions are on *relationships* (more splits when stricter, real turns preserved),
+# not exact counts, so a Silero model bump won't make them brittle.
+_FIXTURES = Path(__file__).resolve().parents[2] / "data" / "audio" / "vad_fixtures"
+_has_fixtures = (_FIXTURES / "midsentence_pause.wav").exists()
+real_vad = pytest.mark.skipif(
+    not _has_fixtures, reason="VAD fixtures not generated (see generate.sh)"
+)
+
+
+@real_vad
+def test_midsentence_pause_splits_when_too_aggressive_but_merges_when_relaxed():
+    clip = _FIXTURES / "midsentence_pause.wav"
+    aggressive = analyze_clip(clip, stop_secs=0.2)
+    relaxed = analyze_clip(clip, stop_secs=1.0)
+    # One utterance with a ~0.7s pause: the 0.2s default cuts it short (the agent jumps in),
+    # while a relaxed stop_secs treats the pause as one turn — the whole point of the dial.
+    assert len(aggressive) >= 2
+    assert len(relaxed) == 1
+
+
+@real_vad
+def test_two_real_utterances_are_not_merged_by_a_relaxed_stop_secs():
+    clip = _FIXTURES / "two_utterances.wav"
+    # A genuine ~1.5s gap stays two turns even when relaxed — raising the dial must not swallow
+    # real turn boundaries.
+    assert len(analyze_clip(clip, stop_secs=1.0)) >= 2

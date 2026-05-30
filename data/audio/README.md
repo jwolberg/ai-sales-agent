@@ -44,6 +44,22 @@ volume=…, loop=True)` attached via `TransportParams(audio_out_mixer=…)`, gat
   crossfade at the loop boundary.
 - Confirm the transport output rate really is 24 kHz once the engine is wired; re-convert if not.
 
+## VAD replay fixtures (`vad_fixtures/`, VAD-T5)
+
+Canonical inputs for the offline turn-taking evaluator (`app.simulator.vad_replay`). Unlike the
+ambient bed, these are **inbound-speech** clips — synthesized with macOS `say` (offline, no API
+keys) with *deliberate* pauses so the evaluator has a stable, committed thing to sweep. 16 kHz
+mono PCM s16 (what Silero/the harness want).
+
+- **`midsentence_pause.wav`** — one utterance with a ~0.7 s mid-sentence pause. The "agent jumps in
+  too soon" case: splits into 2 turns at `stop_secs` ≤ 0.6, merges to 1 at ≥ 0.8.
+- **`trailing_filler.wav`** — utterance ending in a hesitation ("…so"); same split-then-merge.
+- **`two_utterances.wav`** — two genuine utterances with a ~1.5 s gap; a *control* that stays 2
+  turns even when relaxed, proving a higher `stop_secs` doesn't swallow real turn boundaries.
+
+Regenerate with `bash data/audio/vad_fixtures/generate.sh`. The real-VAD path is asserted against
+them in `backend/tests/test_vad_replay.py` (skips if they're absent).
+
 ## Honesty note (§18)
 
 Ambiance for naturalness only; the agent still must never claim to be human. Comfort noise ≠
