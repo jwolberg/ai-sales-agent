@@ -26,3 +26,4 @@ node_modules/
 # Claude Code local overrides (machine-specific, not shared)
 .claude/settings.local.json
 .claude/CLAUDE.local.md
+.claude/

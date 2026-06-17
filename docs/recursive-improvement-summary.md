@@ -66,7 +66,7 @@ subject; if vague, ask one clarifying question."*
 The reps=3 sample showed the variant winning **1.0**. At reps=5 it **reversed** to a regression. A
 naive operator would have promoted the reps=3 result and shipped a worse agent. The loop's value is
 exactly this: **a guardrail-gated, adequately-sampled decision that retires plausible-but-wrong
-changes** — the trap the challenge warns about ("reports a rising win rate, but fails when trialed").
+changes** — the classic trap ("reports a rising win rate, but fails when trialed").
 
 Corollary: on this 8-leaf task both models are at/near ceiling, so **measurement noise exceeds the
 available headroom**. The correct loop output is "baseline holds," not a manufactured promotion.

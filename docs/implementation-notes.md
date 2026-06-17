@@ -1676,7 +1676,7 @@ the service URL. **Still needs a real inbound call to validate the live audio lo
 
 ## 2026-05-29 — Cloud Run deploy fixes + Twilio caller-ID auto-text
 
-Deployed to nerdy-1. Issues found + fixes on the live service:
+Deployed to Cloud Run. Issues found + fixes on the live service:
 - **Dashboard 404:** Dockerfile didn't COPY the built frontend → fixed (copies dashboard-app/dist +
   demo page).
 - **Simulated call didn't stream live:** Cloud Run's default CPU throttling starved the background

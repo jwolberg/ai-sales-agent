@@ -8,20 +8,20 @@ Stack reconciliation rationale is in `docs/decision-log.md` (R13 / D-16).
 
 ```bash
 # from repo root
-docker build -t nerdy-router .
-docker run --rm -p 8080:8080 -e OPENAI_API_KEY=sk-... nerdy-router
+docker build -t voice-agent .
+docker run --rm -p 8080:8080 -e OPENAI_API_KEY=sk-... voice-agent
 # open http://localhost:8080/dashboard  (health: /health)
 ```
 
 Without `OPENAI_API_KEY` the offline rule-based brain + TF-IDF retriever run, so the app still boots.
 
-## GCP Cloud Run (project `nerdy-1`)
+## GCP Cloud Run
 
 Builds the repo `Dockerfile` and deploys in one step (Cloud Build pushes the image to Artifact
 Registry automatically — no manual `docker build`/`push`).
 
 ```bash
-PROJECT=nerdy-1
+PROJECT=your-gcp-project
 REGION=us-central1
 gcloud config set project "$PROJECT"
 
@@ -29,7 +29,7 @@ gcloud config set project "$PROJECT"
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
 
 # build from the Dockerfile + deploy (run from the repo root)
-gcloud run deploy nerdy-router \
+gcloud run deploy voice-agent \
   --source . \
   --region "$REGION" \
   --allow-unauthenticated \
@@ -43,20 +43,20 @@ gcloud run deploy nerdy-router \
 The image bundles the voice extra (Pipecat + OpenCV/WebRTC native libs), so the build is heavier and
 the image larger than a core-only one — the first `--source` build takes a few minutes.
 
-**Service URL (deployed):** `https://your-service.example.com`
+**Service URL:** the deploy prints `<service-url>` (a `https://<service>-<hash>-<region>.a.run.app` host).
 
-- Live dashboard: https://your-service.example.com/dashboard
-- Health:         https://your-service.example.com/health
-- Twilio webhook: `https://your-service.example.com/voice/twilio`
+- Live dashboard: `<service-url>/dashboard`
+- Health:         `<service-url>/health`
+- Twilio webhook: `<service-url>/voice/twilio`
 
 Re-fetch any time with:
 
 ```bash
-gcloud run services describe nerdy-router --project nerdy-1 --region us-central1 \
+gcloud run services describe voice-agent --project "$PROJECT" --region us-central1 \
   --format="value(status.url)"
 ```
 
-Deployed to `nerdy-1` (us-central1) with the voice extra; voice/LLM/Stripe/Twilio keys are set as
+Deployed with the voice extra; voice/LLM/Stripe/Twilio keys are set as
 service env vars (`/voice/status` reports `ready: true`). The webhook derives the `<Stream>` wss URL
 from the request host, so `PUBLIC_BASE_URL` isn't required on Cloud Run (set it only if you front the
 service with a custom domain).

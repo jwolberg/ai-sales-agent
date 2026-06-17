@@ -48,7 +48,7 @@ agent's job is to converse until it can name the leaf with confidence, then quot
 
 ## Problem Frame
 
-The current build implements `docs/challenge.md` but the conversation core does not respond to what
+The current build implements the product requirements but the conversation core does not respond to what
 the caller says — the LLM is "gagged" (used only to rephrase a pre-chosen checklist line; see the
 prior brainstorm's trace through `engine.py`). Two paths out existed: rebuild a fluent
 discovery-to-close brain, or **narrow the job to something a fluent brain can do reliably and we can

@@ -26,7 +26,7 @@ swap remains a future option, not a prerequisite.
 
 ## Problem Frame
 
-The current build implements every functional requirement in `docs/challenge.md` but fails the
+The current build implements every functional requirement in the product spec but fails the
 one thing a conversation cannot live without: it does not respond to what the caller says. Tracing
 one default ("progress") turn through `backend/app/agent/engine.py`:
 

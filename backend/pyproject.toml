@@ -1,7 +1,7 @@
 [project]
-name = "nerdy-sales-agent"
+name = "ai-sales-agent"
 version = "0.1.0"
-description = "Autonomous AI Sales Agent backend (Nerdy / Varsity Tutors)"
+description = "Autonomous AI Sales Agent backend"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.110",

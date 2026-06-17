@@ -12,14 +12,14 @@ development machine. Commands assume macOS/Linux with `zsh`/`bash`.
 ## 1. Prerequisites
 
 - **Python 3.10+** (`python3 --version`)
-- **git** with SSH access to the repo (`ssh://git@git.example.com:22022/jwolberg/nerdy-sales.git`)
+- **git** with access to the repo (clone it, then run the steps below from the repo root)
 
 No database server is required — the dev setup uses a local **SQLite** file.
 
 ## 2. Repo layout
 
 ```
-nerdy-sales/
+ai-sales-agent/
 ├── backend/            # FastAPI app + data layer (the runnable service)
 │   ├── app/
 │   │   ├── main.py     # FastAPI app factory + /health

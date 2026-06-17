@@ -12,7 +12,7 @@
 ## Source of Truth
 - **Spec:** `/docs/PRD.md` (no `/docs/spec.md` exists; the PRD is the spec-equivalent and is used as the sole source of truth, per invocation argument)
 - **UX:** none (`/docs/ux.md` not present)
-- Supporting context: `/docs/challenge.md` (challenge brief), `/STRATEGY.md` (strategic anchor)
+- Supporting context: `/docs/PRD.md` (requirements), `/STRATEGY.md` (strategic anchor)
 
 ## Planning Assumptions
 - **PRD substitutes for spec.** Planning is scoped to the PRD's **MVP Scope (§7)** and **MVP Acceptance Criteria (§21)**, refining the PRD's own 7-phase recommendation (§22) into execution-ready tickets.

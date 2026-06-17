@@ -1,6 +1,6 @@
 # Voice Intent-Router Agent
 
-A real-time voice AI agent for tutoring sales (Nerdy / Varsity Tutors). It converses naturally to
+A real-time voice AI agent for a tutoring sales company. It converses naturally to
 figure out which of two things the caller needs — **test prep** (SAT / ACT / PSAT) or **tutoring**
 (math: algebra, geometry; science: chemistry, biology, physics) — drills down to the specific
 test/subject, **quotes that program's price**, and answers informational questions from a grounded
@@ -8,9 +8,8 @@ knowledge base. Every call captures a transcript, a per-turn decision trace, and
 synthetic-persona benchmark grades the agent on **classification accuracy**.
 
 
-- **Control panel page: https://your-service.example.com/dashboard/**
-- **Live AI Sales Agent: 1-986-786-3739 (1-986-R-U-NERDY)**
-- **Demo video: https://www.loom.com/share/02b8f575d0c44b388b11a7497dd2813c**
+- **Control panel page:![Control panel: ](docs/img/overview.png) **
+- **Live AI Sales Agent:PUT_YOUR_TWILIO_NUM_HERE**
 - **Recursive improvement:** [`docs/recursive-improvement-summary.md`](docs/recursive-improvement-summary.md)
 #
 ## Key Features ##
@@ -56,7 +55,7 @@ synthetic-persona benchmark grades the agent on **classification accuracy**.
 - **Dashboard:** UI at `/dashboard` reading the backend API.
 
 ```
-nerdy-sales/
+ai-sales-agent/
 ├── backend/app/
 │   ├── voice/        # Pipecat pipeline + bot (live voice path)
 │   ├── agent/        # taxonomy, brain, intent_engine, contract, pricing, guardrails, knowledge
