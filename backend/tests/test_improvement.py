@@ -43,7 +43,7 @@ def test_run_improvement_promotes_better_candidate(session):
     settings = Settings(_env_file=None)
     report = run_improvement(
         session,
-        baseline_brain=_AlwaysAskBrain(),       # 0% accuracy baseline
+        baseline_brain=_AlwaysAskBrain(),  # 0% accuracy baseline
         candidate_brains={"rule": RuleBrain(settings)},  # 100% accuracy candidate
         settings=settings,
     )

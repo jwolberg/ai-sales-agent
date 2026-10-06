@@ -108,10 +108,10 @@ def test_non_profile_slots_persist_and_all_known_fields_merges(session):
     store.apply_call_outcome(
         none,
         collected={
-            "subject": "Algebra II",        # typed profile column
-            "challenge": "word problems",   # no column -> collected_fields JSON
+            "subject": "Algebra II",  # typed profile column
+            "challenge": "word problems",  # no column -> collected_fields JSON
             "readiness": "ready to start",  # no column -> collected_fields JSON
-            "blank": "",                    # empty -> skipped entirely
+            "blank": "",  # empty -> skipped entirely
         },
     )
     reloaded = LeadStore(session).load("seed-none-003")

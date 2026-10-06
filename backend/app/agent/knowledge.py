@@ -36,12 +36,32 @@ _QUESTION_WORDS = frozenset(
 # (real call ea6c68d9). They are *not* knowledge questions; the router lets them fall through to
 # PROGRESS (acknowledge + advance discovery).
 _PLEASANTRY_PHRASES = (
-    "how's it going", "hows it going", "how is it going", "how are you", "how are ya",
-    "how ya doing", "how you doing", "how're you", "how's your day", "hows your day",
-    "how's everything", "hows everything", "what's up", "whats up", "how have you been",
-    "nice to meet you", "good to meet you", "pleasure to meet you", "can you hear me",
-    "are you there", "you there", "you still there", "still there", "good morning",
-    "good afternoon", "good evening",
+    "how's it going",
+    "hows it going",
+    "how is it going",
+    "how are you",
+    "how are ya",
+    "how ya doing",
+    "how you doing",
+    "how're you",
+    "how's your day",
+    "hows your day",
+    "how's everything",
+    "hows everything",
+    "what's up",
+    "whats up",
+    "how have you been",
+    "nice to meet you",
+    "good to meet you",
+    "pleasure to meet you",
+    "can you hear me",
+    "are you there",
+    "you there",
+    "you still there",
+    "still there",
+    "good morning",
+    "good afternoon",
+    "good evening",
 )
 # Pure-greeting / acknowledgment tokens; a turn made only of these (plus a couple connectors) is
 # small talk, not a question.
@@ -58,9 +78,7 @@ def is_social_pleasantry(text: str) -> bool:
     if any(phrase in stripped for phrase in _PLEASANTRY_PHRASES):
         return True
     words = re.findall(r"[a-z']+", stripped)
-    return bool(words) and all(
-        w in _GREETING_TOKENS or w in _GREETING_CONNECTORS for w in words
-    )
+    return bool(words) and all(w in _GREETING_TOKENS or w in _GREETING_CONNECTORS for w in words)
 
 
 def is_knowledge_question(text: str) -> bool:

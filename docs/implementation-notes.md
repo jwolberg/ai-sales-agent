@@ -1826,3 +1826,13 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
   Test Call") instead of the dials/commands. Verified live: a `sim` call now renders the note.
 - Tests: `test_vad_eval_not_applicable_for_text_sim_calls`; existing voice-call assertions gained an
   `applicable` check. 198 tests; ruff clean; `vite build` clean.
+
+### 2026-10-06 — Build-quality audit, ticket 0004: real CI + formatting
+- The untracked `.github/workflows/ci.yml` was a bun template (bun install/typecheck/test) that never
+  applied to this Python repo — effectively no CI. Replaced with three jobs: `backend` (ruff check,
+  ruff format --check, pytest; voice tests skip via `importorskip`), `backend-voice` (installs the
+  heavy `[voice]` extra in its own job so a native-build break doesn't mask core failures), and
+  `dashboard` (npm ci + vite build + `git diff --exit-code dist` — verified locally the build is
+  byte-identical to the committed dist).
+- Ran `ruff format` over the backend: 36 files, formatting only. 201 tests still pass.
+- Not verified on GitHub Actions itself (branch not pushed).

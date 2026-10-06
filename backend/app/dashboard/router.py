@@ -307,9 +307,7 @@ def call_detail(call_id: str, db: Db) -> dict:
             for e in sorted(call.kpi_events, key=lambda e: e.created_at)
         ],
         # Payments for this call (PAY5-T1), oldest first.
-        "payments": [
-            _payment_dict(p) for p in sorted(call.payments, key=lambda p: p.created_at)
-        ],
+        "payments": [_payment_dict(p) for p in sorted(call.payments, key=lambda p: p.created_at)],
         # Turn-taking evaluator: the VAD dials this call ran under + a prefilled harness command.
         "vad_eval": _vad_eval(call),
     }

@@ -62,8 +62,10 @@ def build_twiml(ws_url: str, *, from_number: str | None = None) -> str:
 def stream_ws_url(settings: Settings, host: str, *, scheme: str = "wss") -> str:
     """The wss URL Twilio should stream to. Prefers a configured public base URL."""
     if settings.public_base_url:
-        base = settings.public_base_url.rstrip("/").replace("https://", "wss://").replace(
-            "http://", "ws://"
+        base = (
+            settings.public_base_url.rstrip("/")
+            .replace("https://", "wss://")
+            .replace("http://", "ws://")
         )
         return f"{base}/voice/twilio/ws"
     return f"{scheme}://{host}/voice/twilio/ws"

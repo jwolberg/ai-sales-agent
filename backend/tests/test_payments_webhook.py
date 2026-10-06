@@ -44,8 +44,12 @@ def _seed_payment(session_factory, *, provider_ref: str, kind: str = "link") -> 
     db = session_factory()
     rec = CallRecorder(db, channel="web")
     rec.record_payment(
-        leaf="test_prep/SAT", amount=85.0, currency="usd", kind=kind,
-        provider_ref=provider_ref, url="https://pay/x",
+        leaf="test_prep/SAT",
+        amount=85.0,
+        currency="usd",
+        kind=kind,
+        provider_ref=provider_ref,
+        url="https://pay/x",
     )
     db.close()
     return provider_ref
@@ -58,15 +62,19 @@ def _fake_event(monkeypatch, event: dict):
 def test_checkout_completed_marks_paid(client, monkeypatch):
     tc, sessions = client
     _seed_payment(sessions, provider_ref="plink_1")
-    _fake_event(monkeypatch, {
-        "type": "checkout.session.completed",
-        "data": {"object": {"payment_link": "plink_1"}},
-    })
+    _fake_event(
+        monkeypatch,
+        {
+            "type": "checkout.session.completed",
+            "data": {"object": {"payment_link": "plink_1"}},
+        },
+    )
     resp = tc.post("/payments/webhook", content=b"{}", headers={"stripe-signature": "x"})
     assert resp.json() == {"status": "ok"}
 
     db = sessions()
     from app.db.models import Payment
+
     paid = db.query(Payment).filter(Payment.provider_ref == "plink_1").one()
     assert paid.status == PAYMENT_PAID and paid.paid_at is not None
     db.close()
@@ -75,20 +83,26 @@ def test_checkout_completed_marks_paid(client, monkeypatch):
 def test_invoice_paid_marks_paid(client, monkeypatch):
     tc, sessions = client
     _seed_payment(sessions, provider_ref="in_1", kind="invoice")
-    _fake_event(monkeypatch, {
-        "type": "invoice.paid",
-        "data": {"object": {"id": "in_1"}},
-    })
+    _fake_event(
+        monkeypatch,
+        {
+            "type": "invoice.paid",
+            "data": {"object": {"id": "in_1"}},
+        },
+    )
     resp = tc.post("/payments/webhook", content=b"{}", headers={"stripe-signature": "x"})
     assert resp.json() == {"status": "ok"}
 
 
 def test_unknown_ref_is_reported(client, monkeypatch):
     tc, _ = client
-    _fake_event(monkeypatch, {
-        "type": "checkout.session.completed",
-        "data": {"object": {"payment_link": "nope"}},
-    })
+    _fake_event(
+        monkeypatch,
+        {
+            "type": "checkout.session.completed",
+            "data": {"object": {"payment_link": "nope"}},
+        },
+    )
     resp = tc.post("/payments/webhook", content=b"{}", headers={"stripe-signature": "x"})
     assert resp.json() == {"status": "unknown_ref"}
 

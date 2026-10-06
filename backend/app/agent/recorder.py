@@ -37,8 +37,8 @@ OUTCOME_ABANDONED = "abandoned"
 
 # Payment.status lifecycle (PAY2-T1). The webhook is the source of truth for PAID.
 PAYMENT_CREATED = "created"  # link/invoice made, not yet texted
-PAYMENT_SENT = "sent"        # hosted URL texted to the caller
-PAYMENT_PAID = "paid"        # confirmed by the Stripe webhook
+PAYMENT_SENT = "sent"  # hosted URL texted to the caller
+PAYMENT_PAID = "paid"  # confirmed by the Stripe webhook
 PAYMENT_FAILED = "failed"
 
 

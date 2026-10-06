@@ -46,9 +46,9 @@ class Settings(BaseSettings):
     # --- Voice pipeline (Phase 2) ---
     # Provider API keys. Optional so the core app boots without them; the voice
     # endpoint returns a clear 503 until all three are set.
-    deepgram_api_key: str | None = None   # STT
+    deepgram_api_key: str | None = None  # STT
     anthropic_api_key: str | None = None  # LLM (Claude)
-    cartesia_api_key: str | None = None   # TTS
+    cartesia_api_key: str | None = None  # TTS
 
     # --- OpenAI (intent-router brain + KB embeddings, IR-0..IR-3) ---
     # Optional so the core app + tests boot without it; the brain and KB retriever fall back to
@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     # Optional so the core app + tests boot without them; payments are a feature flag keyed on
     # `stripe_api_key`. With the flag off, behavior is exactly as today (payment asks escalate).
     # Hosted checkout only — our server never touches card data (PCI stays SAQ-A).
-    stripe_api_key: str | None = None      # Stripe secret key (sk_test_… / sk_live_…)
+    stripe_api_key: str | None = None  # Stripe secret key (sk_test_… / sk_live_…)
     stripe_webhook_secret: str | None = None  # verifies inbound webhook signatures (PAY-4)
     payments_currency: str = "usd"
     # Dev-only (PAY7-T1): exercise the payment flow with NO Stripe/Twilio keys and no real charge —

@@ -46,8 +46,12 @@ def test_record_payment_persists_row(session):
 def test_mark_payment_paid_transitions_and_stamps(session):
     rec = _recorder(session)
     rec.record_payment(
-        leaf="test_prep/SAT", amount=85.0, currency="usd", kind="link",
-        provider_ref="plink_123", url="https://pay/x",
+        leaf="test_prep/SAT",
+        amount=85.0,
+        currency="usd",
+        kind="link",
+        provider_ref="plink_123",
+        url="https://pay/x",
     )
     paid = mark_payment_paid(session, "plink_123")
     assert paid is not None
@@ -58,8 +62,12 @@ def test_mark_payment_paid_transitions_and_stamps(session):
 def test_mark_payment_paid_is_idempotent(session):
     rec = _recorder(session)
     rec.record_payment(
-        leaf="test_prep/SAT", amount=85.0, currency="usd", kind="link",
-        provider_ref="plink_123", url="https://pay/x",
+        leaf="test_prep/SAT",
+        amount=85.0,
+        currency="usd",
+        kind="link",
+        provider_ref="plink_123",
+        url="https://pay/x",
     )
     first = mark_payment_paid(session, "plink_123")
     stamp = first.paid_at

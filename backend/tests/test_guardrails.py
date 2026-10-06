@@ -33,6 +33,7 @@ def session():
 
 # --- payment intent + reconcile (PAY3-T3) ----------------------------------------------
 
+
 def test_detect_payment_intent():
     assert detect_payment_intent("I'd like to pay now") == "link"
     assert detect_payment_intent("can you send me an invoice?") == "invoice"
@@ -57,6 +58,7 @@ def test_card_data_always_escalates_even_when_payments_enabled():
 
 
 # --- DE-4 escalation triggers ----------------------------------------------------------
+
 
 def test_detects_each_escalation_trigger():
     assert detect_escalation("Can I just speak to a human?").code == HUMAN_REQUEST
@@ -90,6 +92,7 @@ def test_human_request_takes_priority_over_price_cue():
 
 # --- §18 stop-after-refusal & output guardrails ----------------------------------------
 
+
 def test_should_stop_selling_on_clear_refusal():
     assert should_stop_selling("I'm really not interested, please stop calling.")
     assert not should_stop_selling("Tell me more about how it works.")
@@ -103,6 +106,7 @@ def test_check_agent_output_flags_prohibited_speech():
 
 
 # --- escalation record (DE-4 / observability) ------------------------------------------
+
 
 def test_escalation_is_logged(session):
     rec = CallRecorder(session, channel="web")

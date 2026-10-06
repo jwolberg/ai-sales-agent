@@ -52,9 +52,7 @@ def test_payment_link_approved_passes_amount_and_idempotency_key():
 def test_invoice_approved_passes_phone():
     gw = FakeGateway()
     svc = StripeService(gw, pricebook=_book(approved=True))
-    link = svc.create_invoice(
-        "test_prep/SAT", customer_phone="+15551234567", idempotency_key="k1"
-    )
+    link = svc.create_invoice("test_prep/SAT", customer_phone="+15551234567", idempotency_key="k1")
     assert link.id == "inv_123"
     _, kw = gw.calls[0]
     assert kw["customer_phone"] == "+15551234567"

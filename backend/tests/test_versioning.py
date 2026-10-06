@@ -25,7 +25,7 @@ def test_compute_versions_is_stable_and_well_formed():
     assert v1 == v2  # deterministic for the same content/config
     assert v1.agent_version.startswith("persona-")
     assert v1.playbook_version.startswith("pb-")  # hashed the discovery/objection playbooks
-    assert v1.kb_version.startswith("kb-")         # hashed the KB docs
+    assert v1.kb_version.startswith("kb-")  # hashed the KB docs
     assert v1.model_version == "claude-sonnet-4-6"
 
 

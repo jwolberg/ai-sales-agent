@@ -25,9 +25,7 @@ def session():
 
 def _turns_in_order(session, call_id) -> list[Turn]:
     return list(
-        session.scalars(
-            select(Turn).where(Turn.call_id == call_id).order_by(Turn.timestamp)
-        )
+        session.scalars(select(Turn).where(Turn.call_id == call_id).order_by(Turn.timestamp))
     )
 
 

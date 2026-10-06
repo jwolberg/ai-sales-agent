@@ -108,8 +108,7 @@ def configure_debug_logging() -> None:
     logger.add(
         sys.stderr,
         level="INFO",
-        filter=lambda r: r["name"].startswith("app")
-        or r["level"].no >= logger.level("WARNING").no,
+        filter=lambda r: r["name"].startswith("app") or r["level"].no >= logger.level("WARNING").no,
     )
     configure_debug_logging._done = True
 

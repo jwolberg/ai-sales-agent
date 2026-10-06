@@ -99,6 +99,7 @@ def test_turn_latency_recorded_and_rolled_up(session):
     eng.end(outcome=OUTCOME_COMPLETED)
     # the agent reply turn carries a latency measurement
     from app.db.models import Turn
+
     agent_turns = session.scalars(
         select(Turn).where(Turn.speaker == "agent", Turn.latency_ms.isnot(None))
     ).all()

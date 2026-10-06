@@ -45,44 +45,119 @@ MIS_QUOTE = "states_off_table_price"
 
 # Cue lists, checked in this priority order.
 _ESCALATION_CUES: list[tuple[str, tuple[str, ...]]] = [
-    (HUMAN_REQUEST, (
-        "a human", "real person", "speak to someone", "talk to a person", "representative",
-        "speak to a manager", "human being", "customer service",
-    )),
-    (LEGAL_SAFETY_PRIVACY, (
-        "lawyer", "sue", "lawsuit", "gdpr", "ccpa", "privacy", "delete my data",
-        "report you", "legal action", "unsafe", "safety concern",
-    )),
+    (
+        HUMAN_REQUEST,
+        (
+            "a human",
+            "real person",
+            "speak to someone",
+            "talk to a person",
+            "representative",
+            "speak to a manager",
+            "human being",
+            "customer service",
+        ),
+    ),
+    (
+        LEGAL_SAFETY_PRIVACY,
+        (
+            "lawyer",
+            "sue",
+            "lawsuit",
+            "gdpr",
+            "ccpa",
+            "privacy",
+            "delete my data",
+            "report you",
+            "legal action",
+            "unsafe",
+            "safety concern",
+        ),
+    ),
     # Card-data handling ALWAYS escalates — we never take a card number in-call (PCI; PAY3-T3).
     # Pay-now / invoice *intent* is handled separately below so it can route to the payment flow.
-    (PAYMENT, (
-        "credit card", "card number", "charge my card", "debit card", "bank account",
-        "routing number", "billing information",
-    )),
-    (PRICE_CONCESSION, (
-        "discount", "coupon", "promo code", "lower the price", "price match", "waive the fee",
-    )),
-    (ANGER_CONFUSION, (
-        "this is ridiculous", "i'm frustrated", "so frustrated", "i'm angry", "wasting my time",
-        "i'm confused", "i don't understand", "makes no sense", "you're not listening",
-        # Hostility / abuse. STT often masks profanity (e.g. "shut the **** up"), so match the
-        # surrounding phrase and unmasked insults rather than relying on the swear word itself.
-        "shut up", "shut the", "shut your", "stop talking", "be quiet",
-        "you suck", "you're useless", "you're stupid", "idiot", "moron", "i hate",
-        "fuck", "shit", "asshole", "bullshit", "piss off",
-    )),
+    (
+        PAYMENT,
+        (
+            "credit card",
+            "card number",
+            "charge my card",
+            "debit card",
+            "bank account",
+            "routing number",
+            "billing information",
+        ),
+    ),
+    (
+        PRICE_CONCESSION,
+        (
+            "discount",
+            "coupon",
+            "promo code",
+            "lower the price",
+            "price match",
+            "waive the fee",
+        ),
+    ),
+    (
+        ANGER_CONFUSION,
+        (
+            "this is ridiculous",
+            "i'm frustrated",
+            "so frustrated",
+            "i'm angry",
+            "wasting my time",
+            "i'm confused",
+            "i don't understand",
+            "makes no sense",
+            "you're not listening",
+            # Hostility / abuse. STT often masks profanity (e.g. "shut the **** up"), so match the
+            # surrounding phrase and unmasked insults rather than relying on the swear word itself.
+            "shut up",
+            "shut the",
+            "shut your",
+            "stop talking",
+            "be quiet",
+            "you suck",
+            "you're useless",
+            "you're stupid",
+            "idiot",
+            "moron",
+            "i hate",
+            "fuck",
+            "shit",
+            "asshole",
+            "bullshit",
+            "piss off",
+        ),
+    ),
 ]
 
 _REFUSAL_CUES = (
-    "not interested", "stop calling", "stop contacting", "leave me alone", "no thank you",
-    "no thanks", "please stop", "remove me", "don't call",
+    "not interested",
+    "stop calling",
+    "stop contacting",
+    "leave me alone",
+    "no thank you",
+    "no thanks",
+    "please stop",
+    "remove me",
+    "don't call",
 )
 
 # Pay/invoice *intent* (PAY3-T3) — distinct from card-data handling above. When payments are
 # enabled these route to the payment flow; when disabled they escalate (unchanged behavior).
 _PAY_NOW_CUES = (
-    "pay now", "pay for it", "make a payment", "i want to pay", "i'd like to pay", "ready to pay",
-    "can i pay", "let me pay", "take my payment", "i'll pay",
+    "pay now",
+    "pay for it",
+    "make a payment",
+    "i want to pay",
+    "i'd like to pay",
+    "ready to pay",
+    "can i pay",
+    "let me pay",
+    "take my payment",
+    "i'll pay",
 )
 _INVOICE_CUES = ("invoice", "send me a bill", "send a bill", "bill me")
 

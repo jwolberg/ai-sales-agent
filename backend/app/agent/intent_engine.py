@@ -263,8 +263,10 @@ class IntentRouterEngine:
 
     @staticmethod
     def _payment_confirmation(kind: str, texted: bool) -> str:
-        base = "I've created your invoice" if kind == "invoice" else (
-            "I've set up a secure payment link for you"
+        base = (
+            "I've created your invoice"
+            if kind == "invoice"
+            else ("I've set up a secure payment link for you")
         )
         if texted:
             return f"{base} and just texted you the link. Anything else I can help with?"

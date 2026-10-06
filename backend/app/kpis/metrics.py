@@ -108,12 +108,8 @@ def compute_router_metrics(session: Session, *, include_synthetic: bool = True) 
 
     # Turn latency over agent turns that recorded a timing (IR7-T1). On voice turns this is the
     # end-to-end turnaround; the per-component split lives in latency_breakdown (LAT-T1).
-    latencies = [
-        t.latency_ms for c in calls for t in c.turns if t.latency_ms is not None
-    ]
-    breakdowns = [
-        t.latency_breakdown for c in calls for t in c.turns if t.latency_breakdown
-    ]
+    latencies = [t.latency_ms for c in calls for t in c.turns if t.latency_ms is not None]
+    breakdowns = [t.latency_breakdown for c in calls for t in c.turns if t.latency_breakdown]
 
     def _component_mean(key: str) -> float | None:
         vals = [b[key] for b in breakdowns if b.get(key) is not None]

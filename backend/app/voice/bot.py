@@ -200,9 +200,7 @@ def build_engine_pipeline_task(
     never reaches Deepgram.
     """
     processors: list = [transport.input()]
-    processors.append(
-        STTMuteFilter(config=STTMuteConfig(strategies={STTMuteStrategy.ALWAYS}))
-    )
+    processors.append(STTMuteFilter(config=STTMuteConfig(strategies={STTMuteStrategy.ALWAYS})))
     if voice_debug:
         processors.append(DebugTurnLogger("input"))
     processors.append(stt)
