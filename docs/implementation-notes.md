@@ -1836,3 +1836,25 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
   byte-identical to the committed dist).
 - Ran `ruff format` over the backend: 36 files, formatting only. 201 tests still pass.
 - Not verified on GitHub Actions itself (branch not pushed).
+
+### 2026-10-06 — Ticket 0005: pinned lockfiles + one Python version
+- **Lockfiles via pip-tools** (user choice over uv): `backend/requirements/{prod,dev,dev-voice}.txt`
+  compiled from `pyproject.toml`. `dev-voice` is the superset; the other two are compiled with it as
+  a constraint so shared packages always match. Regenerate with `backend/scripts/lock.sh`.
+  pip-tools added to the `dev` extra so the lock tool is itself pinned.
+- **Python 3.12 everywhere** (`.python-version`, `requires-python>=3.12`, ruff `py312`, Dockerfile,
+  CI). Chose 3.12 over the Dockerfile's 3.11 because 3.12 is what's installed locally — no
+  interpreter download needed — and nothing in the deps blocks it. 3.13 is out: Pipecat 0.0.108
+  imports `audioop`, removed in 3.13.
+- **Surprise: the lock moved past the tested versions** (SQLAlchemy 2.1.3, stripe 16, fastapi
+  0.142, openai 2.54). Full suite passes on fresh venvs built only from the locks (core: 174 passed
+  + 5 voice modules skipped; voice: 201 passed). Raised floors to tested majors (`openai>=2.0`,
+  `stripe>=15.0`, `fastapi>=0.115`). Dropped the unused `tomli` dependency (nothing imports it).
+- **Transitive cap `numba<0.63`**: numba 0.63+ needs llvmlite 0.46+, which has no Intel-macOS wheel
+  (verified: 0.46/0.47/0.50 have none; 0.45.1 does), so the voice extra failed to install on this
+  machine. Cap replaces the RUNBOOK's manual llvmlite workaround.
+- ruff `py312` target turned on new pyupgrade fixes: applied the safe ones (`datetime.UTC`,
+  builtin `TimeoutError`); **ignored UP042** (str+Enum → StrEnum) because StrEnum changes
+  `str()`/format output of members that flow into stored fields.
+- Follow-up: the existing local `backend/.venv` is still Python 3.10 — recreate it with
+  `python3.12 -m venv .venv` + the RUNBOOK steps. I validated in scratch venvs and left it alone.

@@ -2,7 +2,7 @@
 # voice extra (Pipecat: Deepgram STT + Cartesia TTS + WebRTC/Twilio Media Streams) so the in-dashboard
 # Test Call and Twilio phone path work on the deployed container. Run with --max-instances 1 on
 # Cloud Run (in-process event bus + per-instance SQLite). See docs/DEPLOY.md.
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -16,11 +16,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # App reads data/ via REPO_ROOT = <file>.parents[3], i.e. /app — so backend/ and data/ sit here.
 COPY backend/pyproject.toml /app/backend/pyproject.toml
+COPY backend/requirements/prod.txt /app/backend/requirements/prod.txt
 COPY backend/app /app/backend/app
 COPY data /app/data
 
-# Install with the voice extra, then drop the compiler to keep the image smaller (wheels are built).
-RUN pip install --no-cache-dir -e "/app/backend[voice]" \
+# Install the pinned lockfile (core + voice), then the app itself without re-resolving deps; then
+# drop the compiler to keep the image smaller (wheels are built).
+RUN pip install --no-cache-dir -r /app/backend/requirements/prod.txt \
+    && pip install --no-cache-dir --no-deps -e "/app/backend" \
     && apt-get purge -y build-essential \
     && apt-get autoremove -y
 

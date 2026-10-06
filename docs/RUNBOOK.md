@@ -11,7 +11,8 @@ development machine. Commands assume macOS/Linux with `zsh`/`bash`.
 
 ## 1. Prerequisites
 
-- **Python 3.10+** (`python3 --version`)
+- **Python 3.12** (pinned in `.python-version`; `python3.12 --version`). 3.13 is not supported:
+  Pipecat's audio utils import `audioop`, which 3.13 removed.
 - **git** with access to the repo (clone it, then run the steps below from the repo root)
 
 No database server is required — the dev setup uses a local **SQLite** file.
@@ -41,12 +42,18 @@ and `.env` are resolved relative to the current working directory).
 cd backend
 
 # Create an isolated virtualenv (lives at backend/.venv, gitignored)
-python3 -m venv .venv
+python3.12 -m venv .venv
 
-# Install the app plus dev tools (pytest, httpx, ruff) in editable mode
+# Install the pinned dependency set, then the app itself in editable mode (no re-resolve).
+# requirements/dev.txt = core + dev tools; use requirements/dev-voice.txt to include the voice extra.
 .venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install -e ".[dev]"
+.venv/bin/python -m pip install -r requirements/dev.txt
+.venv/bin/python -m pip install --no-deps -e .
 ```
+
+Dependencies are pinned in `backend/requirements/*.txt` (pip-tools lockfiles compiled from
+`pyproject.toml`). To add or bump a dependency, edit `pyproject.toml` and regenerate — see
+`backend/requirements/README.md`.
 
 Optionally activate the venv so you can drop the `.venv/bin/` prefix:
 
@@ -148,15 +155,12 @@ WebRTC, with Silero VAD for turn-taking. These deps are heavy and live in an opt
 
 ```bash
 cd backend
-.venv/bin/python -m pip install -e ".[voice]"
+.venv/bin/python -m pip install -r requirements/dev-voice.txt
+.venv/bin/python -m pip install --no-deps -e .
 ```
 
-> **If the install fails building `llvmlite`** (a native dep pulled via `numba`/`resampy`):
-> install prebuilt wheels first, then retry the extra:
-> ```bash
-> .venv/bin/python -m pip install --only-binary=:all: "llvmlite>=0.43" numba
-> .venv/bin/python -m pip install -e ".[voice]"
-> ```
+> `numba` is capped below 0.63 in `pyproject.toml`: newer numba needs llvmlite 0.46+, which ships
+> no Intel-macOS wheels, so the install would try (and fail) to build llvmlite from source.
 
 ### 11.2 Add provider keys
 

@@ -4,7 +4,7 @@ Entities: Lead, Call, Turn, Decision, KPIEvent, Payment, Experiment, Variant.
 IDs are UUID hex strings so they are stable across logs, dashboards, and exports.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Optional
 from uuid import uuid4
 
@@ -27,7 +27,7 @@ def _uuid() -> str:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Base(DeclarativeBase):

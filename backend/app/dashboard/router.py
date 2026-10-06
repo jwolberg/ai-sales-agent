@@ -160,7 +160,7 @@ async def _sse(sub: Subscription, request: Request):
             try:
                 event = await asyncio.wait_for(sub.queue.get(), timeout=_SSE_KEEPALIVE)
                 yield f"data: {json.dumps(event)}\n\n"
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 yield ": keepalive\n\n"
     finally:
         bus.unsubscribe(sub)

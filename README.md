@@ -76,8 +76,9 @@ Full instructions are in **`docs/RUNBOOK.md`**. Short version, from the repo roo
 
 ```bash
 cd backend
-python3 -m venv .venv
-.venv/bin/python -m pip install -e ".[dev]"   # core
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements/dev.txt   # pinned core + dev tools
+.venv/bin/python -m pip install --no-deps -e .
 .venv/bin/python -m app.db.seed               # create schema + seed sample leads
 .venv/bin/python -m app.kb.index              # build the KB vector index (needs OPENAI_API_KEY)
 .venv/bin/uvicorn app.main:app --reload --port 8000
@@ -93,7 +94,7 @@ rule-based brain runs so the app and tests work with no key. The KB index
 ### Voice demo (needs API keys)
 
 ```bash
-.venv/bin/python -m pip install -e ".[voice]"
+.venv/bin/python -m pip install -r requirements/dev-voice.txt   # pinned, incl. the voice extra
 # add OPENAI_API_KEY, DEEPGRAM_API_KEY, CARTESIA_API_KEY to backend/.env
 .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
@@ -112,6 +113,7 @@ Offline (rule brain) it's a wiring/metric check; point it at OpenAI for a meanin
 ```bash
 cd backend
 .venv/bin/ruff check .          # lint
+.venv/bin/ruff format --check . # formatting
 .venv/bin/python -m pytest -q   # tests
 ```
 

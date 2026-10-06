@@ -2,16 +2,15 @@
 name = "ai-sales-agent"
 version = "0.1.0"
 description = "Autonomous AI Sales Agent backend"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.110",
+    "fastapi>=0.115",
     "uvicorn[standard]>=0.29",
     "pydantic-settings>=2.2",
     "sqlalchemy>=2.0",
-    "tomli>=2.0; python_version < '3.11'",  # TOML config parsing (stdlib tomllib is 3.11+)
     "pyyaml>=6.0",  # agent playbooks (discovery/objections) are YAML
-    "openai>=1.40",  # intent-router brain (tool-calling) + KB embeddings (IR-0..IR-3)
-    "stripe>=9.0",  # hosted payment links / invoices (PAY-0); pure-Python, no native build
+    "openai>=2.0",  # intent-router brain (tool-calling) + KB embeddings (IR-0..IR-3)
+    "stripe>=15.0",  # hosted payment links / invoices (PAY-0); pure-Python, no native build
 ]
 
 [project.optional-dependencies]
@@ -19,6 +18,7 @@ dev = [
     "pytest>=8.0",
     "httpx>=0.27",
     "ruff>=0.4",
+    "pip-tools>=7.4",  # compiles the requirements/*.txt lockfiles (see requirements/README.md)
 ]
 # Realtime voice stack (Pipecat: Deepgram STT + Claude + Cartesia TTS). Heavy and
 # native-build-prone; installed separately from the core dev setup. See docs/RUNBOOK.md.
@@ -27,6 +27,9 @@ dev = [
 voice = [
     "pipecat-ai[anthropic,deepgram,cartesia,webrtc,silero]>=0.0.108,<0.1",
     "soundfile>=0.12",  # ambient comfort-noise bed via Pipecat SoundfileMixer (P4.5-T6)
+    # Transitive cap: numba 0.63+ needs llvmlite 0.46+, which ships no Intel-macOS wheels (source
+    # build fails). Keeps one lockfile installable on dev Macs and Linux alike.
+    "numba<0.63",
 ]
 
 [build-system]
@@ -38,10 +41,13 @@ include = ["app*"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+# UP042 (str+Enum -> StrEnum) changes str()/format() output of enum members, which flow into stored
+# decision/slot fields — a behavior change, not a lint fix. Leave the mixins as they are.
+ignore = ["UP042"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

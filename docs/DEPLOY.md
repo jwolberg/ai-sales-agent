@@ -103,7 +103,7 @@ tagged `channel="twilio"` and streams live like a simulated one.
 
 1. Install the voice extra and set keys in `backend/.env`:
    ```bash
-   .venv/bin/python -m pip install -e ".[voice]"
+   .venv/bin/python -m pip install -r requirements/prod.txt && .venv/bin/python -m pip install --no-deps -e .
    # OPENAI_API_KEY, DEEPGRAM_API_KEY, CARTESIA_API_KEY  (the brain + STT + TTS)
    # optional: TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
    ```
