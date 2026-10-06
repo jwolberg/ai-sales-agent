@@ -36,7 +36,7 @@ gcloud run deploy voice-agent \
   --port 8080 \
   --max-instances 1 \
   --timeout 3600 \
-  --set-env-vars OPENAI_API_KEY=sk-...,DEEPGRAM_API_KEY=...,ANTHROPIC_API_KEY=...,CARTESIA_API_KEY=...
+  --set-env-vars OPENAI_API_KEY=sk-...,DEEPGRAM_API_KEY=...,ANTHROPIC_API_KEY=...,CARTESIA_API_KEY=...,DASHBOARD_PASSWORD=...
 # -> prints the service URL; open <service-url>/dashboard   (health: <service-url>/health)
 ```
 

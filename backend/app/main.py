@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__
+from app.auth import BasicAuthMiddleware
 from app.config import get_settings
 from app.dashboard.router import router as dashboard_router
 from app.payments.webhook import router as payments_router
@@ -33,6 +34,9 @@ def create_app() -> FastAPI:
             "version": __version__,
             "environment": config.environment,
         }
+
+    # Outermost layer: gates every route + static mount except the public webhooks/probe.
+    app.add_middleware(BasicAuthMiddleware)
 
     app.include_router(voice_router)
     app.include_router(dashboard_router)

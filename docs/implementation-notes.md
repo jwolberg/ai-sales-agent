@@ -1858,3 +1858,21 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
   `str()`/format output of members that flow into stored fields.
 - Follow-up: the existing local `backend/.venv` is still Python 3.10 — recreate it with
   `python3.12 -m venv .venv` + the RUNBOOK steps. I validated in scratch venvs and left it alone.
+
+### 2026-10-06 — Ticket 0001: HTTP Basic auth on operator surfaces
+- **HTTP Basic** (user choice over a shared bearer token). Implemented as pure ASGI middleware
+  (`app/auth.py`) rather than a FastAPI dependency so it also covers the StaticFiles mounts
+  (`/dashboard`, `/demo`) and doesn't buffer SSE. No frontend change: browsers reuse cached Basic
+  credentials for same-origin fetch/EventSource (all dashboard/demo calls are relative URLs).
+- **Secure by default:** everything is protected except an exact-match allowlist — `/health`,
+  `/voice/twilio`, `/voice/twilio/ws`, `/payments/webhook` (signature-authenticated). `/docs` and
+  `/openapi.json` are now protected too.
+- **Fail-closed rule:** password unset → open only when `ENVIRONMENT=development` (the default, so
+  local dev + the existing suite are unaffected); any other environment → 503. The Dockerfile now
+  sets `ENVIRONMENT=production`, so a deploy without `DASHBOARD_PASSWORD` refuses operator routes.
+- Verified live (uvicorn + curl): 401 without / 200 with creds on /api, /dashboard, /demo,
+  /openapi.json; /health 200; SSE streams through with creds. Browser login prompt not
+  exercised in a real browser yet.
+- **Couldn't edit `backend/.env.example`** — it's blocked by permission settings. Add
+  `DASHBOARD_USERNAME=operator` / `DASHBOARD_PASSWORD=` there by hand; documented in RUNBOOK §4.
+- Single shared credential: fine for a one-operator demo; per-user auth would replace this module.

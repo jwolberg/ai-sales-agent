@@ -76,9 +76,17 @@ cp .env.example .env        # then edit values
 | Variable        | Default                        | Purpose                          |
 | --------------- | ------------------------------ | -------------------------------- |
 | `APP_NAME`      | `Autonomous AI Sales Agent`    | Display name in `/health`, docs  |
-| `ENVIRONMENT`   | `development`                  | Environment label                |
+| `ENVIRONMENT`   | `development`                  | Environment label; anything other than `development` makes auth fail closed |
 | `DATABASE_URL`  | `sqlite:///./nerdy_sales.db`   | DB connection (swap for Postgres)|
 | `LOG_LEVEL`     | `INFO`                         | Log verbosity                    |
+| `DASHBOARD_USERNAME` | `operator`                | HTTP Basic user for the dashboard, `/api`, `/demo`, `/voice/offer` |
+| `DASHBOARD_PASSWORD` | unset                     | HTTP Basic password. Unset = open in `development`, 503 everywhere else |
+
+**Operator auth.** Every route except `/health`, `/voice/twilio`, `/voice/twilio/ws`, and
+`/payments/webhook` requires HTTP Basic credentials once `DASHBOARD_PASSWORD` is set (those four
+authenticate by provider signature instead). Open `/dashboard` and the browser prompts once; its
+API calls reuse the cached credentials. The Docker image sets `ENVIRONMENT=production`, so a
+deployed container with no password refuses operator routes rather than serving them openly.
 
 ## 5. Initialize and seed the database
 

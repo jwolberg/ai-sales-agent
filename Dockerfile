@@ -34,6 +34,8 @@ COPY frontend/index.html /app/frontend/index.html
 COPY frontend/client.js /app/frontend/client.js
 
 ENV PORT=8080
+# Non-development => operator routes fail closed (503) until DASHBOARD_PASSWORD is set (app/auth.py).
+ENV ENVIRONMENT=production
 WORKDIR /app/backend
 # Create the schema on boot, then serve. SQLite file lives in the container (ephemeral on Cloud
 # Run); point DATABASE_URL at a managed DB for persistence.

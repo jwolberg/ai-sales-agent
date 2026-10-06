@@ -43,6 +43,12 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./nerdy_sales.db"
     log_level: str = "INFO"
 
+    # --- Operator auth (ticket 0001) ---
+    # HTTP Basic credentials for the dashboard, /api, and the voice demo. With no password set the
+    # app is open in `development` and fails closed (503) in any other environment. See app/auth.py.
+    dashboard_username: str = "operator"
+    dashboard_password: str | None = None
+
     # --- Voice pipeline (Phase 2) ---
     # Provider API keys. Optional so the core app boots without them; the voice
     # endpoint returns a clear 503 until all three are set.
