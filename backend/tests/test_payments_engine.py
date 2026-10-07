@@ -45,8 +45,12 @@ class FakeSms:
 
 def _book(approved: bool) -> PriceBook:
     rec = PriceRecord(
-        leaf_id="test_prep/SAT", amount=85.0, unit="per hour",
-        currency="USD", summary="SAT prep is $85/hr.", approved=approved,
+        leaf_id="test_prep/SAT",
+        amount=85.0,
+        unit="per hour",
+        currency="USD",
+        summary="SAT prep is $85/hr.",
+        approved=approved,
     )
     return PriceBook({"test_prep/SAT": rec})
 
@@ -70,7 +74,7 @@ def test_pay_after_quote_creates_payment_and_texts_link(session):
     sms = FakeSms()
     eng = _engine(session, approved=True, sms=sms)
     eng.open()
-    eng.run_turn("I need SAT prep")          # resolves the leaf + quotes
+    eng.run_turn("I need SAT prep")  # resolves the leaf + quotes
     result = eng.run_turn("Great, I'll pay now")  # pay intent
     assert result.action is RouterAction.PAY
     assert "texted" in result.utterance.lower()

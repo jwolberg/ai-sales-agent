@@ -1,11 +1,11 @@
 # Offering Overview
 
-<!-- PLACEHOLDER CONTENT — not yet approved by Nerdy/Varsity Tutors.
+<!-- PLACEHOLDER CONTENT — not yet approved by the business.
      Replace with official approved copy. See docs/QandA_opens.md. -->
 
 ## What we offer
 
-Varsity Tutors, a Nerdy company, connects learners with tutors for personalized,
+Acme Tutoring connects learners with tutors for personalized,
 one-on-one support across a wide range of academic subjects and standardized tests.
 The focus is on matching each student with a tutor suited to their goals, level, and
 learning style.

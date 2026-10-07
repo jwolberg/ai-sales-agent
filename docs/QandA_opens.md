@@ -5,7 +5,7 @@ KB-1, KB-4): it must never invent prices, guarantees, tutor credentials, or poli
 RAG pipeline (ingest + retrieval) is built and working, but the documents under
 `data/kb/*.md` are **PLACEHOLDERS** I wrote — safe and non-committal, with all specifics
 deliberately deferred to "a specialist." They are functional for the demo but are **not
-approved Nerdy/Varsity Tutors content**.
+approved business content**.
 
 **What I need from you:** approved copy for the items below. Drop it in the matching
 `data/kb/*.md` file (or hand me the text and I'll place it), then remove that file's
@@ -16,8 +16,8 @@ human rather than stating as fact.
 
 | Topic | KB file | What's needed | Current behavior |
 | --- | --- | --- | --- |
-| ~~**Pricing**~~ ✅ PROVIDED | `pricing.md` | Operator-provided 2026-05-27: live tutoring is custom-quoted; Nerd AI app tiers quote exact figures. **Re-verify app figures periodically** (prices change); unrelated companies (NerdyData/Nerdio/Nerdy Form) excluded as non-VT products | Quotes Nerd AI app prices; live tutoring stays custom → specialist; refuses discounts |
-| **Plans / commitment** | `pricing.md` | Whether live tutoring has a commitment, month-to-month, trial, etc. (Nerd AI tiers covered) | Defers commitment terms to specialist |
+| ~~**Pricing**~~ ✅ PROVIDED | `pricing.md` | Operator-provided 2026-05-27: live tutoring is custom-quoted. (A homework-app pricing section was removed in ticket 0011 — it quoted a real company's prices.) | Live tutoring stays custom → specialist; refuses discounts |
+| **Plans / commitment** | `pricing.md` | Whether live tutoring has a commitment, month-to-month, trial, etc. | Defers commitment terms to specialist |
 | **Refund / satisfaction policy** | `policies_and_compliance.md` | Exact refund or satisfaction-guarantee terms, if any | States nothing specific; defers |
 | **Tutor matching & re-match** | `tutoring_formats_and_matching.md` | How matching works; can a student switch tutors, and any guarantee | General description; defers re-match specifics |
 | **Scheduling / cancellation** | `scheduling.md` | Reschedule/cancellation deadlines and any fees | Says flexible; defers exact rules |
@@ -42,7 +42,7 @@ recursive-improvement loop will A/B-test variants against it. Please review/repl
 ## Escalation / compliance
 
 `policies_and_compliance.md` encodes the escalation triggers and prohibited-claims rules
-(DE-4, §18). Please confirm these match Nerdy's actual policy — especially **what the agent
+(DE-4, §18). Please confirm these match the business's actual policy — especially **what the agent
 must never say** and **when it must hand off to a human**.
 
 ## How to verify after you provide content

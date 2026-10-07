@@ -45,7 +45,7 @@ def _seed_call(session_factory) -> str:
     )
     eng.open()
     eng.run_turn("I need chemistry tutoring")  # classify -> quote
-    eng.run_turn("can I talk to a human?")     # escalation
+    eng.run_turn("can I talk to a human?")  # escalation
     eng.end(outcome=OUTCOME_COMPLETED)
     call_id = rec.call_id
     db.close()
@@ -96,8 +96,9 @@ def test_vad_eval_uses_recorded_params(client):
     tc, sessions = client
     db = sessions()
     rec = CallRecorder(
-        db, channel="web", vad_params={"stop_secs": 0.8, "start_secs": 0.2,
-                                       "confidence": 0.7, "min_volume": 0.6}
+        db,
+        channel="web",
+        vad_params={"stop_secs": 0.8, "start_secs": 0.2, "confidence": 0.7, "min_volume": 0.6},
     )
     call_id = rec.call_id
     db.commit()
@@ -161,10 +162,15 @@ def test_payment_surfaces_on_calls_api_and_metrics(client):
     db = sessions()
     rec = CallRecorder(db, channel="web")
     rec.record_payment(
-        leaf="test_prep/SAT", amount=85.0, currency="usd", kind="link",
-        provider_ref="plink_1", url="https://pay/x",
+        leaf="test_prep/SAT",
+        amount=85.0,
+        currency="usd",
+        kind="link",
+        provider_ref="plink_1",
+        url="https://pay/x",
     )
     from app.agent.recorder import mark_payment_paid
+
     mark_payment_paid(db, "plink_1")
     cid = rec.call_id
     db.close()
@@ -182,14 +188,19 @@ def test_send_payment_sms_endpoint(client, monkeypatch):
     db = sessions()
     rec = CallRecorder(db, channel="web")
     rec.record_payment(
-        leaf="test_prep/SAT", amount=85.0, currency="usd", kind="link",
-        provider_ref="plink_1", url="https://pay/x",
+        leaf="test_prep/SAT",
+        amount=85.0,
+        currency="usd",
+        kind="link",
+        provider_ref="plink_1",
+        url="https://pay/x",
     )
     cid = rec.call_id
     db.close()
 
     # Fake SMS via fake mode so no Twilio creds are needed.
     from app.dashboard import router as dash
+
     monkeypatch.setattr(dash, "get_settings", lambda: Settings(_env_file=None, payments_fake=True))
 
     ok = tc.post(f"/api/calls/{cid}/send-payment-sms", json={"phone": "+15551234567"})

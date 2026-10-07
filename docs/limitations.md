@@ -38,7 +38,7 @@ What this MVP did and did not validate, and what production deployment would req
 
 - **Restricted / placeholder.** The agent does **not** state specific prices, discounts, or
   guarantees as fact. KB pricing content under `data/kb/` is a safe PLACEHOLDER, not approved
-  Nerdy/Varsity Tutors content. Discount and contract asks are routed to human escalation
+  business content. Discount and contract asks are routed to human escalation
   rather than negotiated (guardrail, not a feature gap). Approved pricing/refund/matching/
   scheduling copy is still owed — see `docs/QandA_opens.md`.
 

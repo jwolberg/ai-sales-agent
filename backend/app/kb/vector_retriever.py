@@ -70,9 +70,7 @@ class VectorRetriever:
             return []
         threshold = self.default_min_score if min_score is None else min_score
         qv = self._embedder.embed([query])[0]
-        scored = [
-            RetrievedChunk(chunk=chunk, score=cosine(qv, vec)) for chunk, vec in self._rows
-        ]
+        scored = [RetrievedChunk(chunk=chunk, score=cosine(qv, vec)) for chunk, vec in self._rows]
         hits = [s for s in scored if s.score > threshold]
         hits.sort(key=lambda r: r.score, reverse=True)
         return hits[:k]

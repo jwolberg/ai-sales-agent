@@ -23,7 +23,8 @@ node_modules/
 *.sqlite
 *.sqlite3
 
-# Claude Code local overrides (machine-specific, not shared)
-.claude/settings.local.json
-.claude/CLAUDE.local.md
+# Claude Code / agent tooling: personal, machine-local scaffolding — not part of the product.
 .claude/
+.TerMinal/backlog/.next-id.lock
+.TerMinal/sessions/.next-id.lock
+.status.md

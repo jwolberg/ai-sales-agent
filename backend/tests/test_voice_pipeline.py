@@ -79,25 +79,16 @@ def test_build_vad_analyzer_applies_settings():
     assert analyzer.params.confidence == 0.7  # untouched default
 
 
-def test_pipeline_builds_with_dummy_keys():
-    """The pipeline wires together without network/keys (construction only)."""
+def test_build_services_returns_stt_and_tts_only():
+    """No LLM service in the voice path: the intent-router engine owns reasoning (ticket 0010)."""
     pytest.importorskip("pipecat")
-    from pipecat.pipeline.task import PipelineTask
-    from pipecat.transports.base_transport import TransportParams
-    from pipecat.transports.smallwebrtc.connection import SmallWebRTCConnection
-    from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
+    from pipecat.services.cartesia.tts import CartesiaTTSService
 
-    from app.voice.pipeline import build_pipeline_task, build_services
+    from app.voice.pipeline import build_services
 
     settings = Settings(
         _env_file=None, deepgram_api_key="x", anthropic_api_key="y", cartesia_api_key="z"
     )
-    stt, llm, tts = build_services(settings)
-
-    connection = SmallWebRTCConnection()
-    transport = SmallWebRTCTransport(
-        webrtc_connection=connection,
-        params=TransportParams(audio_in_enabled=True, audio_out_enabled=True),
-    )
-    task = build_pipeline_task(transport, stt, llm, tts)
-    assert isinstance(task, PipelineTask)
+    stt, tts = build_services(settings)
+    assert type(stt).__name__ == "_DeepgramSTTService"
+    assert isinstance(tts, CartesiaTTSService)

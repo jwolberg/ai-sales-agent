@@ -200,7 +200,7 @@ moment to reconcile the stack on defensible grounds.
 - Telephony / WhatsApp channels remain out of scope; web/WebRTC is the demo channel.
 - Replacing SQLite with Postgres and full cloud auto-deploy are out of scope beyond a single
   documented deploy; production data-store hardening is deferred.
-- Approved/legal Nerdy pricing & policy KB content is still owed (placeholder today) — not produced
+- Approved/legal pricing & policy KB content is still owed (placeholder today) — not produced
   by this work, but the grounding rails (R4) must behave correctly once it lands.
 - Auto-promotion of variants without human review remains out of scope; promotion stays
   human-approved.

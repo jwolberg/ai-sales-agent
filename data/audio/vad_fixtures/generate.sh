@@ -5,7 +5,7 @@
 # disfluencies, so the offline evaluator (app.simulator.vad_replay) has canonical, committed,
 # realistically-long inputs. Apple's `[[slnc N]]` markup inserts N ms of silence; "um"/"uh" are
 # spoken as voiced fillers (they keep VAD in speech, the way a real caller's hesitation does).
-# The content is domain-relevant (Nerdy tutoring sales) so the clips read like real callers.
+# The content is domain-relevant (tutoring sales) so the clips read like real callers.
 #
 # Output: 16 kHz mono PCM s16 WAV (what Silero/the harness want). Re-run from the repo root:
 #   bash data/audio/vad_fixtures/generate.sh

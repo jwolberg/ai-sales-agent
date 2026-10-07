@@ -4,18 +4,20 @@ Pipecat is imported lazily inside the handler so importing this router never req
 the optional ``voice`` extra. Missing keys or deps produce a clear 503.
 """
 
-import asyncio
+import logging
+from urllib.parse import parse_qs
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket
 from fastapi.responses import Response
 from pydantic import BaseModel
 
+from app import limits, tasks
 from app.config import get_settings
+from app.voice.twilio_security import is_valid_request, public_request_url, stream_token
 
 router = APIRouter(prefix="/voice", tags=["voice"])
 
-# Keep references to running bot tasks so they aren't garbage-collected mid-call.
-_active_tasks: set[asyncio.Task] = set()
+logger = logging.getLogger(__name__)
 
 
 class Offer(BaseModel):
@@ -57,25 +59,49 @@ async def voice_offer(offer: Offer) -> dict:
             detail=f"Voice dependencies missing — run: pip install -e '.[voice]' ({exc})",
         ) from exc
 
-    connection = SmallWebRTCConnection(ice_servers=["stun:stun.l.google.com:19302"])
-    await connection.initialize(sdp=offer.sdp, type=offer.type)
-
-    task = asyncio.create_task(run_bot(connection, settings))
-    _active_tasks.add(task)
-    task.add_done_callback(_active_tasks.discard)
+    if not limits.session_slots.try_acquire(limit=settings.max_concurrent_sessions):
+        logger.warning("voice offer refused: concurrent session limit reached")
+        raise HTTPException(status_code=429, detail="Too many live calls; try again shortly")
+    slots = limits.session_slots
+    try:
+        connection = SmallWebRTCConnection(ice_servers=["stun:stun.l.google.com:19302"])
+        await connection.initialize(sdp=offer.sdp, type=offer.type)
+        task = tasks.spawn(run_bot(connection, settings), name="voice-call")
+    except BaseException:
+        slots.release()
+        raise
+    task.add_done_callback(lambda _t: slots.release())
 
     return connection.get_answer()
 
 
 # --- Twilio inbound (IR7-T7) -----------------------------------------------------------
 
+
 @router.api_route("/twilio", methods=["GET", "POST"])
 async def twilio_voice(request: Request) -> Response:
     """Twilio Voice webhook: return TwiML that streams the call's audio to our WebSocket.
 
-    Point a Twilio number's Voice webhook at https://<public-host>/voice/twilio.
+    Point a Twilio number's Voice webhook at https://<public-host>/voice/twilio. The request must
+    carry a valid ``X-Twilio-Signature`` (see app/voice/twilio_security.py) — otherwise anyone could
+    forge a call and pick the ``From`` number the bot auto-texts payment links to.
     """
     settings = get_settings()
+    # Parse the urlencoded body with the stdlib so we don't pull in python-multipart for this.
+    raw = (await request.body()).decode("utf-8", "ignore") if request.method == "POST" else ""
+    form = parse_qs(raw, keep_blank_values=True)
+    if settings.twilio_auth_token:
+        url = public_request_url(request, settings)
+        signature = request.headers.get("x-twilio-signature")
+        if not is_valid_request(settings.twilio_auth_token, url, form, signature):
+            # Path only: the query string is attacker-controlled and can carry a phone number.
+            logger.warning(
+                "rejected Twilio webhook: bad or missing signature (%s)", request.url.path
+            )
+            return Response(status_code=403)
+    elif settings.environment != "development":
+        return Response("Twilio webhook not configured: set TWILIO_AUTH_TOKEN", status_code=503)
+
     if settings.missing_voice_keys():
         # Speak a clear message rather than failing silently on the call.
         twiml = (
@@ -86,18 +112,22 @@ async def twilio_voice(request: Request) -> Response:
         return Response(content=twiml, media_type="application/xml")
     from app.voice.twilio_bot import build_twiml, stream_ws_url
 
-    # The caller's number (Twilio posts `From`) is threaded through the TwiML so the bot can text
-    # the payment link without asking for it (caller-ID auto-text). Parse the urlencoded body with
-    # the stdlib so we don't pull in python-multipart just for this.
-    from_number = request.query_params.get("From")
-    if from_number is None:
-        from urllib.parse import parse_qs
+    def _param(name: str) -> str | None:
+        # GET webhooks carry params in the query string; POST in the (signed) body.
+        return request.query_params.get(name) or (form.get(name) or [None])[0]
 
-        raw = (await request.body()).decode("utf-8", "ignore")
-        from_number = (parse_qs(raw).get("From") or [None])[0]
+    # The caller's number is threaded through the TwiML so the bot can text the payment link
+    # without asking for it (caller-ID auto-text); the stream token binds it to this call.
+    from_number = _param("From")
+    call_sid = _param("CallSid")
+    token = (
+        stream_token(settings.twilio_auth_token, call_sid, from_number)
+        if settings.twilio_auth_token and call_sid
+        else None
+    )
     host = request.headers.get("host", request.url.netloc)
     return Response(
-        content=build_twiml(stream_ws_url(settings, host), from_number=from_number),
+        content=build_twiml(stream_ws_url(settings, host), from_number=from_number, token=token),
         media_type="application/xml",
     )
 
@@ -114,4 +144,5 @@ async def twilio_ws(websocket: WebSocket) -> None:
     except ImportError:
         await websocket.close(code=1011)
         return
+    # Stream-token auth and the session-slot cap both happen inside, after the 'start' frame.
     await run_twilio_bot(websocket, settings)

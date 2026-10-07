@@ -212,7 +212,7 @@ generation), and yields a hard accuracy benchmark for the recursive-improvement 
   and quotes, then hands off.
 - The taxonomy is fixed at these 8 leaves for v1; adding programs is a data change, not new flows.
 - Speech-to-speech (OpenAI Realtime), telephony/WhatsApp, and Postgres are out (documented future).
-- Approved/legal Nerdy pricing & KB content is still owed (placeholder today); the rails (R4, R6)
+- Approved/legal pricing & KB content is still owed (placeholder today); the rails (R4, R6)
   must behave correctly once real content lands.
 - Auto-promotion of variants without human review stays out; promotion is human-approved.
 

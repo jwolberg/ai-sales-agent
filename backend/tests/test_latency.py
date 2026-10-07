@@ -52,6 +52,7 @@ def test_update_turn_latency_and_metrics_rollup(session):
     )
 
     from app.db.models import Turn
+
     stored = session.get(Turn, turn.turn_id)
     assert stored.latency_ms == 1400.0  # overwritten with end-to-end
     assert stored.latency_breakdown["tts_ms"] == 300.0

@@ -198,7 +198,7 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 - **Persona move rode along:** `pipeline.py` also picks up the P2-T3 change (imports
   `build_system_prompt`/`build_greeting_cue` from `app.agent.persona`, re-exported via
   `__all__`) since the two edits were entangled in the same file.
-- **Persona identity:** committed `agent_name = "Jay"`, `company_name = "Nerdy"` as-is
+- **Persona identity:** committed `agent_name = "Jay"`, `company_name = "<brand>"` as-is
   (per user).
 - **NOT validated here:** the sample-rate fix targets a real live-audio bug; construction
   tests pass, but confirming audio actually flows still needs a browser/mic/keys run (RUNBOOK).
@@ -367,7 +367,7 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
   torch/sentence-transformers) and to keep retrieval deterministic for tests. Fine for a small
   approved-doc set; documented as swappable if recall needs it.
 - **Content gap flagged (per user request):** the 5 KB docs are **safe PLACEHOLDERS**, not
-  approved Nerdy content — they describe offerings generally and defer all specifics (pricing,
+  approved business content — they describe offerings generally and defer all specifics (pricing,
   refunds, guarantees, re-match) to a human, which also enforces §18. Created
   `docs/QandA_opens.md` listing exactly what approved copy the user must provide, by file and
   priority. `min_score` is the hook P4-T2 uses for the KB-4 no-hallucination fallback.
@@ -776,15 +776,15 @@ runs on.
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).
   After review (with the operator, via decision prompts):
-  - **Included:** Varsity Tutors live tutoring = custom-quoted (subject / tutor experience /
-    hours), and Nerd AI homework-app freemium tiers with **exact figures** (free ~3/day;
+  - **Included:** Live tutoring = custom-quoted (subject / tutor experience /
+    hours), and homework-helper app freemium tiers with **exact figures** (free ~3/day;
     $6.99–9.99/wk; ~$39.99/yr; $39.99–49.99 lifetime).
-  - **Excluded:** NerdyData (SEO), Nerdio (Azure/IT), Nerdy Form (lead forms) — the source
-    conflated unrelated companies with Nerdy/VT; quoting them would be actively wrong.
+  - **Excluded:** several similarly named but unrelated companies — the source
+    conflated unrelated companies with the business; quoting them would be actively wrong.
   - Provenance + "re-verify figures" recorded as an HTML comment (stripped from chunks).
   - Pricing queries now retrieve `pricing.md` strongly (1.3–1.9).
 - **Guardrail tension to revisit (not changed here):** `check_agent_output` (P4-T4) flags ANY
-  price figure as `QUOTES_PRICE`. Now that approved Nerd AI prices exist, that blunt check would
+  price figure as `QUOTES_PRICE`. Now that approved homework-app prices exist, that blunt check would
   false-positive on legitimate prices. It's a tested *utility*, not yet enforced on live output,
   so no functional impact today — but when the live post-generation filter is wired, demote it to
   advisory or scope it to *live-tutoring* prices (which must always be custom/deferred). The real
@@ -868,7 +868,7 @@ runs on.
 ## P9-T1 — relabel CTA + audio-asset scaffolding (2026-05-28)
 
 - **New phase (9) for demo polish:** make `/demo` feel like a phone call. Relabeled the button
-  to "Call 1-800-Nerdy-4-u" and updated the intro copy in `frontend/index.html`.
+  to "Call 1-800-XXX-XXXX" and updated the intro copy in `frontend/index.html`.
 - **Decision — two audio assets, not one.** The user chose "loop ring until the agent answers,"
   which can't cleanly loop a single combined mp3. Split into `frontend/audio/dial.mp3` (one-shot
   dial+digits) and `frontend/audio/ring.mp3` (loop-safe ring) — a deviation from the original
@@ -900,7 +900,7 @@ runs on.
 - **Decision — don't claim "Connected" until the connection actually answers.** The old code set
   "Connected — start talking" right after `setRemoteDescription` (before ICE completes); now
   `onAnswered` owns that message so the status matches the real pickup moment.
-- **User copy change mid-build:** intro line is now "Click below to call 1-800-Nerdy-4-u
+- **User copy change mid-build:** intro line is now "Click below to call 1-800-XXX-XXXX
   (1-800-637-3948)…".
 - **Validation:** `node --check` clean. Browser-verified (agent-browser, server on :8099):
   click → "Dialing…" → after the dial clip → "Ringing…" (loops; getUserMedia stubbed to hang to
@@ -1111,7 +1111,7 @@ keys for IR-1. Tests: `tests/test_taxonomy.py` (9). `ruff` clean.
 `data/pricing/pricing.yaml` (keyed by leaf id) + `app/agent/pricing.py`. `quote_price(leaf|id)`
 does an **exact** lookup and returns a `PriceRecord` or `None` (R6) — no record means honest
 fallback, never an invented number (R6b). **Decisions:** (1) prices are clearly-labeled
-PLACEHOLDER (`approved: false`) — not approved Nerdy figures; the loaded value is the source of
+PLACEHOLDER (`approved: false`) — not approved business figures; the loaded value is the source of
 truth the mis-quote guardrail (IR1-T2) will check against. (2) The loader rejects a price keyed to
 a leaf the taxonomy doesn't define, so the table can't drift from `taxonomy.py`. Tests:
 `tests/test_pricing.py` (6). `ruff` clean.
@@ -1630,7 +1630,7 @@ Closes the IR7-T1 gap (latency was brain-decision-only). Added `Turn.latency_bre
 - Metrics: `turn_latency_breakdown_ms` = mean stt/brain/tts across voice turns (null in text mode);
   p50/p95 now reflect end-to-end on voice.
 - **Migration caution:** `latency_breakdown` is a NEW COLUMN on an existing table — `create_all`
-  won't add it to an existing dev DB. Recreate `nerdy_sales.db` (and rebuild the KB index) before
+  won't add it to an existing dev DB. Recreate `sales_agent.db` (and rebuild the KB index) before
   the next live run. Tests use fresh in-memory DBs.
 Full suite 176 passed; ruff clean. Frame wiring that feeds the helper lands in LAT-T2.
 
@@ -1802,7 +1802,7 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
 
 ### 2026-05-29 — VAD-T6: extend fixtures (longer, disfluencies, domain, edge cases)
 - The VAD-T5 fixtures were minimal one-liners. Extended `generate.sh` to 7 realistically-long,
-  domain-relevant clips (Nerdy tutoring sales) so the evaluator exercises real caller behavior:
+  domain-relevant clips (tutoring sales) so the evaluator exercises real caller behavior:
   multi-sentence `midsentence_pause`, `trailing_filler`, `two_utterances` (control), plus new
   `disfluent_ums` (heavy um/uh + restarts), `chem_vs_bio` (long "chemistry or biology?" question),
   `payment` (incl. a spoken card/phone number), and `edge_short_turns` (one-word turns, long gaps).
@@ -1826,3 +1826,219 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
   Test Call") instead of the dials/commands. Verified live: a `sim` call now renders the note.
 - Tests: `test_vad_eval_not_applicable_for_text_sim_calls`; existing voice-call assertions gained an
   `applicable` check. 198 tests; ruff clean; `vite build` clean.
+
+### 2026-10-06 — Build-quality audit, ticket 0004: real CI + formatting
+- The untracked `.github/workflows/ci.yml` was a bun template (bun install/typecheck/test) that never
+  applied to this Python repo — effectively no CI. Replaced with three jobs: `backend` (ruff check,
+  ruff format --check, pytest; voice tests skip via `importorskip`), `backend-voice` (installs the
+  heavy `[voice]` extra in its own job so a native-build break doesn't mask core failures), and
+  `dashboard` (npm ci + vite build + `git diff --exit-code dist` — verified locally the build is
+  byte-identical to the committed dist).
+- Ran `ruff format` over the backend: 36 files, formatting only. 201 tests still pass.
+- Not verified on GitHub Actions itself (branch not pushed).
+
+### 2026-10-06 — Ticket 0005: pinned lockfiles + one Python version
+- **Lockfiles via pip-tools** (user choice over uv): `backend/requirements/{prod,dev,dev-voice}.txt`
+  compiled from `pyproject.toml`. `dev-voice` is the superset; the other two are compiled with it as
+  a constraint so shared packages always match. Regenerate with `backend/scripts/lock.sh`.
+  pip-tools added to the `dev` extra so the lock tool is itself pinned.
+- **Python 3.12 everywhere** (`.python-version`, `requires-python>=3.12`, ruff `py312`, Dockerfile,
+  CI). Chose 3.12 over the Dockerfile's 3.11 because 3.12 is what's installed locally — no
+  interpreter download needed — and nothing in the deps blocks it. 3.13 is out: Pipecat 0.0.108
+  imports `audioop`, removed in 3.13.
+- **Surprise: the lock moved past the tested versions** (SQLAlchemy 2.1.3, stripe 16, fastapi
+  0.142, openai 2.54). Full suite passes on fresh venvs built only from the locks (core: 174 passed
+  + 5 voice modules skipped; voice: 201 passed). Raised floors to tested majors (`openai>=2.0`,
+  `stripe>=15.0`, `fastapi>=0.115`). Dropped the unused `tomli` dependency (nothing imports it).
+- **Transitive cap `numba<0.63`**: numba 0.63+ needs llvmlite 0.46+, which has no Intel-macOS wheel
+  (verified: 0.46/0.47/0.50 have none; 0.45.1 does), so the voice extra failed to install on this
+  machine. Cap replaces the RUNBOOK's manual llvmlite workaround.
+- ruff `py312` target turned on new pyupgrade fixes: applied the safe ones (`datetime.UTC`,
+  builtin `TimeoutError`); **ignored UP042** (str+Enum → StrEnum) because StrEnum changes
+  `str()`/format output of members that flow into stored fields.
+- Follow-up: the existing local `backend/.venv` is still Python 3.10 — recreate it with
+  `python3.12 -m venv .venv` + the RUNBOOK steps. I validated in scratch venvs and left it alone.
+
+### 2026-10-06 — Ticket 0001: HTTP Basic auth on operator surfaces
+- **HTTP Basic** (user choice over a shared bearer token). Implemented as pure ASGI middleware
+  (`app/auth.py`) rather than a FastAPI dependency so it also covers the StaticFiles mounts
+  (`/dashboard`, `/demo`) and doesn't buffer SSE. No frontend change: browsers reuse cached Basic
+  credentials for same-origin fetch/EventSource (all dashboard/demo calls are relative URLs).
+- **Secure by default:** everything is protected except an exact-match allowlist — `/health`,
+  `/voice/twilio`, `/voice/twilio/ws`, `/payments/webhook` (signature-authenticated). `/docs` and
+  `/openapi.json` are now protected too.
+- **Fail-closed rule:** password unset → open only when `ENVIRONMENT=development` (the default, so
+  local dev + the existing suite are unaffected); any other environment → 503. The Dockerfile now
+  sets `ENVIRONMENT=production`, so a deploy without `DASHBOARD_PASSWORD` refuses operator routes.
+- Verified live (uvicorn + curl): 401 without / 200 with creds on /api, /dashboard, /demo,
+  /openapi.json; /health 200; SSE streams through with creds. Browser login prompt not
+  exercised in a real browser yet.
+- **Couldn't edit `backend/.env.example`** — it's blocked by permission settings. Add
+  `DASHBOARD_USERNAME=operator` / `DASHBOARD_PASSWORD=` there by hand; documented in RUNBOOK §4.
+- Single shared credential: fine for a one-operator demo; per-user auth would replace this module.
+
+### 2026-10-06 — Ticket 0002: Twilio webhook signature + Media Streams token
+- `/voice/twilio` now verifies `X-Twilio-Signature` (HMAC-SHA1 over the public URL + sorted params)
+  when `TWILIO_AUTH_TOKEN` is set; 403 otherwise. **Implemented inline** (`app/voice/twilio_security.py`,
+  stdlib hmac) rather than adding the `twilio` SDK for one function. Cross-checked against the
+  official `twilio.request_validator.RequestValidator` in a throwaway venv: identical output on
+  Twilio's documented example, a unicode/empty-param case, and a GET-with-query case.
+- Public URL: `PUBLIC_BASE_URL` if set, else `X-Forwarded-Proto` + Host (Cloud Run terminates TLS,
+  so the app itself sees http).
+- **WebSocket:** the handshake carries nothing verifiable, so the signed webhook issues a per-call
+  token (HMAC-SHA256 over CallSid + caller id) as a TwiML `<Parameter>`; `run_twilio_bot` checks it
+  from the `start` frame and closes (1008) **before** `init_db` or any STT/TTS service is built.
+  Binding the caller id stops a captured token being replayed with a different `From`.
+- **Also fixed (found while in here):** `build_twiml` interpolated the caller-controlled `From` into
+  XML unescaped (TwiML injection). Now `quoteattr`-escaped; test parses hostile input as XML.
+- Fail-closed rule mirrors 0001: no auth token → open in `development`, 503 elsewhere.
+- `test_webhook_returns_twiml_xml` previously read the real `backend/.env` (which has a Twilio
+  token); pinned its settings. Not exercised with a real inbound call.
+
+### 2026-10-06 — Ticket 0003: SMS budget + concurrent-session cap
+- `app/limits.py`: `SmsBudget` (per call + per destination per rolling hour) checked at the moment
+  of sending on **both** paths — engine caller-ID auto-text (over → not texted, link still recorded)
+  and dashboard manual send (over → 429, no `payment_sent` event). Refused attempts don't consume
+  budget; a send that then fails at Twilio does (conservative).
+- `SessionSlots` caps concurrent paid sessions across `/voice/offer`, `/api/sim/start`, and the
+  Twilio media socket (closed with 1013 "try again later"). Released on task completion; on
+  `/voice/offer` also released if WebRTC setup throws.
+- **In-memory, per process** — fine because Cloud Run runs `--max-instances 1` (already required by
+  the in-process event bus). Scaling out needs a shared store.
+- Defaults (3 per call, 5 per number/hour, 3 sessions) are my picks; all env-configurable.
+- Dashboard: "Start simulated call" used to swallow non-2xx responses; it now shows the server's
+  detail (e.g. the 429). Voice offer + SMS already surfaced errors. Rebuilt `dist/`.
+- Added `tests/conftest.py` (autouse reset of the global limiter state between tests).
+
+### 2026-10-06 — Ticket 0007: logging
+- `app/logs.py`: `configure_logging(LOG_LEVEL)` (called in `create_app`) routes `app.*` loggers to
+  stderr via `basicConfig` — sets the level on the `app` logger only, so uvicorn and third-party
+  loggers are untouched. Verified live: a rejected Twilio webhook prints
+  `WARNING app.voice.server: ...` under uvicorn.
+- Now logged: TF-IDF fallback (warning + traceback — was a silent `except: pass`), SMS sent/failed/
+  refused, payment-creation failure, brain failure (`logger.exception`, then re-raised — behavior
+  unchanged), Stripe webhook outcomes + bad signatures, Twilio signature rejects, session-limit
+  refusals.
+- **PII:** phone numbers logged as `***1234`; `scrub()` also masks numbers inside provider error
+  text, because Twilio's error bodies echo the destination number. Tests assert no full number or
+  auth token reaches the log.
+- The Twilio voice path still logs via Pipecat's `loguru` (pre-existing); left as is — it's Pipecat's
+  logger and already flows to stderr.
+
+### 2026-10-06 — Ticket 0008: tracked background tasks
+- New `app/tasks.py` `spawn(coro, name=...)`: strong reference until done + logs crashes (with
+  traceback) instead of losing them; cancellations aren't logged as errors. Used by
+  `/api/sim/start` (was a bare `create_task`) and `/voice/offer` (replaces its local
+  `_active_tasks` set, so there's one pattern instead of two).
+
+### 2026-10-06 — Ticket 0012: small hardening batch
+- `/demo` now serves only `index.html`, `client.js`, and `audio/*` (allowlisting `StaticFiles`
+  subclass). It previously exposed the whole `frontend/` tree — tests confirmed `package.json`, the
+  lockfile, `vite.config.js`, and `dashboard-app/src/*` were all fetchable.
+- `/health` returns only `{status, version}` (dropped `app` and `environment`; it's public).
+- Stripe webhook 400 detail is generic; the specific reason goes to the log (0007).
+- **`.claude/`**: it was gitignored yet 16 files were tracked (old personal agents/skills). Chose to
+  **untrack** them (`git rm --cached`; files remain on disk) rather than un-ignore, because the rest
+  of `.claude/` is deliberately ignored local tooling and this repo is headed public. Collapsed the
+  redundant ignore lines into one.
+- **Frontend lint: decided not to add one.** ESLint would add several dev deps for a ~10-file
+  React dashboard; the CI `dashboard` job (vite build + dist drift check) already catches syntax
+  and import errors. Revisit if the dashboard grows.
+
+### 2026-10-06 — Ticket 0006: production Dockerfile
+- Multi-stage build: `deps` stage installs `requirements/prod.txt` into `/opt/venv` with
+  build-essential; the runtime stage copies only the venv (no compiler, no `apt purge` dance).
+- **Not pip-installed — runs from source.** Every module resolves `data/`/`frontend/` via
+  `__file__.parents[N]`, so a non-editable install into site-packages would break path resolution.
+  Installing only the locked deps and copying the source tree meets the "no editable install" intent
+  without touching those paths. Noted as a deviation from the ticket's literal wording.
+- Non-root user `app` (uid 10001); `/app/var` is the only writable dir (`DATABASE_URL` points there);
+  source tree read-only (verified `touch` fails). `exec uvicorn` so SIGTERM reaches it.
+- `.dockerignore` added (build context: 2.7 MB; verified `.env` is absent from the image).
+- **Pre-existing bugs fixed:** the old image never copied `backend/config.toml` (container ran on
+  code defaults, not the committed tunables) or `frontend/audio/` (demo dial/ring 404'd).
+- **Surprise:** Pipecat downloads NLTK `punkt_tab` at import time; as non-root that failed
+  ("Permission denied: '/home/app'"), and as root it was a network fetch on every cold start.
+  Now baked in at build time (`NLTK_DATA=/opt/nltk_data`).
+- Verified locally with Docker Desktop (started it for this): image builds; `/health` 200; no
+  password → `/api` 503; with `DASHBOARD_PASSWORD` → 401/200; dashboard + demo audio served,
+  `package.json` 404; voice modules import; zero errors in boot logs. Image is 1.59 GB (mostly Pipecat
+  and its native deps) — not optimized further.
+
+### 2026-10-06 — Ticket 0010: off deprecated Pipecat APIs
+- **Removed the legacy raw-Claude `build_pipeline_task` + the `AnthropicLLMService`** from
+  `build_services` (now returns `(stt, tts)`). Both live paths already discarded the LLM
+  (`_llm unused`); this dead code was the only user of `OpenAILLMContext`/the Anthropic context
+  aggregators and the deprecated `model=` param. Dropped Pipecat's `anthropic` extra and re-locked
+  (only `anthropic` + its now-unneeded deps left the lock).
+- **`STTMuteFilter` → `app/voice/mute.py` `BotSpeakingMute`.** Pipecat's suggested replacement
+  (`LLMUserAggregator(user_mute_strategies=...)`) lives inside its LLM context aggregator, which this
+  pipeline doesn't use (the engine owns turns). Rather than restructure the live loop around an
+  aggregator, re-implemented the same ALWAYS behavior (same suppressed frame set, keyed on
+  `Bot{Started,Stopped}SpeakingFrame`) on stable `FrameProcessor` APIs. Tested through Pipecat's
+  `run_test` harness; mutation-checked (disabling the drop fails the test).
+- Cartesia: `settings=CartesiaTTSService.Settings(voice=...)` replaces `voice_id=`.
+- Warnings: 11 → 2. Remaining are not ours: Pipecat's own `import audioop` (a 3.13 blocker inside
+  Pipecat) and Starlette's TestClient httpx notice. Voice tests pass with
+  `-W error::DeprecationWarning` (excluding only that `audioop` warning), locally and inside the
+  rebuilt Docker image.
+- **Not verified:** a live browser Test Call / real Twilio call (needs a mic + provider keys).
+  Construction tests + the frame-level mute test are the evidence; the first live call is the check.
+- Follow-up filed: `ANTHROPIC_API_KEY` is still required by `missing_voice_keys()` (and
+  `anthropic_model` still feeds `/voice/status` + `model_version`) though nothing uses Claude now.
+
+### 2026-10-06 — Ticket 0011: README, CLAUDE.md, genericized brand
+- **Brand → config (user choice: genericize).** `company_name` default + `config.toml` are now the
+  fictional "Acme Tutoring". The two hardcoded SMS bodies now share `payment_sms_body(settings, url)`.
+  UI titles → "Tutoring Router — Call Center" / "Tutoring Sales Agent — Voice Demo"; demo button
+  "Call the agent"; TestCall keeps the real demo number but drops the brand vanity text;
+  npm package renamed `tutoring-router-dashboard`.
+- **KB: removed the homework-app pricing section** rather than rebranding it — those were a real
+  company's real prices, and attributing them to a fictional brand would be fabricated. The agent
+  can no longer answer homework-app pricing questions (off-taxonomy anyway). Other KB/persona/pricing
+  comments neutralized.
+- Docs genericized (PRD, BUILD_PLAN, STRATEGY, QandA, brainstorms, limitations, research-notes,
+  RUNBOOK, DEPLOY, AGENT_FLOW, and earlier entries in this file). **Git history still contains the
+  old name** — rewriting history is out of scope and would need your call.
+- **Default DB file renamed** (old brand-named file) → `sales_agent.db` (config default, Dockerfile, docs).
+  Your existing local DB file is untouched; if your `.env` doesn't set `DATABASE_URL`, rename it
+  to `backend/sales_agent.db` to keep your local data.
+- **Can't edit `backend/.env.example`** (permission-blocked): it still has the old DB filename.
+- Screenshots re-captured (old ones showed the brand) from a fresh instance: offline rule brain,
+  scratch DB, auth ON — which also confirmed in a real (headless Chrome) browser that the dashboard's
+  fetch/SSE calls work under HTTP Basic. Dropped unreferenced `docs/img/control.png`.
+- README: removed `PUT_YOUR_TWILIO_NUM_HERE`, broken image markup, stray `#` lines; added the brand
+  note + auth note; corrected my own first-draft blurb of the improvement doc (it reports negative
+  results). Kept the `ai-sales-agent/` tree label — that's the GitHub repo name.
+- CLAUDE.md filled in (it was the unfilled template): real description/status, pickup steps,
+  conventions (pip-tools + npm, plain CSS — the template said bun + Tailwind), sensitive surfaces.
+  `docs/architecture.md` is still an unfilled template — left untracked; CLAUDE.md points at
+  README/RUNBOOK instead.
+- Guard: `tests/test_branding.py` fails if the old brand names appear in product files.
+
+### 2026-10-06 — Ticket 0003 follow-up: core-only CI run
+- Re-running the suite on the core-only lock (what the CI `backend` job installs) caught
+  `test_voice_offer_returns_429_when_sessions_full` failing: without Pipecat, `/voice/offer`
+  correctly 503s ("voice deps missing") before the session cap. Now `importorskip("pipecat")`.
+  Core lock: 344 passed / 10 skipped; voice lock: 381 passed.
+
+### 2026-10-06 — Independent review fixes (tickets 0002 / 0003 / 0007)
+A fresh-context reviewer (given the tickets' acceptance criteria, not my summary) found real gaps:
+- **H1 — public Twilio socket could exhaust paid-session slots (DoS).** The slot was taken before
+  the stream token was checked, and `_read_start` waited forever. Now: 10 s deadline for a valid
+  `start`, token check, *then* the slot. Malformed frames / early hang-ups close 1008 instead of
+  raising. Verified live: 3 idle sockets with `MAX_CONCURRENT_SESSIONS=1` no longer block a sim
+  call (200); idle sockets are cut at ~10 s; zero tracebacks. (The live probe also caught
+  `close()` raising uvicorn's `ClientDisconnected`, an `OSError`, on an already-gone client.)
+- **H2 — rejected GET webhook logged the full query string** (caller number). Logs the path only.
+- **H3 — per-number SMS cap bypassable by formatting** (`(555) 123-4567` vs `+15551234567`).
+  Keys are now digits-only with NANP normalization; added a global hourly cap
+  (`SMS_MAX_PER_HOUR_TOTAL=30`) since per-call + per-number alone don't bound many short calls.
+- **M5** — SMS read timeouts / non-JSON bodies escaped `except SmsError` and could break a live
+  turn; now wrapped. The missing-sid error no longer embeds the response body (it echoes the number).
+- **M1** — startup now logs a loud warning whenever operator auth is off.
+- **M6** — docs overstated seed idempotence: boot does reset the three demo leads' fields. Docs fixed;
+  behavior change filed as a follow-up.
+- CI voice job now installs OpenCV's libGL/glib (reviewer flagged a likely `libGL.so.1` failure).
+- Not changed (filed as follow-ups): Basic-auth guess throttling, per-caller call-rate cap, slot
+  held by a WebRTC offer that never connects (needs a live check), seed overwriting lead memory.

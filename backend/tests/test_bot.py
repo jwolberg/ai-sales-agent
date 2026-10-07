@@ -24,6 +24,7 @@ _VOICE_KEYS = dict(deepgram_api_key="x", anthropic_api_key="y", cartesia_api_key
 
 # --- §18 output guard ------------------------------------------------------------------
 
+
 def test_guard_blocks_human_claim_and_guarantee():
     assert guard_output("Don't worry, I'm a real person.") == ESCALATION_MESSAGE
     assert guard_output("We guarantee her grades will go up.") == ESCALATION_MESSAGE
@@ -35,6 +36,7 @@ def test_guard_allows_clean_lines():
 
 
 # --- engine wiring ---------------------------------------------------------------------
+
 
 def test_build_engine_returns_router_engine_seeded_with_slots():
     settings = Settings(_env_file=None, **_VOICE_KEYS)  # no OpenAI key -> offline RuleBrain
@@ -62,6 +64,7 @@ def test_engine_processor_starts_not_ready():
 
 # --- pipeline construction (no keys/audio) ---------------------------------------------
 
+
 def test_engine_pipeline_constructs():
     from pipecat.pipeline.pipeline import Pipeline
     from pipecat.pipeline.task import PipelineTask
@@ -72,7 +75,7 @@ def test_engine_pipeline_constructs():
     from app.voice.pipeline import build_services
 
     settings = Settings(_env_file=None, **_VOICE_KEYS)
-    stt, _llm, tts = build_services(settings)
+    stt, tts = build_services(settings)
     engine = build_engine(settings)  # no recorder; lazy clients, no API calls
     processor = EngineProcessor(engine)
 
@@ -87,11 +90,12 @@ def test_engine_pipeline_constructs():
     # The mic must be muted while the agent speaks so it never transcribes its own voice.
     inner = next(p for p in task._pipeline._processors if isinstance(p, Pipeline))
     names = [type(p).__name__ for p in inner._processors]
-    assert "STTMuteFilter" in names, names
-    assert names.index("STTMuteFilter") < names.index("_DeepgramSTTService"), names
+    assert "BotSpeakingMute" in names, names
+    assert names.index("BotSpeakingMute") < names.index("_DeepgramSTTService"), names
 
 
 # --- STT confidence parsing ------------------------------------------------------------
+
 
 class _Alt:
     def __init__(self, confidence):

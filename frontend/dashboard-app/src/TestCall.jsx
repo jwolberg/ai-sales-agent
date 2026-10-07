@@ -91,7 +91,7 @@ export default function TestCall({ liveCall }) {
     return (
       <div className="sim-controls">
         <span style={{ color: '#ff7a00', fontSize: '16px' }}>
-          Call us at 1-986-786-3739 (1-986-R-U-NERDY)
+          Call us at 1-986-786-3739
         </span>
       </div>
     )

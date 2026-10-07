@@ -115,9 +115,9 @@ class Leaf:
     """A fully-specified caller need (a leaf of the tree)."""
 
     category: Category
-    test: str | None = None            # set when category is test_prep
-    subject_area: str | None = None    # set when category is tutoring
-    subject: str | None = None         # set when category is tutoring
+    test: str | None = None  # set when category is test_prep
+    subject_area: str | None = None  # set when category is tutoring
+    subject: str | None = None  # set when category is tutoring
 
     @property
     def id(self) -> str:

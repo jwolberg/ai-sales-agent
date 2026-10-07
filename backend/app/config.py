@@ -40,15 +40,27 @@ class Settings(BaseSettings):
     app_name: str = "Autonomous AI Sales Agent"
     environment: str = "development"
     # SQLite single-file DB by default; swap to a Postgres URL in production.
-    database_url: str = "sqlite:///./nerdy_sales.db"
+    database_url: str = "sqlite:///./sales_agent.db"
     log_level: str = "INFO"
+
+    # --- Operator auth (ticket 0001) ---
+    # HTTP Basic credentials for the dashboard, /api, and the voice demo. With no password set the
+    # app is open in `development` and fails closed (503) in any other environment. See app/auth.py.
+    dashboard_username: str = "operator"
+    dashboard_password: str | None = None
+
+    # --- Spend/abuse limits (ticket 0003; in-memory, per process — see app/limits.py) ---
+    sms_max_per_call: int = 3  # payment-link texts per call, across bot + dashboard sends
+    sms_max_per_number_per_hour: int = 5  # texts to one destination number in a rolling hour
+    sms_max_per_hour_total: int = 30  # all payment-link texts, every number, rolling hour
+    max_concurrent_sessions: int = 3  # live voice / Twilio / simulated calls at once
 
     # --- Voice pipeline (Phase 2) ---
     # Provider API keys. Optional so the core app boots without them; the voice
     # endpoint returns a clear 503 until all three are set.
-    deepgram_api_key: str | None = None   # STT
+    deepgram_api_key: str | None = None  # STT
     anthropic_api_key: str | None = None  # LLM (Claude)
-    cartesia_api_key: str | None = None   # TTS
+    cartesia_api_key: str | None = None  # TTS
 
     # --- OpenAI (intent-router brain + KB embeddings, IR-0..IR-3) ---
     # Optional so the core app + tests boot without it; the brain and KB retriever fall back to
@@ -73,7 +85,7 @@ class Settings(BaseSettings):
     # Optional so the core app + tests boot without them; payments are a feature flag keyed on
     # `stripe_api_key`. With the flag off, behavior is exactly as today (payment asks escalate).
     # Hosted checkout only — our server never touches card data (PCI stays SAQ-A).
-    stripe_api_key: str | None = None      # Stripe secret key (sk_test_… / sk_live_…)
+    stripe_api_key: str | None = None  # Stripe secret key (sk_test_… / sk_live_…)
     stripe_webhook_secret: str | None = None  # verifies inbound webhook signatures (PAY-4)
     payments_currency: str = "usd"
     # Dev-only (PAY7-T1): exercise the payment flow with NO Stripe/Twilio keys and no real charge —
@@ -91,7 +103,7 @@ class Settings(BaseSettings):
 
     # Agent persona identity. Set the live values in config.toml (these are fallbacks).
     agent_name: str = "Jay"
-    company_name: str = "Nerdy"
+    company_name: str = "Acme Tutoring"  # fictional placeholder brand; set yours in config.toml
     # When true, log inbound audio / VAD / transcription to the server console (debug).
     voice_debug: bool = False
     # Optional: the lead whose prior-call memory a live web demo call should continue from

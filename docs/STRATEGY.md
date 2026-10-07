@@ -8,7 +8,7 @@ supersedes_scope: docs/BUILD_PLAN.md (discovery-to-close)
 
 ## Target problem
 
-Nerdy's inbound callers arrive 24/7 wanting different things — test prep or subject tutoring — but
+The business's inbound callers arrive 24/7 wanting different things — test prep or subject tutoring — but
 live agents are limited in hours and consistency, and the first job on every call (figure out what
 the caller actually needs, then tell them what it costs) is exactly the part that's mechanical,
 high-volume, and easy to get wrong or slow. A static phone tree can't hold a real conversation; a
@@ -26,7 +26,7 @@ the agent compounds toward accuracy instead of staying a static script.
 
 ## Who it's for
 
-**Primary:** Nerdy sales operator/manager — hiring this to run an always-on front door that routes
+**Primary:** Sales operator/manager — hiring this to run an always-on front door that routes
 and quotes correctly, and to *prove* it's getting more accurate over time (see what it decided, why,
 and the trend).
 

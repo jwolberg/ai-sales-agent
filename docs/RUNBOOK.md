@@ -11,7 +11,8 @@ development machine. Commands assume macOS/Linux with `zsh`/`bash`.
 
 ## 1. Prerequisites
 
-- **Python 3.10+** (`python3 --version`)
+- **Python 3.12** (pinned in `.python-version`; `python3.12 --version`). 3.13 is not supported:
+  Pipecat's audio utils import `audioop`, which 3.13 removed.
 - **git** with access to the repo (clone it, then run the steps below from the repo root)
 
 No database server is required — the dev setup uses a local **SQLite** file.
@@ -41,12 +42,18 @@ and `.env` are resolved relative to the current working directory).
 cd backend
 
 # Create an isolated virtualenv (lives at backend/.venv, gitignored)
-python3 -m venv .venv
+python3.12 -m venv .venv
 
-# Install the app plus dev tools (pytest, httpx, ruff) in editable mode
+# Install the pinned dependency set, then the app itself in editable mode (no re-resolve).
+# requirements/dev.txt = core + dev tools; use requirements/dev-voice.txt to include the voice extra.
 .venv/bin/python -m pip install --upgrade pip
-.venv/bin/python -m pip install -e ".[dev]"
+.venv/bin/python -m pip install -r requirements/dev.txt
+.venv/bin/python -m pip install --no-deps -e .
 ```
+
+Dependencies are pinned in `backend/requirements/*.txt` (pip-tools lockfiles compiled from
+`pyproject.toml`). To add or bump a dependency, edit `pyproject.toml` and regenerate — see
+`backend/requirements/README.md`.
 
 Optionally activate the venv so you can drop the `.venv/bin/` prefix:
 
@@ -69,9 +76,21 @@ cp .env.example .env        # then edit values
 | Variable        | Default                        | Purpose                          |
 | --------------- | ------------------------------ | -------------------------------- |
 | `APP_NAME`      | `Autonomous AI Sales Agent`    | Display name in `/health`, docs  |
-| `ENVIRONMENT`   | `development`                  | Environment label                |
-| `DATABASE_URL`  | `sqlite:///./nerdy_sales.db`   | DB connection (swap for Postgres)|
+| `ENVIRONMENT`   | `development`                  | Environment label; anything other than `development` makes auth fail closed |
+| `DATABASE_URL`  | `sqlite:///./sales_agent.db`   | DB connection (swap for Postgres)|
 | `LOG_LEVEL`     | `INFO`                         | Log verbosity                    |
+| `DASHBOARD_USERNAME` | `operator`                | HTTP Basic user for the dashboard, `/api`, `/demo`, `/voice/offer` |
+| `DASHBOARD_PASSWORD` | unset                     | HTTP Basic password. Unset = open in `development`, 503 everywhere else |
+| `SMS_MAX_PER_CALL` | `3`                         | Payment-link texts per call (bot + dashboard combined); over → not texted / 429 |
+| `SMS_MAX_PER_NUMBER_PER_HOUR` | `5`              | Texts to one destination number per rolling hour (formatting-insensitive) |
+| `SMS_MAX_PER_HOUR_TOTAL` | `30`                  | All payment-link texts, every number, per rolling hour |
+| `MAX_CONCURRENT_SESSIONS` | `3`                  | Live voice / Twilio / simulated calls at once; over → 429 (Twilio: socket closed 1013) |
+
+**Operator auth.** Every route except `/health`, `/voice/twilio`, `/voice/twilio/ws`, and
+`/payments/webhook` requires HTTP Basic credentials once `DASHBOARD_PASSWORD` is set (those four
+authenticate by provider signature instead). Open `/dashboard` and the browser prompts once; its
+API calls reuse the cached credentials. The Docker image sets `ENVIRONMENT=production`, so a
+deployed container with no password refuses operator routes rather than serving them openly.
 
 ## 5. Initialize and seed the database
 
@@ -84,7 +103,7 @@ then reports any PII-substituted transcripts found in `data/transcripts/`:
 ```
 
 Seeding is **idempotent** — re-running updates the existing seed leads rather than
-duplicating them. The DB file (`backend/nerdy_sales.db`) is gitignored; delete it to
+duplicating them. The DB file (`backend/sales_agent.db`) is gitignored; delete it to
 reset from scratch.
 
 ## 6. Run the server
@@ -100,7 +119,7 @@ reset from scratch.
 
 ```bash
 curl -s http://localhost:8000/health
-# {"status":"ok","app":"Autonomous AI Sales Agent","version":"0.1.0","environment":"development"}
+# {"status":"ok","version":"0.1.0"}
 ```
 
 ## 8. Validation (run before every commit)
@@ -134,7 +153,7 @@ git push origin main
 | --- | --- |
 | `ModuleNotFoundError: app` | Run from `backend/`, and ensure `pip install -e ".[dev]"` completed. |
 | `no such table` errors | Run `python -m app.db.seed` (or `init_db()`) to create the schema. |
-| Want a clean DB | `rm backend/nerdy_sales.db` then re-seed. |
+| Want a clean DB | `rm backend/sales_agent.db` then re-seed. |
 | `zsh: no matches found: .[dev]` | Quote the extras: `pip install -e ".[dev]"`. |
 | Port already in use | Run uvicorn with a different `--port`. |
 
@@ -148,15 +167,12 @@ WebRTC, with Silero VAD for turn-taking. These deps are heavy and live in an opt
 
 ```bash
 cd backend
-.venv/bin/python -m pip install -e ".[voice]"
+.venv/bin/python -m pip install -r requirements/dev-voice.txt
+.venv/bin/python -m pip install --no-deps -e .
 ```
 
-> **If the install fails building `llvmlite`** (a native dep pulled via `numba`/`resampy`):
-> install prebuilt wheels first, then retry the extra:
-> ```bash
-> .venv/bin/python -m pip install --only-binary=:all: "llvmlite>=0.43" numba
-> .venv/bin/python -m pip install -e ".[voice]"
-> ```
+> `numba` is capped below 0.63 in `pyproject.toml`: newer numba needs llvmlite 0.46+, which ships
+> no Intel-macOS wheels, so the install would try (and fail) to build llvmlite from source.
 
 ### 11.2 Add provider keys
 

@@ -160,9 +160,11 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     print(f"Router improvement loop: baseline vs '{VARIANT_KEY}'")
-    print(f"  agent_model={agent_model}  prospect_model={prospect_model}  "
-          f"personas={len(base_personas)}x{args.reps}reps={len(personas)} calls  "
-          f"max_turns={args.max_turns}")
+    print(
+        f"  agent_model={agent_model}  prospect_model={prospect_model}  "
+        f"personas={len(base_personas)}x{args.reps}reps={len(personas)} calls  "
+        f"max_turns={args.max_turns}"
+    )
     print(f"  variant delta:\n    {VARIANT_DELTA}\n")
 
     if args.dry_run:
@@ -170,8 +172,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if not settings.openai_enabled:
-        print("ERROR: no OpenAI key configured — set OPENAI_API_KEY (the variant only affects the "
-              "live OpenAIBrain).")
+        print(
+            "ERROR: no OpenAI key configured — set OPENAI_API_KEY (the variant only affects the "
+            "live OpenAIBrain)."
+        )
         return 1
 
     baseline = OpenAIBrain(agent_settings)

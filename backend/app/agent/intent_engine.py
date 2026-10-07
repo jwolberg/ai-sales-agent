@@ -18,9 +18,11 @@ improvement loop tests the real path (R10).
 
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass
 
+from app import limits
 from app.agent import taxonomy as tx
 from app.agent.brain import Brain, get_brain
 from app.agent.contract import BrainDecision, RouterAction
@@ -29,8 +31,11 @@ from app.agent.pricing import quote_price
 from app.agent.recorder import PAYMENT_CREATED, PAYMENT_SENT
 from app.config import Settings, get_settings
 from app.kpis import events as kpi
-from app.payments.sms import SmsError, get_sms_sender
+from app.logs import mask_phone, scrub
+from app.payments.sms import SmsError, get_sms_sender, payment_sms_body
 from app.payments.stripe_service import PaymentError, get_stripe_service
+
+logger = logging.getLogger(__name__)
 
 # Don't act on a likely-misheard low-confidence transcript; ask the caller to repeat.
 STT_CONFIDENCE_THRESHOLD = 0.6
@@ -110,9 +115,14 @@ class IntentRouterEngine:
 
         # 3. The brain decides the turn (timed — the brain decision + its tool calls, IR7-T1).
         _t0 = time.perf_counter()
-        decision = self.brain.decide(
-            history=self.history, lead_fields=self.lead_fields, slots=self.slots
-        )
+        try:
+            decision = self.brain.decide(
+                history=self.history, lead_fields=self.lead_fields, slots=self.slots
+            )
+        except Exception:
+            call_id = self.recorder.call_id if self.recorder is not None else None
+            logger.exception("brain decide failed (call %s)", call_id)
+            raise
         latency_ms = round((time.perf_counter() - _t0) * 1000, 1)
         self.slots = decision.slots
 
@@ -213,6 +223,7 @@ class IntentRouterEngine:
             else:
                 link = service.create_payment_link(leaf, idempotency_key=idem)
         except PaymentError as exc:
+            logger.warning("payment creation failed for %s: %s; escalating", leaf, scrub(str(exc)))
             decision.action = RouterAction.ESCALATE
             decision.utterance = ESCALATION_MESSAGE
             decision.reason = f"payment unavailable ({exc}); safe handoff"
@@ -256,15 +267,23 @@ class IntentRouterEngine:
             )
             if sender is None:
                 return False
-            sender.send(phone, f"Here's your secure link to get started with Nerdy: {link.url}")
+            call_id = self.recorder.call_id if self.recorder is not None else None
+            if not limits.allow_sms(self.settings, call_id, phone):
+                # Over the SMS budget: the link still exists + shows on the board.
+                logger.warning("payment-link SMS to %s refused: over limit", mask_phone(phone))
+                return False
+            sender.send(phone, payment_sms_body(self.settings, link.url))
             return True
-        except SmsError:
+        except SmsError as exc:
+            logger.warning("payment-link SMS to %s failed: %s", mask_phone(phone), scrub(str(exc)))
             return False
 
     @staticmethod
     def _payment_confirmation(kind: str, texted: bool) -> str:
-        base = "I've created your invoice" if kind == "invoice" else (
-            "I've set up a secure payment link for you"
+        base = (
+            "I've created your invoice"
+            if kind == "invoice"
+            else ("I've set up a secure payment link for you")
         )
         if texted:
             return f"{base} and just texted you the link. Anything else I can help with?"

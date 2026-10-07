@@ -12,12 +12,17 @@ export const api = {
   routerMetrics: () => getJSON('/api/router-metrics'),
   catalog: () => getJSON('/api/catalog'),
   simPersonas: () => getJSON('/api/sim/personas'),
-  startSim: (persona) =>
-    fetch('/api/sim/start', {
+  // Throws with the server's detail on a non-2xx (e.g. 429 when too many calls are live).
+  startSim: async (persona) => {
+    const r = await fetch('/api/sim/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ persona }),
-    }).then((r) => r.json()),
+    })
+    const body = await r.json().catch(() => ({}))
+    if (!r.ok) throw new Error(body.detail || `start failed (${r.status})`)
+    return body
+  },
 
   // Test Call (IR8): the voice pipeline lives at /voice (not /api). voiceStatus reports
   // readiness/missing keys; voiceOffer does WebRTC signaling and returns the SDP answer.

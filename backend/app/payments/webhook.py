@@ -11,6 +11,7 @@ can't re-fire the event — we lean on the payment's status rather than tracking
 
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -27,6 +28,8 @@ Db = Annotated[Session, Depends(get_db)]
 # Stripe event types that mean "the caller paid".
 _PAID_EVENTS = {"checkout.session.completed", "invoice.paid"}
 
+logger = logging.getLogger(__name__)
+
 
 def _verify_event(payload: bytes, signature: str | None, secret: str) -> dict:
     """Verify the Stripe signature and return the event. Raises 400 on a bad/forged signature.
@@ -38,7 +41,9 @@ def _verify_event(payload: bytes, signature: str | None, secret: str) -> dict:
     try:
         return stripe.Webhook.construct_event(payload, signature, secret)
     except Exception as exc:  # SignatureVerificationError / ValueError
-        raise HTTPException(status_code=400, detail=f"invalid Stripe signature: {exc}") from exc
+        # The specific reason goes to the log only; the caller gets a generic 400.
+        logger.warning("rejected Stripe webhook: invalid signature (%s)", exc)
+        raise HTTPException(status_code=400, detail="invalid Stripe signature") from exc
 
 
 def _paid_provider_ref(event: dict) -> str | None:
@@ -68,6 +73,10 @@ async def stripe_webhook(
 
     ref = _paid_provider_ref(event)
     if ref is None:
+        logger.info("stripe webhook %s ignored", event.get("type"))
         return {"status": "ignored"}  # an event type we don't act on
     payment = mark_payment_paid(db, ref)
-    return {"status": "ok" if payment is not None else "unknown_ref"}
+    status = "ok" if payment is not None else "unknown_ref"
+    log = logger.info if payment is not None else logger.warning
+    log("stripe webhook %s for %s: %s", event.get("type"), ref, status)
+    return {"status": status}

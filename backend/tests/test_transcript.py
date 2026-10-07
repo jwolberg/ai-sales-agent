@@ -1,6 +1,6 @@
 """Tests for transcript & call-record capture (P2-T4)."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import create_engine, select
@@ -25,9 +25,7 @@ def session():
 
 def _turns_in_order(session, call_id) -> list[Turn]:
     return list(
-        session.scalars(
-            select(Turn).where(Turn.call_id == call_id).order_by(Turn.timestamp)
-        )
+        session.scalars(select(Turn).where(Turn.call_id == call_id).order_by(Turn.timestamp))
     )
 
 
@@ -40,8 +38,8 @@ def test_recorder_persists_call_and_ordered_transcript(session):
     call_id = rec.call_id
     assert call_id  # Call row created and flushed immediately
 
-    base = datetime(2026, 5, 27, 12, 0, 0, tzinfo=timezone.utc)
-    rec.record_agent("Hi Sarah, this is Jay from Nerdy.", timestamp=base)
+    base = datetime(2026, 5, 27, 12, 0, 0, tzinfo=UTC)
+    rec.record_agent("Hi Sarah, this is Jay from Acme Tutoring.", timestamp=base)
     rec.record_prospect("I need math help for my daughter.", timestamp=base + timedelta(seconds=4))
     rec.record_agent("Got it — what grade is she in?", timestamp=base + timedelta(seconds=7))
     rec.end(outcome=OUTCOME_COMPLETED, summary="Parent seeking middle-school math help.")
@@ -56,7 +54,7 @@ def test_recorder_persists_call_and_ordered_transcript(session):
 
     turns = _turns_in_order(session, call_id)
     assert [(t.speaker, t.text) for t in turns] == [
-        (SPEAKER_AGENT, "Hi Sarah, this is Jay from Nerdy."),
+        (SPEAKER_AGENT, "Hi Sarah, this is Jay from Acme Tutoring."),
         (SPEAKER_PROSPECT, "I need math help for my daughter."),
         (SPEAKER_AGENT, "Got it — what grade is she in?"),
     ]

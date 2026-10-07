@@ -25,8 +25,8 @@ class KBChunk:
     """One retrievable section of a KB doc."""
 
     chunk_id: str  # "<source>#<n>"
-    source: str    # doc filename — the citable KB source id (KB-3)
-    title: str     # doc title + section heading
+    source: str  # doc filename — the citable KB source id (KB-3)
+    title: str  # doc title + section heading
     text: str
 
 

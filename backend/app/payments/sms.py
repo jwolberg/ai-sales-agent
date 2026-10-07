@@ -10,13 +10,18 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from app.logs import mask_phone
+
 _MESSAGES_URL = "https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+
+logger = logging.getLogger(__name__)
 
 
 class SmsError(RuntimeError):
@@ -43,6 +48,10 @@ def _urllib_post(url: str, data: dict, auth: tuple[str, str]) -> dict:
         raise SmsError(f"Twilio API error {exc.code}: {detail}") from exc
     except urllib.error.URLError as exc:
         raise SmsError(f"Twilio request failed: {exc.reason}") from exc
+    except (TimeoutError, OSError) as exc:  # e.g. a read timeout after the connection opened
+        raise SmsError(f"Twilio request failed: {exc}") from exc
+    except ValueError as exc:  # non-JSON body
+        raise SmsError("Twilio returned a non-JSON response") from exc
 
 
 @dataclass
@@ -64,8 +73,15 @@ class TwilioSmsSender:
         result = self.post(url, data, (self.account_sid, self.auth_token))
         sid = result.get("sid")
         if not sid:
-            raise SmsError(f"Twilio response missing message sid: {result!r}")
+            # Not the body itself: it echoes the destination number.
+            raise SmsError(f"Twilio response missing message sid (status={result.get('status')!r})")
+        logger.info("sms sent to %s (sid %s)", mask_phone(to), sid)
         return sid
+
+
+def payment_sms_body(settings, url: str) -> str:
+    """The payment-link text, branded from ``company_name`` (one copy for every send path)."""
+    return f"Here's your secure link to get started with {settings.company_name}: {url}"
 
 
 def get_sms_sender(settings, *, post: PostFn = _urllib_post):

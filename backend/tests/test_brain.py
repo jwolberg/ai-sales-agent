@@ -35,9 +35,7 @@ def test_rule_brain_disambiguates_then_quotes_over_turns():
     assert d1.action is RouterAction.ASK
     assert d1.slots.get("category") == "tutoring"
     # carry slots forward as the engine will
-    d2 = brain.decide(
-        history=[("prospect", "It's a science subject")], slots=d1.slots
-    )
+    d2 = brain.decide(history=[("prospect", "It's a science subject")], slots=d1.slots)
     assert d2.action is RouterAction.ASK  # still need which science
     d3 = brain.decide(history=[("prospect", "biology")], slots=d2.slots)
     assert d3.action is RouterAction.QUOTE
@@ -64,9 +62,7 @@ def test_get_brain_factory():
 
 
 def _tool_call(call_id, name, args_json):
-    return SimpleNamespace(
-        id=call_id, function=SimpleNamespace(name=name, arguments=args_json)
-    )
+    return SimpleNamespace(id=call_id, function=SimpleNamespace(name=name, arguments=args_json))
 
 
 class _FakeCompletions:
@@ -111,9 +107,7 @@ def test_openai_brain_tool_loop_quotes():
 def test_openai_brain_premature_quote_is_gated():
     # Model tries to quote before knowing the subject; the tool returns NOT_READY and the
     # model then asks. The engine-side gate prevents a price with no leaf (R5b/R6).
-    msg1 = SimpleNamespace(
-        content="", tool_calls=[_tool_call("1", "quote_price", "{}")]
-    )
+    msg1 = SimpleNamespace(content="", tool_calls=[_tool_call("1", "quote_price", "{}")])
     msg2 = SimpleNamespace(content="Sure — which subject do you need help with?", tool_calls=None)
     brain = OpenAIBrain(
         Settings(_env_file=None, openai_api_key="sk-x"), client=_FakeClient([msg1, msg2])

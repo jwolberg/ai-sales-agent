@@ -11,6 +11,7 @@ function SimControls() {
   const [personas, setPersonas] = useState([])
   const [sel, setSel] = useState('')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
   useEffect(() => {
     api
       .simPersonas()
@@ -33,8 +34,11 @@ function SimControls() {
         disabled={busy || !sel}
         onClick={async () => {
           setBusy(true)
+          setError(null)
           try {
             await api.startSim(sel)
+          } catch (e) {
+            setError(e.message)
           } finally {
             setTimeout(() => setBusy(false), 800)
           }
@@ -42,6 +46,11 @@ function SimControls() {
       >
         ▶ Start simulated call
       </button>
+      {error && (
+        <span className="sim-error" role="alert">
+          {error}
+        </span>
+      )}
     </div>
   )
 }
@@ -70,7 +79,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <h1>Nerdy Router — Call Center</h1>
+        <h1>Tutoring Router — Call Center</h1>
         <span className={connected ? 'status live' : 'status'}>
           <span className="dot" /> live
         </span>

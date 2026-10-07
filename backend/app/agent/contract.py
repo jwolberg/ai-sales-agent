@@ -155,13 +155,13 @@ def tools_for(payments_enabled: bool) -> list[dict]:
 class RouterAction(str, Enum):
     """The action the brain took this turn (logged as Decision.selected_action)."""
 
-    GREET = "greet"          # opening line
-    ASK = "ask"              # ask the next disambiguating question (R8)
-    ANSWER = "answer"        # answer an informational question from the KB
-    QUOTE = "quote"          # state the authoritative price for the confirmed leaf
-    PAY = "pay"              # send a hosted payment link / invoice (PAY3-T1)
-    ESCALATE = "escalate"    # hand off to a human
-    END = "end"              # caller declined / wrap up
+    GREET = "greet"  # opening line
+    ASK = "ask"  # ask the next disambiguating question (R8)
+    ANSWER = "answer"  # answer an informational question from the KB
+    QUOTE = "quote"  # state the authoritative price for the confirmed leaf
+    PAY = "pay"  # send a hosted payment link / invoice (PAY3-T1)
+    ESCALATE = "escalate"  # hand off to a human
+    END = "end"  # caller declined / wrap up
 
 
 @dataclass(frozen=True)
@@ -169,8 +169,8 @@ class PaymentRequest:
     """The brain's request to send a payment link/invoice this turn (PAY3-T1). The engine executes
     it (creates the Stripe link, texts it, records the Payment) — the brain stays DB/IO-free."""
 
-    kind: str = "link"          # "link" (pay-now) | "invoice"
-    phone: str | None = None    # optional override; else the caller's number
+    kind: str = "link"  # "link" (pay-now) | "invoice"
+    phone: str | None = None  # optional override; else the caller's number
 
 
 @dataclass

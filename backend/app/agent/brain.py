@@ -259,8 +259,7 @@ class OpenAIBrain:
                 else ""
             )
             + "\n"
-            f"{known_line}"
-            + (f"\n\n{self.prompt_delta}" if self.prompt_delta else "")
+            f"{known_line}" + (f"\n\n{self.prompt_delta}" if self.prompt_delta else "")
         )
 
     def decide(

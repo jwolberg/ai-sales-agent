@@ -49,7 +49,7 @@ volume=…, loop=True)` attached via `TransportParams(audio_out_mixer=…)`, gat
 Canonical inputs for the offline turn-taking evaluator (`app.simulator.vad_replay`). Unlike the
 ambient bed, these are **inbound-speech** clips — synthesized with macOS `say` (offline, no API
 keys) with *deliberate* pauses and disfluencies, so the evaluator has stable, committed,
-realistically-long callers to sweep. Content is domain-relevant (Nerdy tutoring sales). 16 kHz
+realistically-long callers to sweep. Content is domain-relevant (tutoring sales). 16 kHz
 mono PCM s16 (what Silero/the harness want).
 
 Turn counts below are from the real Silero VAD at `stop_secs` 0.2 → 1.0 (`--sweep`). The pattern

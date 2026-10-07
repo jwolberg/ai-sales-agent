@@ -37,6 +37,7 @@ body {
 .sim-controls button { cursor: pointer; }
 .sim-controls button:hover { border-color: var(--accent); }
 .sim-controls button:disabled { opacity: 0.5; cursor: default; }
+.sim-error { color: var(--bad); align-self: center; font-size: 13px; }
 
 .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 16px; }
 .panel h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin: 0 0 12px; }

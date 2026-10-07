@@ -31,7 +31,7 @@ class PaymentError(RuntimeError):
 class PaymentLink:
     """The hosted-checkout handle we persist + text to the caller."""
 
-    id: str   # Stripe object id (PaymentLink or Invoice) — our provider_ref
+    id: str  # Stripe object id (PaymentLink or Invoice) — our provider_ref
     url: str  # hosted URL the caller opens to pay
 
 

@@ -5,7 +5,7 @@
 
 # --- Agent persona ---
 agent_name = "Jay"
-company_name = "Nerdy"
+company_name = "Acme Tutoring"  # fictional placeholder; replace with your brand
 
 # --- Debug ---
 # Logs inbound audio / VAD / transcription to the server console. Flip on while debugging.

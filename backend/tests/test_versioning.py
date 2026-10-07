@@ -25,13 +25,13 @@ def test_compute_versions_is_stable_and_well_formed():
     assert v1 == v2  # deterministic for the same content/config
     assert v1.agent_version.startswith("persona-")
     assert v1.playbook_version.startswith("pb-")  # hashed the discovery/objection playbooks
-    assert v1.kb_version.startswith("kb-")         # hashed the KB docs
+    assert v1.kb_version.startswith("kb-")  # hashed the KB docs
     assert v1.model_version == "claude-sonnet-4-6"
 
 
 def test_agent_version_tracks_persona_changes():
     a = compute_versions(Settings(_env_file=None, agent_name="Ava", company_name="VT"))
-    b = compute_versions(Settings(_env_file=None, agent_name="Jay", company_name="Nerdy"))
+    b = compute_versions(Settings(_env_file=None, agent_name="Jay", company_name="Acme Tutoring"))
     assert a.agent_version != b.agent_version  # persona text changed -> version changed
 
 

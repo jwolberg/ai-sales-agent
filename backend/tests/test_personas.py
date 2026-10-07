@@ -31,7 +31,7 @@ def test_personas_carry_ground_truth_and_outcome_flags():
 def test_objection_personas_carry_objections():
     lib = get_personas()
     assert lib.get("price_sensitive_parent").objections  # raises price/discount/comparison
-    assert lib.get("skeptical_parent").objections        # tried-before / proof
+    assert lib.get("skeptical_parent").objections  # tried-before / proof
     assert lib.get("motivated_parent").objections == ()  # smooth path
 
 
@@ -39,10 +39,10 @@ def test_persona_prompt_includes_facts_behavior_and_objections():
     persona = get_personas().get("price_sensitive_parent")
     prompt = persona_system_prompt(persona)
     assert persona.name in prompt
-    assert "Geometry" in prompt                       # a ground-truth fact
-    assert "too expensive" in prompt.lower()          # an objection
-    assert "partial answers" in prompt.lower()        # §12.3 behavior rule
-    assert "not an ai" not in prompt.lower()          # phrased as "never... AI", sanity not strict
+    assert "Geometry" in prompt  # a ground-truth fact
+    assert "too expensive" in prompt.lower()  # an objection
+    assert "partial answers" in prompt.lower()  # §12.3 behavior rule
+    assert "not an ai" not in prompt.lower()  # phrased as "never... AI", sanity not strict
 
 
 def test_disqualified_persona_prompt_resists_close():

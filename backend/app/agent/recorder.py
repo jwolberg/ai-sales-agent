@@ -12,7 +12,7 @@ observability is the whole point of capturing them.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
@@ -37,13 +37,13 @@ OUTCOME_ABANDONED = "abandoned"
 
 # Payment.status lifecycle (PAY2-T1). The webhook is the source of truth for PAID.
 PAYMENT_CREATED = "created"  # link/invoice made, not yet texted
-PAYMENT_SENT = "sent"        # hosted URL texted to the caller
-PAYMENT_PAID = "paid"        # confirmed by the Stripe webhook
+PAYMENT_SENT = "sent"  # hosted URL texted to the caller
+PAYMENT_PAID = "paid"  # confirmed by the Stripe webhook
 PAYMENT_FAILED = "failed"
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class CallRecorder:

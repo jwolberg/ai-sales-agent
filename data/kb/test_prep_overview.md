@@ -1,7 +1,7 @@
 # Test Prep Overview
 
-<!-- PLACEHOLDER explainer content (2026-05-28) for the intent-router KB. Not approved Nerdy /
-     Varsity Tutors copy. Pricing intentionally lives in data/pricing/pricing.yaml, NOT here (R6) —
+<!-- PLACEHOLDER explainer content (2026-05-28) for the intent-router KB. Not approved business
+     copy. Pricing intentionally lives in data/pricing/pricing.yaml, NOT here (R6) —
      the agent quotes prices by exact leaf lookup, never from retrieved text. -->
 
 ## SAT vs ACT

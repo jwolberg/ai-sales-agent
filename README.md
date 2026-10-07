@@ -7,22 +7,29 @@ test/subject, **quotes that program's price**, and answers informational questio
 knowledge base. Every call captures a transcript, a per-turn decision trace, and KPIs, and a
 synthetic-persona benchmark grades the agent on **classification accuracy**.
 
+The brand used throughout ("Acme Tutoring") is a fictional placeholder — set `company_name` in
+`backend/config.toml`.
 
-- **Control panel page:![Control panel: ](docs/img/overview.png) **
-- **Live AI Sales Agent:PUT_YOUR_TWILIO_NUM_HERE**
-- **Recursive improvement:** [`docs/recursive-improvement-summary.md`](docs/recursive-improvement-summary.md)
-#
-## Key Features ##
-- Confidence scoring to handles ambiguous responses
-- Conversational context
-- Slot filling decision tree
-- Knowledgebase retrieval via RAG
-- Product pricing lookup
-- Hooks for payment via text integration (Stripe)
-![Transcript 1 of 2: ](docs/img/call1.png)
-![Transcript 2 of 2: ](docs/img/call2.png)
+![Call-center dashboard: live calls, KPIs, and a call's transcript](docs/img/overview.png)
 
-#
+Deeper dive: [`docs/recursive-improvement-summary.md`](docs/recursive-improvement-summary.md) —
+the variant → controlled experiment → promote/retire loop, run twice (both honest negative results).
+
+## Key features
+
+- Confidence scoring to handle ambiguous answers
+- Conversational context across turns
+- Slot-filling decision tree over the product taxonomy
+- Knowledge-base retrieval (RAG) with an honest fallback
+- Deterministic product pricing lookup
+- Payment links by text message (Stripe hosted checkout + Twilio SMS)
+
+| Ambiguous caller → algebra tutoring | Ambiguous caller → ACT prep |
+| --- | --- |
+| ![Transcript: a vague request narrowed to algebra and quoted](docs/img/call1.png) | ![Transcript: "college entrance exams" narrowed to the ACT and quoted](docs/img/call2.png) |
+
+Screenshots are simulated calls on the offline rule brain (no API keys).
+
 ## What it does
 - **Live voice** (browser/WebRTC): Deepgram STT → LLM brain → Cartesia TTS, with VAD turn-taking.
 - **LLM-driven core:** an OpenAI tool-calling brain owns each turn — it slot-fills the taxonomy
@@ -39,7 +46,6 @@ synthetic-persona benchmark grades the agent on **classification accuracy**.
   confidence, slot state, reached leaf), KPI events, and the quoted price; a dashboard reads the API.
 - **Improvement loop:** run brain variants against ground-truth personas; promote one only if it
   raises Classification Accuracy without regressing the guardrail rates (human-approved).
-#
 
 ## Architecture at a glance
 
@@ -76,14 +82,19 @@ Full instructions are in **`docs/RUNBOOK.md`**. Short version, from the repo roo
 
 ```bash
 cd backend
-python3 -m venv .venv
-.venv/bin/python -m pip install -e ".[dev]"   # core
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements/dev.txt   # pinned core + dev tools
+.venv/bin/python -m pip install --no-deps -e .
 .venv/bin/python -m app.db.seed               # create schema + seed sample leads
 .venv/bin/python -m app.kb.index              # build the KB vector index (needs OPENAI_API_KEY)
 .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
 Verify: `curl -s http://localhost:8000/health` and open http://localhost:8000/dashboard.
+
+Locally (`ENVIRONMENT=development`, the default) the dashboard is open. Anywhere else, set
+`DASHBOARD_PASSWORD` (HTTP Basic, user `operator`) or operator routes return 503 — see
+`docs/RUNBOOK.md` §4.
 
 The brain uses OpenAI when `OPENAI_API_KEY` is set (in `backend/.env`); without it, the offline
 rule-based brain runs so the app and tests work with no key. The KB index
@@ -93,7 +104,7 @@ rule-based brain runs so the app and tests work with no key. The KB index
 ### Voice demo (needs API keys)
 
 ```bash
-.venv/bin/python -m pip install -e ".[voice]"
+.venv/bin/python -m pip install -r requirements/dev-voice.txt   # pinned, incl. the voice extra
 # add OPENAI_API_KEY, DEEPGRAM_API_KEY, CARTESIA_API_KEY to backend/.env
 .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
@@ -112,6 +123,7 @@ Offline (rule brain) it's a wiring/metric check; point it at OpenAI for a meanin
 ```bash
 cd backend
 .venv/bin/ruff check .          # lint
+.venv/bin/ruff format --check . # formatting
 .venv/bin/python -m pytest -q   # tests
 ```
 

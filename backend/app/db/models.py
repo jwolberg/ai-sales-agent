@@ -4,7 +4,7 @@ Entities: Lead, Call, Turn, Decision, KPIEvent, Payment, Experiment, Variant.
 IDs are UUID hex strings so they are stable across logs, dashboards, and exports.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Optional
 from uuid import uuid4
 
@@ -27,7 +27,7 @@ def _uuid() -> str:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Base(DeclarativeBase):
@@ -62,9 +62,7 @@ class Lead(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, onupdate=_utcnow)
 
-    calls: Mapped[list["Call"]] = relationship(
-        back_populates="lead", cascade="all, delete-orphan"
-    )
+    calls: Mapped[list["Call"]] = relationship(back_populates="lead", cascade="all, delete-orphan")
 
 
 class Call(Base):
@@ -73,9 +71,7 @@ class Call(Base):
     __tablename__ = "calls"
 
     call_id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
-    lead_id: Mapped[str | None] = mapped_column(
-        ForeignKey("leads.lead_id"), nullable=True
-    )
+    lead_id: Mapped[str | None] = mapped_column(ForeignKey("leads.lead_id"), nullable=True)
     channel: Mapped[str | None] = mapped_column(String, nullable=True)
     started_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -86,9 +82,7 @@ class Call(Base):
     experiment_id: Mapped[str | None] = mapped_column(
         ForeignKey("experiments.experiment_id"), nullable=True
     )
-    variant_id: Mapped[str | None] = mapped_column(
-        ForeignKey("variants.variant_id"), nullable=True
-    )
+    variant_id: Mapped[str | None] = mapped_column(ForeignKey("variants.variant_id"), nullable=True)
     outcome: Mapped[str | None] = mapped_column(String, nullable=True)
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     recording_url: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -103,9 +97,7 @@ class Call(Base):
     is_synthetic: Mapped[bool] = mapped_column(Boolean, default=False)
 
     lead: Mapped[Optional["Lead"]] = relationship(back_populates="calls")
-    turns: Mapped[list["Turn"]] = relationship(
-        back_populates="call", cascade="all, delete-orphan"
-    )
+    turns: Mapped[list["Turn"]] = relationship(back_populates="call", cascade="all, delete-orphan")
     decisions: Mapped[list["Decision"]] = relationship(
         back_populates="call", cascade="all, delete-orphan"
     )
@@ -147,9 +139,7 @@ class Decision(Base):
 
     decision_id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     call_id: Mapped[str] = mapped_column(ForeignKey("calls.call_id"))
-    turn_id: Mapped[str | None] = mapped_column(
-        ForeignKey("turns.turn_id"), nullable=True
-    )
+    turn_id: Mapped[str | None] = mapped_column(ForeignKey("turns.turn_id"), nullable=True)
     stage: Mapped[str | None] = mapped_column(String, nullable=True)
     selected_action: Mapped[str] = mapped_column(String)
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from datetime import datetime
 from typing import Annotated
 
@@ -17,6 +18,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import limits, tasks
 from app.agent import taxonomy as tx
 from app.agent.pricing import quote_price
 from app.agent.recorder import PAYMENT_SENT
@@ -25,7 +27,8 @@ from app.db.models import Call
 from app.db.session import get_db
 from app.events import Subscription, bus
 from app.kpis.metrics import compute_metrics, compute_router_metrics
-from app.payments.sms import SmsError, get_sms_sender
+from app.logs import mask_phone, scrub
+from app.payments.sms import SmsError, get_sms_sender, payment_sms_body
 from app.simulator.live_feed import run_sim_call_paced
 from app.simulator.personas import get_personas
 
@@ -41,6 +44,8 @@ _SSE_KEEPALIVE = 15.0
 router = APIRouter(prefix="/api", tags=["observability"])
 
 Db = Annotated[Session, Depends(get_db)]
+
+logger = logging.getLogger(__name__)
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -160,7 +165,7 @@ async def _sse(sub: Subscription, request: Request):
             try:
                 event = await asyncio.wait_for(sub.queue.get(), timeout=_SSE_KEEPALIVE)
                 yield f"data: {json.dumps(event)}\n\n"
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 yield ": keepalive\n\n"
     finally:
         bus.unsubscribe(sub)
@@ -250,7 +255,12 @@ async def sim_start(payload: SimStartRequest | None = None) -> dict:
     personas = get_personas().router_personas()
     key = payload.persona if payload else None
     persona = next((p for p in personas if p.key == key), personas[0])
-    asyncio.create_task(run_sim_call_paced(persona))
+    if not limits.session_slots.try_acquire(limit=get_settings().max_concurrent_sessions):
+        logger.warning("sim call refused: concurrent session limit reached")
+        raise HTTPException(status_code=429, detail="Too many live calls; try again shortly")
+    slots = limits.session_slots  # release into the same instance even if limits are reset
+    task = tasks.spawn(run_sim_call_paced(persona), name=f"sim-call:{persona.key}")
+    task.add_done_callback(lambda _t: slots.release())
     return {"started": True, "persona": persona.key, "target_leaf": persona.target_leaf}
 
 
@@ -307,9 +317,7 @@ def call_detail(call_id: str, db: Db) -> dict:
             for e in sorted(call.kpi_events, key=lambda e: e.created_at)
         ],
         # Payments for this call (PAY5-T1), oldest first.
-        "payments": [
-            _payment_dict(p) for p in sorted(call.payments, key=lambda p: p.created_at)
-        ],
+        "payments": [_payment_dict(p) for p in sorted(call.payments, key=lambda p: p.created_at)],
         # Turn-taking evaluator: the VAD dials this call ran under + a prefilled harness command.
         "vad_eval": _vad_eval(call),
     }
@@ -334,14 +342,21 @@ def send_payment_sms(call_id: str, body: SendPaymentSms, db: Db) -> dict:
     if not phone:
         raise HTTPException(status_code=400, detail="a phone number is required")
     payment = max(call.payments, key=lambda p: p.created_at)
+    settings = get_settings()
     try:
-        sender = get_sms_sender(get_settings())
+        sender = get_sms_sender(settings)
     except SmsError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    body_text = f"Here's your secure link to get started with Nerdy: {payment.url}"
+    if not limits.allow_sms(settings, call_id, phone):
+        logger.warning(
+            "dashboard SMS for call %s to %s refused: over limit", call_id, mask_phone(phone)
+        )
+        raise HTTPException(status_code=429, detail="SMS limit reached for this call or number")
+    body_text = payment_sms_body(settings, payment.url)
     try:
         sid = sender.send(phone, body_text)
     except SmsError as exc:
+        logger.warning("dashboard SMS for call %s failed: %s", call_id, scrub(str(exc)))
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     payment.status = PAYMENT_SENT
     db.commit()
