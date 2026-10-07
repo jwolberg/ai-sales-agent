@@ -10,13 +10,18 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from app.logs import mask_phone
+
 _MESSAGES_URL = "https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+
+logger = logging.getLogger(__name__)
 
 
 class SmsError(RuntimeError):
@@ -65,6 +70,7 @@ class TwilioSmsSender:
         sid = result.get("sid")
         if not sid:
             raise SmsError(f"Twilio response missing message sid: {result!r}")
+        logger.info("sms sent to %s (sid %s)", mask_phone(to), sid)
         return sid
 
 

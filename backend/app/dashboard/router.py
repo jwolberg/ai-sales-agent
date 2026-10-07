@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from datetime import datetime
 from typing import Annotated
 
@@ -26,6 +27,7 @@ from app.db.models import Call
 from app.db.session import get_db
 from app.events import Subscription, bus
 from app.kpis.metrics import compute_metrics, compute_router_metrics
+from app.logs import mask_phone, scrub
 from app.payments.sms import SmsError, get_sms_sender
 from app.simulator.live_feed import run_sim_call_paced
 from app.simulator.personas import get_personas
@@ -42,6 +44,8 @@ _SSE_KEEPALIVE = 15.0
 router = APIRouter(prefix="/api", tags=["observability"])
 
 Db = Annotated[Session, Depends(get_db)]
+
+logger = logging.getLogger(__name__)
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -252,6 +256,7 @@ async def sim_start(payload: SimStartRequest | None = None) -> dict:
     key = payload.persona if payload else None
     persona = next((p for p in personas if p.key == key), personas[0])
     if not limits.session_slots.try_acquire(limit=get_settings().max_concurrent_sessions):
+        logger.warning("sim call refused: concurrent session limit reached")
         raise HTTPException(status_code=429, detail="Too many live calls; try again shortly")
     slots = limits.session_slots  # release into the same instance even if limits are reset
     task = asyncio.create_task(run_sim_call_paced(persona))
@@ -343,11 +348,15 @@ def send_payment_sms(call_id: str, body: SendPaymentSms, db: Db) -> dict:
     except SmsError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not limits.allow_sms(settings, call_id, phone):
+        logger.warning(
+            "dashboard SMS for call %s to %s refused: over limit", call_id, mask_phone(phone)
+        )
         raise HTTPException(status_code=429, detail="SMS limit reached for this call or number")
     body_text = f"Here's your secure link to get started with Nerdy: {payment.url}"
     try:
         sid = sender.send(phone, body_text)
     except SmsError as exc:
+        logger.warning("dashboard SMS for call %s failed: %s", call_id, scrub(str(exc)))
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     payment.status = PAYMENT_SENT
     db.commit()

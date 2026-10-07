@@ -8,10 +8,13 @@ phrasing layer answers from; it never invents facts itself.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass, field
 
 from app.kb.retriever import KBRetriever, get_retriever
+
+logger = logging.getLogger(__name__)
 
 # Minimum retrieval score to treat the KB as actually covering the question. Tuned to the
 # current placeholder corpus (relevant queries score ~0.5+, off-topic ~0.37/none); revisit
@@ -121,8 +124,9 @@ def get_default_retriever():
             if len(vr) > 0:
                 return vr
     except Exception:
-        # Any setup problem (no table, DB error, etc.) -> safe lexical fallback.
-        pass
+        # Any setup problem (no table, DB error, etc.) -> safe lexical fallback — but say so:
+        # retrieval quality drops, and silently degrading hides a broken index in production.
+        logger.warning("vector retriever unavailable; falling back to TF-IDF", exc_info=True)
     return get_retriever()
 
 

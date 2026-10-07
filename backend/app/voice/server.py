@@ -5,6 +5,7 @@ the optional ``voice`` extra. Missing keys or deps produce a clear 503.
 """
 
 import asyncio
+import logging
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, HTTPException, Request, WebSocket
@@ -19,6 +20,8 @@ router = APIRouter(prefix="/voice", tags=["voice"])
 
 # Keep references to running bot tasks so they aren't garbage-collected mid-call.
 _active_tasks: set[asyncio.Task] = set()
+
+logger = logging.getLogger(__name__)
 
 
 class Offer(BaseModel):
@@ -61,6 +64,7 @@ async def voice_offer(offer: Offer) -> dict:
         ) from exc
 
     if not limits.session_slots.try_acquire(limit=settings.max_concurrent_sessions):
+        logger.warning("voice offer refused: concurrent session limit reached")
         raise HTTPException(status_code=429, detail="Too many live calls; try again shortly")
     slots = limits.session_slots
     try:
@@ -96,6 +100,7 @@ async def twilio_voice(request: Request) -> Response:
         url = public_request_url(request, settings)
         signature = request.headers.get("x-twilio-signature")
         if not is_valid_request(settings.twilio_auth_token, url, form, signature):
+            logger.warning("rejected Twilio webhook: bad or missing signature for %s", url)
             return Response(status_code=403)
     elif settings.environment != "development":
         return Response("Twilio webhook not configured: set TWILIO_AUTH_TOKEN", status_code=503)
@@ -143,6 +148,7 @@ async def twilio_ws(websocket: WebSocket) -> None:
         await websocket.close(code=1011)
         return
     if not limits.session_slots.try_acquire(limit=settings.max_concurrent_sessions):
+        logger.warning("twilio stream refused: concurrent session limit reached")
         await websocket.close(code=1013)  # "try again later"
         return
     slots = limits.session_slots

@@ -1909,3 +1909,18 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
 - Dashboard: "Start simulated call" used to swallow non-2xx responses; it now shows the server's
   detail (e.g. the 429). Voice offer + SMS already surfaced errors. Rebuilt `dist/`.
 - Added `tests/conftest.py` (autouse reset of the global limiter state between tests).
+
+### 2026-10-06 — Ticket 0007: logging
+- `app/logs.py`: `configure_logging(LOG_LEVEL)` (called in `create_app`) routes `app.*` loggers to
+  stderr via `basicConfig` — sets the level on the `app` logger only, so uvicorn and third-party
+  loggers are untouched. Verified live: a rejected Twilio webhook prints
+  `WARNING app.voice.server: ...` under uvicorn.
+- Now logged: TF-IDF fallback (warning + traceback — was a silent `except: pass`), SMS sent/failed/
+  refused, payment-creation failure, brain failure (`logger.exception`, then re-raised — behavior
+  unchanged), Stripe webhook outcomes + bad signatures, Twilio signature rejects, session-limit
+  refusals.
+- **PII:** phone numbers logged as `***1234`; `scrub()` also masks numbers inside provider error
+  text, because Twilio's error bodies echo the destination number. Tests assert no full number or
+  auth token reaches the log.
+- The Twilio voice path still logs via Pipecat's `loguru` (pre-existing); left as is — it's Pipecat's
+  logger and already flows to stderr.

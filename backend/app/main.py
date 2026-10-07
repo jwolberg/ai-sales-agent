@@ -9,6 +9,7 @@ from app import __version__
 from app.auth import BasicAuthMiddleware
 from app.config import get_settings
 from app.dashboard.router import router as dashboard_router
+from app.logs import configure_logging
 from app.payments.webhook import router as payments_router
 from app.voice.server import router as voice_router
 
@@ -22,6 +23,7 @@ DASHBOARD_DIR = _DASHBOARD_APP_DIST if _DASHBOARD_APP_DIST.is_dir() else FRONTEN
 def create_app() -> FastAPI:
     """Build and configure the FastAPI application."""
     settings = get_settings()
+    configure_logging(settings.log_level)
     app = FastAPI(title=settings.app_name, version=__version__)
 
     @app.get("/health")
