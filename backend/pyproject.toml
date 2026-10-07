@@ -20,12 +20,12 @@ dev = [
     "ruff>=0.4",
     "pip-tools>=7.4",  # compiles the requirements/*.txt lockfiles (see requirements/README.md)
 ]
-# Realtime voice stack (Pipecat: Deepgram STT + Claude + Cartesia TTS). Heavy and
-# native-build-prone; installed separately from the core dev setup. See docs/RUNBOOK.md.
-# Upper bound pins to the 0.0.x line: the current context/aggregator API we use is
-# deprecated and slated for removal in a future (0.1+) release. See implementation-notes.
+# Realtime voice stack (Pipecat: Deepgram STT + Cartesia TTS + Silero VAD over WebRTC/Twilio; the
+# intent-router engine owns reasoning, so no LLM extra). Heavy and native-build-prone; installed
+# separately from the core dev setup. See docs/RUNBOOK.md. Upper bound stays on the 0.0.x line:
+# Pipecat's 0.1 is expected to break APIs, so moving to it is a deliberate upgrade.
 voice = [
-    "pipecat-ai[anthropic,deepgram,cartesia,webrtc,silero]>=0.0.108,<0.1",
+    "pipecat-ai[deepgram,cartesia,webrtc,silero]>=0.0.108,<0.1",
     "soundfile>=0.12",  # ambient comfort-noise bed via Pipecat SoundfileMixer (P4.5-T6)
     # Transitive cap: numba 0.63+ needs llvmlite 0.46+, which ships no Intel-macOS wheels (source
     # build fails). Keeps one lockfile installable on dev Macs and Linux alike.

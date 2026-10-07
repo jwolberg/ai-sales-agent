@@ -1,4 +1,5 @@
-"""Pipecat realtime voice pipeline: Deepgram STT -> Claude -> Cartesia TTS.
+"""Shared Pipecat builders for the realtime voice path: Deepgram STT, Cartesia TTS, Silero VAD, and
+the WebRTC transport. The turn logic itself is the intent-router engine (app.voice.bot).
 
 This module imports Pipecat (the optional ``voice`` extra). Import it lazily from
 request handlers / startup so the core app stays importable without the extra.
@@ -22,10 +23,7 @@ from pipecat.frames.frames import (
     UserStartedSpeakingFrame,
     UserStoppedSpeakingFrame,
 )
-from pipecat.pipeline.pipeline import Pipeline
-from pipecat.pipeline.task import PipelineParams, PipelineTask
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
-from pipecat.services.anthropic.llm import AnthropicLLMContext, AnthropicLLMService
 from pipecat.services.cartesia.tts import CartesiaTTSService
 from pipecat.services.deepgram.stt import DeepgramSTTService
 from pipecat.transports.base_transport import TransportParams
@@ -37,14 +35,13 @@ from pipecat.transports.smallwebrtc.transport import SmallWebRTCTransport
 from app.agent.persona import build_greeting_cue, build_system_prompt
 from app.config import Settings, get_settings
 
-# NOTE: the live bot now lives in app.voice.bot (decider-led runtime, P4.5-T5). This module
-# keeps the shared service/transport builders and the legacy raw-Claude `build_pipeline_task`
-# (still construction-tested). `run_bot` moved to app.voice.bot.
+# NOTE: the live bot lives in app.voice.bot (decider-led runtime, P4.5-T5). The legacy raw-Claude
+# `build_pipeline_task` was removed in ticket 0010: nothing ran it, and it was the only user of
+# Pipecat's deprecated OpenAILLMContext/aggregator APIs.
 __all__ = [
     "build_system_prompt",
     "build_greeting_cue",
     "build_services",
-    "build_pipeline_task",
     "build_transport",
     "build_vad_analyzer",
 ]
@@ -142,72 +139,22 @@ class DebugTurnLogger(FrameProcessor):
         await self.push_frame(frame, direction)
 
 
-def build_services(
-    settings: Settings,
-) -> tuple[DeepgramSTTService, AnthropicLLMService, CartesiaTTSService]:
-    """Construct the STT, LLM, and TTS services from configured keys."""
+def build_services(settings: Settings) -> tuple[DeepgramSTTService, CartesiaTTSService]:
+    """Construct the STT and TTS services from configured keys. (No LLM service: the
+    intent-router engine owns reasoning.)"""
     # Use the patched STT: pins sample_rate and fixes Deepgram language serialization
     # (both otherwise cause a masked HTTP 400 on the streaming WebSocket).
     stt = _DeepgramSTTService(
         api_key=settings.deepgram_api_key or "",
         sample_rate=AUDIO_IN_SAMPLE_RATE,
     )
-    llm = AnthropicLLMService(
-        api_key=settings.anthropic_api_key or "", model=settings.anthropic_model
-    )
     tts = CartesiaTTSService(
-        api_key=settings.cartesia_api_key or "", voice_id=settings.cartesia_voice_id
+        api_key=settings.cartesia_api_key or "",
+        settings=CartesiaTTSService.Settings(voice=settings.cartesia_voice_id),
     )
     if settings.voice_debug:
         logger.info(f"🔧 STT configured with sample_rate={AUDIO_IN_SAMPLE_RATE} (fix active)")
-    return stt, llm, tts
-
-
-def build_pipeline_task(
-    transport: SmallWebRTCTransport,
-    stt: DeepgramSTTService,
-    llm: AnthropicLLMService,
-    tts: CartesiaTTSService,
-    system_prompt: str | None = None,
-    greeting_cue: str | None = None,
-) -> PipelineTask:
-    """Assemble the streaming pipeline and return a runnable task.
-
-    Frame order: mic in -> STT -> aggregate user turn -> Claude -> Cartesia TTS ->
-    speaker out -> aggregate assistant turn (so context carries across turns).
-    Prompt and greeting default to the configured persona when not provided.
-    """
-    settings = get_settings()
-    system_prompt = system_prompt or build_system_prompt(settings)
-    greeting_cue = greeting_cue or build_greeting_cue(settings)
-    context = AnthropicLLMContext(
-        messages=[{"role": "user", "content": greeting_cue}],
-        system=system_prompt,
-    )
-    context_aggregator = llm.create_context_aggregator(context)
-
-    processors = [transport.input()]
-    if settings.voice_debug:
-        processors.append(DebugTurnLogger("input"))  # audio arrival + VAD
-    processors.append(stt)
-    if settings.voice_debug:
-        processors.append(DebugTurnLogger("stt"))  # transcriptions
-    processors += [
-        context_aggregator.user(),
-        llm,
-        tts,
-        transport.output(),
-        context_aggregator.assistant(),
-    ]
-    pipeline = Pipeline(processors)
-    # allow_interruptions=True is the barge-in foundation (P2-T2 tunes it).
-    return PipelineTask(
-        pipeline,
-        params=PipelineParams(
-            allow_interruptions=True,
-            audio_in_sample_rate=AUDIO_IN_SAMPLE_RATE,
-        ),
-    )
+    return stt, tts
 
 
 def build_vad_analyzer(settings: Settings) -> SileroVADAnalyzer:

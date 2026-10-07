@@ -27,11 +27,6 @@ from pipecat.frames.frames import (
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
-from pipecat.processors.filters.stt_mute_filter import (
-    STTMuteConfig,
-    STTMuteFilter,
-    STTMuteStrategy,
-)
 from pipecat.processors.frame_processor import FrameDirection, FrameProcessor
 from pipecat.services.cartesia.tts import CartesiaTTSService
 from pipecat.services.deepgram.stt import DeepgramSTTService
@@ -53,6 +48,7 @@ from app.config import Settings
 from app.db.session import SessionLocal, init_db
 from app.memory.lead_store import LeadStore, all_known_fields
 from app.voice.fillers import FillerBank
+from app.voice.mute import BotSpeakingMute
 from app.voice.pipeline import (
     AUDIO_IN_SAMPLE_RATE,
     DebugTurnLogger,
@@ -193,14 +189,14 @@ def build_engine_pipeline_task(
     """Assemble the decider-led pipeline: mic -> mute-while-speaking -> STT -> engine -> TTS ->
     speaker.
 
-    The STTMuteFilter mutes the mic input whenever the *agent* is speaking (STTMuteStrategy.ALWAYS,
-    driven by Bot{Started,Stopped}SpeakingFrame). This stops the agent from transcribing its own
-    TTS output (and echo) and treating it as a new user turn — the root cause of the "agent talks
-    to itself / keeps launching new prompts" failure. It must sit before STT so the agent's audio
-    never reaches Deepgram.
+    BotSpeakingMute mutes the mic input whenever the *agent* is speaking (driven by
+    Bot{Started,Stopped}SpeakingFrame; replaces the deprecated STTMuteFilter, see app.voice.mute).
+    This stops the agent from transcribing its own TTS output (and echo) and treating it as a new
+    user turn — the root cause of the "agent talks to itself / keeps launching new prompts" failure.
+    It must sit before STT so the agent's audio never reaches Deepgram.
     """
     processors: list = [transport.input()]
-    processors.append(STTMuteFilter(config=STTMuteConfig(strategies={STTMuteStrategy.ALWAYS})))
+    processors.append(BotSpeakingMute())
     if voice_debug:
         processors.append(DebugTurnLogger("input"))
     processors.append(stt)
@@ -246,7 +242,7 @@ async def run_bot(connection: SmallWebRTCConnection, settings: Settings) -> None
     if settings.voice_debug:
         configure_debug_logging()
     init_db()  # idempotent; ensures Call/Turn/Decision tables exist
-    stt, _llm, tts = build_services(settings)  # _llm unused: the engine owns reasoning now
+    stt, tts = build_services(settings)
     db = SessionLocal()
     # Continue from a known lead's prior-call memory when one is configured (P10-T1). Anonymous
     # web sessions (no demo_lead_id, or an unknown id) start cold, as before.

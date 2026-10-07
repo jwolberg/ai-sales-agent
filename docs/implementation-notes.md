@@ -1964,3 +1964,25 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
   password → `/api` 503; with `DASHBOARD_PASSWORD` → 401/200; dashboard + demo audio served,
   `package.json` 404; voice modules import; zero errors in boot logs. Image is 1.59 GB (mostly Pipecat
   and its native deps) — not optimized further.
+
+### 2026-10-06 — Ticket 0010: off deprecated Pipecat APIs
+- **Removed the legacy raw-Claude `build_pipeline_task` + the `AnthropicLLMService`** from
+  `build_services` (now returns `(stt, tts)`). Both live paths already discarded the LLM
+  (`_llm unused`); this dead code was the only user of `OpenAILLMContext`/the Anthropic context
+  aggregators and the deprecated `model=` param. Dropped Pipecat's `anthropic` extra and re-locked
+  (only `anthropic` + its now-unneeded deps left the lock).
+- **`STTMuteFilter` → `app/voice/mute.py` `BotSpeakingMute`.** Pipecat's suggested replacement
+  (`LLMUserAggregator(user_mute_strategies=...)`) lives inside its LLM context aggregator, which this
+  pipeline doesn't use (the engine owns turns). Rather than restructure the live loop around an
+  aggregator, re-implemented the same ALWAYS behavior (same suppressed frame set, keyed on
+  `Bot{Started,Stopped}SpeakingFrame`) on stable `FrameProcessor` APIs. Tested through Pipecat's
+  `run_test` harness; mutation-checked (disabling the drop fails the test).
+- Cartesia: `settings=CartesiaTTSService.Settings(voice=...)` replaces `voice_id=`.
+- Warnings: 11 → 2. Remaining are not ours: Pipecat's own `import audioop` (a 3.13 blocker inside
+  Pipecat) and Starlette's TestClient httpx notice. Voice tests pass with
+  `-W error::DeprecationWarning` (excluding only that `audioop` warning), locally and inside the
+  rebuilt Docker image.
+- **Not verified:** a live browser Test Call / real Twilio call (needs a mic + provider keys).
+  Construction tests + the frame-level mute test are the evidence; the first live call is the check.
+- Follow-up filed: `ANTHROPIC_API_KEY` is still required by `missing_voice_keys()` (and
+  `anthropic_model` still feeds `/voice/status` + `model_version`) though nothing uses Claude now.

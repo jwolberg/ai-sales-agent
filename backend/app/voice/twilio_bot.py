@@ -26,11 +26,6 @@ from loguru import logger
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
-from pipecat.processors.filters.stt_mute_filter import (
-    STTMuteConfig,
-    STTMuteFilter,
-    STTMuteStrategy,
-)
 from pipecat.serializers.twilio import TwilioFrameSerializer
 from pipecat.transports.websocket.fastapi import (
     FastAPIWebsocketParams,
@@ -42,6 +37,7 @@ from app.agent.versioning import compute_versions
 from app.config import Settings
 from app.db.session import SessionLocal, init_db
 from app.voice.bot import EngineProcessor, build_engine
+from app.voice.mute import BotSpeakingMute
 from app.voice.pipeline import build_services, build_vad_analyzer, configure_debug_logging
 from app.voice.twilio_security import stream_authorized
 
@@ -107,7 +103,7 @@ async def run_twilio_bot(websocket, settings: Settings) -> None:
     logger.info(f"twilio stream {stream_sid} (call {call_sid}) connected")
 
     init_db()
-    stt, _llm, tts = build_services(settings)  # _llm unused: the engine owns reasoning
+    stt, tts = build_services(settings)
     db = SessionLocal()
     recorder = CallRecorder(
         db,
@@ -143,7 +139,7 @@ async def run_twilio_bot(websocket, settings: Settings) -> None:
         [
             transport.input(),
             # Mute the mic while the agent speaks so it never transcribes its own audio.
-            STTMuteFilter(config=STTMuteConfig(strategies={STTMuteStrategy.ALWAYS})),
+            BotSpeakingMute(),
             stt,
             processor,
             tts,

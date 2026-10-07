@@ -75,7 +75,7 @@ def test_engine_pipeline_constructs():
     from app.voice.pipeline import build_services
 
     settings = Settings(_env_file=None, **_VOICE_KEYS)
-    stt, _llm, tts = build_services(settings)
+    stt, tts = build_services(settings)
     engine = build_engine(settings)  # no recorder; lazy clients, no API calls
     processor = EngineProcessor(engine)
 
@@ -90,8 +90,8 @@ def test_engine_pipeline_constructs():
     # The mic must be muted while the agent speaks so it never transcribes its own voice.
     inner = next(p for p in task._pipeline._processors if isinstance(p, Pipeline))
     names = [type(p).__name__ for p in inner._processors]
-    assert "STTMuteFilter" in names, names
-    assert names.index("STTMuteFilter") < names.index("_DeepgramSTTService"), names
+    assert "BotSpeakingMute" in names, names
+    assert names.index("BotSpeakingMute") < names.index("_DeepgramSTTService"), names
 
 
 # --- STT confidence parsing ------------------------------------------------------------
