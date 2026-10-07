@@ -100,6 +100,14 @@ Dial the number. The agent answers first ("…test prep or tutoring?"), and the 
   runs — fine for testing; upgrading removes both.
 - **No `twilio` Python SDK is required** — TwiML is generated directly and auto-hangup is off (the
   call ends when the caller hangs up).
+- **Request signing is enforced.** With `TWILIO_AUTH_TOKEN` set in `.env`, `/voice/twilio` rejects
+  any request without a valid `X-Twilio-Signature` (403), and the Media Streams socket closes unless
+  the `start` frame carries the per-call token the webhook issued. The signature covers the exact
+  public URL Twilio called, so `PUBLIC_BASE_URL` must match the webhook URL configured on the number
+  (scheme + host). Without the auth token the webhook is open only when `ENVIRONMENT=development`
+  and returns 503 otherwise.
+- If the webhook 403s: the URL/host Twilio called doesn't match what the app reconstructs — set
+  `PUBLIC_BASE_URL` to the exact public origin, or check the auth token is the number's account's.
 - If the webhook 404s/errors: confirm the path is `/voice/twilio`, the method is **POST**, and
   `PUBLIC_BASE_URL` matches the ngrok URL (and you restarted uvicorn after setting it).
 - Telephony audio is μ-law 8 kHz; Pipecat's `TwilioFrameSerializer` resamples to/from the STT/TTS

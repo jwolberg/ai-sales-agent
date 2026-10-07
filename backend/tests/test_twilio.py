@@ -41,8 +41,12 @@ def test_stream_ws_url_prefers_public_base_url_and_rewrites_scheme():
     assert stream_ws_url(s2, "ignored") == "ws://localhost:8000/voice/twilio/ws"
 
 
-def test_webhook_returns_twiml_xml():
-    # No voice keys configured in tests -> the "not configured" TwiML, still valid XML.
+def test_webhook_returns_twiml_xml(monkeypatch):
+    # No voice keys -> the "not configured" TwiML, still valid XML. Settings pinned so a local
+    # backend/.env (e.g. a real TWILIO_AUTH_TOKEN, which turns on signature checks) can't leak in.
+    from app.voice import server
+
+    monkeypatch.setattr(server, "get_settings", lambda: Settings(_env_file=None))
     client = TestClient(app)
     r = client.post("/voice/twilio")
     assert r.status_code == 200
@@ -73,3 +77,64 @@ def test_twilio_ws_route_rejects_when_voice_unconfigured(monkeypatch):
     with pytest.raises(WebSocketDisconnect):
         with client.websocket_connect("/voice/twilio/ws"):
             pass
+
+
+class _FakeTwilioSocket:
+    """Just enough of a Starlette WebSocket for run_twilio_bot's pre-pipeline phase."""
+
+    def __init__(self, custom_parameters: dict):
+        import json
+
+        self._frames = [
+            json.dumps({"event": "connected"}),
+            json.dumps(
+                {
+                    "event": "start",
+                    "start": {
+                        "streamSid": "MZ1",
+                        "callSid": "CA123",
+                        "customParameters": custom_parameters,
+                    },
+                }
+            ),
+        ]
+        self.accepted = False
+        self.closed_code = None
+
+    async def accept(self):
+        self.accepted = True
+
+    async def iter_text(self):
+        for frame in self._frames:
+            yield frame
+
+    async def close(self, code=1000):
+        self.closed_code = code
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"from": "+15551234567"},  # no token at all
+        {"from": "+15551234567", "token": "forged"},
+        {"from": "+19998887777", "token": "__valid_for_other_caller__"},
+    ],
+)
+def test_run_twilio_bot_rejects_bad_stream_token_before_spending(monkeypatch, params):
+    import asyncio
+
+    from app.voice import twilio_bot
+    from app.voice.twilio_security import stream_token
+
+    if params.get("token") == "__valid_for_other_caller__":
+        params = {**params, "token": stream_token("tok", "CA123", "+15551234567")}
+
+    def _boom(*_a, **_k):
+        raise AssertionError("paid services must not be built for an unauthorized stream")
+
+    monkeypatch.setattr(twilio_bot, "build_services", _boom)
+    monkeypatch.setattr(twilio_bot, "init_db", _boom)
+    ws = _FakeTwilioSocket(params)
+    settings = Settings(_env_file=None, twilio_auth_token="tok", environment="production")
+    asyncio.run(run_twilio_bot(ws, settings))
+    assert ws.closed_code == 1008

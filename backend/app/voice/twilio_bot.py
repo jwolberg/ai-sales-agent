@@ -20,6 +20,7 @@ inbound call to a configured Twilio number pointed at a public URL — see docs/
 from __future__ import annotations
 
 import json
+from xml.sax.saxutils import quoteattr
 
 from loguru import logger
 from pipecat.pipeline.pipeline import Pipeline
@@ -42,19 +43,26 @@ from app.config import Settings
 from app.db.session import SessionLocal, init_db
 from app.voice.bot import EngineProcessor, build_engine
 from app.voice.pipeline import build_services, build_vad_analyzer, configure_debug_logging
+from app.voice.twilio_security import stream_authorized
 
 
-def build_twiml(ws_url: str, *, from_number: str | None = None) -> str:
+def build_twiml(ws_url: str, *, from_number: str | None = None, token: str | None = None) -> str:
     """TwiML that connects the inbound call's audio to our Media Streams WebSocket.
 
-    The caller's number (``From``) is passed as a Stream ``<Parameter>`` so it arrives in the Media
-    Streams ``start`` frame's ``customParameters`` — the engine uses it to text the payment link
-    without prompting (caller-ID auto-text)."""
-    param = f'<Parameter name="from" value="{from_number}" />' if from_number else ""
+    The caller's number (``From``) and the per-call stream token are passed as Stream
+    ``<Parameter>``s so they arrive in the Media Streams ``start`` frame's ``customParameters`` —
+    the engine uses ``from`` to text the payment link without prompting (caller-ID auto-text), and
+    the bot checks ``token`` before running the pipeline. Values are XML-attribute-escaped: ``From``
+    is caller-controlled input."""
+    params = "".join(
+        f"<Parameter name={quoteattr(name)} value={quoteattr(value)} />"
+        for name, value in (("from", from_number), ("token", token))
+        if value
+    )
     return (
         '<?xml version="1.0" encoding="UTF-8"?>'
         "<Response>"
-        f'<Connect><Stream url="{ws_url}">{param}</Stream></Connect>'
+        f"<Connect><Stream url={quoteattr(ws_url)}>{params}</Stream></Connect>"
         "</Response>"
     )
 
@@ -71,16 +79,17 @@ def stream_ws_url(settings: Settings, host: str, *, scheme: str = "wss") -> str:
     return f"{scheme}://{host}/voice/twilio/ws"
 
 
-async def _read_start(websocket) -> tuple[str, str | None, str | None]:
-    """Consume Twilio's opening frames and return (stream_sid, call_sid, caller_number).
+async def _read_start(websocket) -> tuple[str, str | None, str | None, str | None]:
+    """Consume Twilio's opening frames; return (stream_sid, call_sid, caller_number, token).
 
-    ``caller_number`` is the ``from`` Stream parameter set in the TwiML (caller ID), or None."""
+    ``caller_number`` and ``token`` are the ``from`` / ``token`` Stream parameters set in the
+    TwiML (caller ID and the per-call stream token), or None."""
     async for message in websocket.iter_text():
         data = json.loads(message)
         if data.get("event") == "start":
             start = data["start"]
             params = start.get("customParameters") or {}
-            return start["streamSid"], start.get("callSid"), params.get("from")
+            return start["streamSid"], start.get("callSid"), params.get("from"), params.get("token")
     raise RuntimeError("Twilio stream closed before a 'start' frame")
 
 
@@ -89,7 +98,12 @@ async def run_twilio_bot(websocket, settings: Settings) -> None:
     if settings.voice_debug:
         configure_debug_logging()
     await websocket.accept()
-    stream_sid, call_sid, caller_number = await _read_start(websocket)
+    stream_sid, call_sid, caller_number, token = await _read_start(websocket)
+    # Reject before any DB row or paid STT/TTS session exists (ticket 0002).
+    if not stream_authorized(settings, call_sid, caller_number, token):
+        logger.warning(f"twilio stream {stream_sid}: missing/invalid stream token, closing")
+        await websocket.close(code=1008)
+        return
     logger.info(f"twilio stream {stream_sid} (call {call_sid}) connected")
 
     init_db()

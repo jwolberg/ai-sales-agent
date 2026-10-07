@@ -1876,3 +1876,21 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
 - **Couldn't edit `backend/.env.example`** — it's blocked by permission settings. Add
   `DASHBOARD_USERNAME=operator` / `DASHBOARD_PASSWORD=` there by hand; documented in RUNBOOK §4.
 - Single shared credential: fine for a one-operator demo; per-user auth would replace this module.
+
+### 2026-10-06 — Ticket 0002: Twilio webhook signature + Media Streams token
+- `/voice/twilio` now verifies `X-Twilio-Signature` (HMAC-SHA1 over the public URL + sorted params)
+  when `TWILIO_AUTH_TOKEN` is set; 403 otherwise. **Implemented inline** (`app/voice/twilio_security.py`,
+  stdlib hmac) rather than adding the `twilio` SDK for one function. Cross-checked against the
+  official `twilio.request_validator.RequestValidator` in a throwaway venv: identical output on
+  Twilio's documented example, a unicode/empty-param case, and a GET-with-query case.
+- Public URL: `PUBLIC_BASE_URL` if set, else `X-Forwarded-Proto` + Host (Cloud Run terminates TLS,
+  so the app itself sees http).
+- **WebSocket:** the handshake carries nothing verifiable, so the signed webhook issues a per-call
+  token (HMAC-SHA256 over CallSid + caller id) as a TwiML `<Parameter>`; `run_twilio_bot` checks it
+  from the `start` frame and closes (1008) **before** `init_db` or any STT/TTS service is built.
+  Binding the caller id stops a captured token being replayed with a different `From`.
+- **Also fixed (found while in here):** `build_twiml` interpolated the caller-controlled `From` into
+  XML unescaped (TwiML injection). Now `quoteattr`-escaped; test parses hostile input as XML.
+- Fail-closed rule mirrors 0001: no auth token → open in `development`, 503 elsewhere.
+- `test_webhook_returns_twiml_xml` previously read the real `backend/.env` (which has a Twilio
+  token); pinned its settings. Not exercised with a real inbound call.
