@@ -1,0 +1,25 @@
+# Keep the build context to what the Dockerfile copies — and never send secrets or local state.
+**/.env
+**/.env.*
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/.venv
+**/venv
+**/__pycache__
+**/*.py[cod]
+**/*.egg-info
+**/.pytest_cache
+**/.ruff_cache
+**/node_modules
+**/.DS_Store
+.git
+.github
+.gitlab
+.claude
+.codex
+.agents
+.TerMinal
+docs
+backend/tests
+frontend/dashboard-app/src

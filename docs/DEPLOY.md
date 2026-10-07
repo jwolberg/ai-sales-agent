@@ -69,11 +69,16 @@ Notes:
   shared DB — not built.
 - **Secrets.** `--set-env-vars` is fine for a quick demo. For real keys use Secret Manager:
   `gcloud run deploy … --set-secrets OPENAI_API_KEY=openai-key:latest`.
-- **Database is ephemeral.** The image runs `python -m app.db.seed` on boot, which `create_all`s
-  the schema fresh — so new tables/columns (e.g. `payments`, `Turn.latency_breakdown`) appear
-  automatically on a fresh container. The SQLite file resets per instance/redeploy. For persistence,
-  set `DATABASE_URL` to a managed DB (e.g. Cloud SQL Postgres); there's no migration tool, so create
-  the schema once against it.
+- **Database is ephemeral by default — an explicit choice for the demo.** The SQLite file lives at
+  `/app/var/nerdy_sales.db` (the image's only writable path; the app runs as non-root `app`) and
+  resets per instance/redeploy. On boot the image runs `python -m app.db.seed`, which creates/heals
+  the schema and upserts the three fixed seed leads by `lead_id` — idempotent, and it never touches
+  call data. For persistence, set `DATABASE_URL` to a managed DB (e.g. Cloud SQL Postgres) or mount a
+  volume at `/app/var`; there's no migration tool (Alembic is iceboxed, ticket 0009), and the
+  column self-heal only runs on SQLite, so create the schema once against Postgres.
+- **Image layout.** Multi-stage: dependencies install from `backend/requirements/prod.txt` in a
+  build stage (compiler never reaches the runtime image); the app runs from source under `/app`.
+  `.dockerignore` keeps `.env`, local DBs, venvs, tests, and docs out of the build context.
 - Without `OPENAI_API_KEY` the offline rule brain + TF-IDF retriever run, so it still boots.
 - **sqlite-vec** loads on the slim image's Python (loadable-extension support — D-17), so the
   production KB can use a sqlite-vec index over the same `kb_embeddings` rows.

@@ -1944,3 +1944,23 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
 - **Frontend lint: decided not to add one.** ESLint would add several dev deps for a ~10-file
   React dashboard; the CI `dashboard` job (vite build + dist drift check) already catches syntax
   and import errors. Revisit if the dashboard grows.
+
+### 2026-10-06 — Ticket 0006: production Dockerfile
+- Multi-stage build: `deps` stage installs `requirements/prod.txt` into `/opt/venv` with
+  build-essential; the runtime stage copies only the venv (no compiler, no `apt purge` dance).
+- **Not pip-installed — runs from source.** Every module resolves `data/`/`frontend/` via
+  `__file__.parents[N]`, so a non-editable install into site-packages would break path resolution.
+  Installing only the locked deps and copying the source tree meets the "no editable install" intent
+  without touching those paths. Noted as a deviation from the ticket's literal wording.
+- Non-root user `app` (uid 10001); `/app/var` is the only writable dir (`DATABASE_URL` points there);
+  source tree read-only (verified `touch` fails). `exec uvicorn` so SIGTERM reaches it.
+- `.dockerignore` added (build context: 2.7 MB; verified `.env` is absent from the image).
+- **Pre-existing bugs fixed:** the old image never copied `backend/config.toml` (container ran on
+  code defaults, not the committed tunables) or `frontend/audio/` (demo dial/ring 404'd).
+- **Surprise:** Pipecat downloads NLTK `punkt_tab` at import time; as non-root that failed
+  ("Permission denied: '/home/app'"), and as root it was a network fetch on every cold start.
+  Now baked in at build time (`NLTK_DATA=/opt/nltk_data`).
+- Verified locally with Docker Desktop (started it for this): image builds; `/health` 200; no
+  password → `/api` 503; with `DASHBOARD_PASSWORD` → 401/200; dashboard + demo audio served,
+  `package.json` 404; voice modules import; zero errors in boot logs. Image is 1.59 GB (mostly Pipecat
+  and its native deps) — not optimized further.
