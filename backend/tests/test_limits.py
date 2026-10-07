@@ -198,6 +198,8 @@ def test_sim_start_returns_429_when_sessions_full(client, monkeypatch):
 
 
 def test_voice_offer_returns_429_when_sessions_full(monkeypatch):
+    # Without the voice extra the endpoint 503s ("deps missing") before the session cap applies.
+    pytest.importorskip("pipecat")
     from app.voice import server
 
     settings = Settings(

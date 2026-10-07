@@ -2015,3 +2015,9 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
   `docs/architecture.md` is still an unfilled template — left untracked; CLAUDE.md points at
   README/RUNBOOK instead.
 - Guard: `tests/test_branding.py` fails if the old brand names appear in product files.
+
+### 2026-10-06 — Ticket 0003 follow-up: core-only CI run
+- Re-running the suite on the core-only lock (what the CI `backend` job installs) caught
+  `test_voice_offer_returns_429_when_sessions_full` failing: without Pipecat, `/voice/offer`
+  correctly 503s ("voice deps missing") before the session cap. Now `importorskip("pipecat")`.
+  Core lock: 344 passed / 10 skipped; voice lock: 381 passed.
