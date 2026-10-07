@@ -1,6 +1,6 @@
 # Intent-router price table — keyed by taxonomy LEAF id (IR1-T1, R6).
 #
-# !!! PLACEHOLDER PRICING — NOT approved Nerdy / Varsity Tutors figures. !!!
+# !!! PLACEHOLDER PRICING — NOT approved business figures. !!!
 # These exist so the classify -> quote flow is demoable end-to-end. Replace with approved
 # operator-provided numbers before any real use. `approved: false` flags this; the agent may
 # still quote them in dev, but the value is the authoritative source the mis-quote guardrail

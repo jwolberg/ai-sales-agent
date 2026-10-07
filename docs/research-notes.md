@@ -5,7 +5,7 @@ Background and rationale behind the agent's design choices (PRD §24). These not
 
 > Scope note: this is a take-home MVP. The "references" below are the established sales and
 > conversational-design principles the playbooks were modeled on, not a literature review.
-> No proprietary Nerdy/Varsity Tutors methodology was used; approved content is still pending
+> No proprietary company methodology was used; approved content is still pending
 > (see `docs/QandA_opens.md`).
 
 ---

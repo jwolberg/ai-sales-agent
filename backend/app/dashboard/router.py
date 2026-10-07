@@ -28,7 +28,7 @@ from app.db.session import get_db
 from app.events import Subscription, bus
 from app.kpis.metrics import compute_metrics, compute_router_metrics
 from app.logs import mask_phone, scrub
-from app.payments.sms import SmsError, get_sms_sender
+from app.payments.sms import SmsError, get_sms_sender, payment_sms_body
 from app.simulator.live_feed import run_sim_call_paced
 from app.simulator.personas import get_personas
 
@@ -352,7 +352,7 @@ def send_payment_sms(call_id: str, body: SendPaymentSms, db: Db) -> dict:
             "dashboard SMS for call %s to %s refused: over limit", call_id, mask_phone(phone)
         )
         raise HTTPException(status_code=429, detail="SMS limit reached for this call or number")
-    body_text = f"Here's your secure link to get started with Nerdy: {payment.url}"
+    body_text = payment_sms_body(settings, payment.url)
     try:
         sid = sender.send(phone, body_text)
     except SmsError as exc:

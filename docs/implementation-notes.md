@@ -198,7 +198,7 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
 - **Persona move rode along:** `pipeline.py` also picks up the P2-T3 change (imports
   `build_system_prompt`/`build_greeting_cue` from `app.agent.persona`, re-exported via
   `__all__`) since the two edits were entangled in the same file.
-- **Persona identity:** committed `agent_name = "Jay"`, `company_name = "Nerdy"` as-is
+- **Persona identity:** committed `agent_name = "Jay"`, `company_name = "<brand>"` as-is
   (per user).
 - **NOT validated here:** the sample-rate fix targets a real live-audio bug; construction
   tests pass, but confirming audio actually flows still needs a browser/mic/keys run (RUNBOOK).
@@ -367,7 +367,7 @@ round-trip; seed leads (full/partial/none) loaded and labeled synthetic vs. real
   torch/sentence-transformers) and to keep retrieval deterministic for tests. Fine for a small
   approved-doc set; documented as swappable if recall needs it.
 - **Content gap flagged (per user request):** the 5 KB docs are **safe PLACEHOLDERS**, not
-  approved Nerdy content — they describe offerings generally and defer all specifics (pricing,
+  approved business content — they describe offerings generally and defer all specifics (pricing,
   refunds, guarantees, re-match) to a human, which also enforces §18. Created
   `docs/QandA_opens.md` listing exactly what approved copy the user must provide, by file and
   priority. `min_score` is the hook P4-T2 uses for the KB-4 no-hallucination fallback.
@@ -776,15 +776,15 @@ runs on.
 
 - Operator supplied pricing copy; loaded into `data/kb/pricing.md` (no longer a placeholder).
   After review (with the operator, via decision prompts):
-  - **Included:** Varsity Tutors live tutoring = custom-quoted (subject / tutor experience /
-    hours), and Nerd AI homework-app freemium tiers with **exact figures** (free ~3/day;
+  - **Included:** Live tutoring = custom-quoted (subject / tutor experience /
+    hours), and homework-helper app freemium tiers with **exact figures** (free ~3/day;
     $6.99–9.99/wk; ~$39.99/yr; $39.99–49.99 lifetime).
-  - **Excluded:** NerdyData (SEO), Nerdio (Azure/IT), Nerdy Form (lead forms) — the source
-    conflated unrelated companies with Nerdy/VT; quoting them would be actively wrong.
+  - **Excluded:** several similarly named but unrelated companies — the source
+    conflated unrelated companies with the business; quoting them would be actively wrong.
   - Provenance + "re-verify figures" recorded as an HTML comment (stripped from chunks).
   - Pricing queries now retrieve `pricing.md` strongly (1.3–1.9).
 - **Guardrail tension to revisit (not changed here):** `check_agent_output` (P4-T4) flags ANY
-  price figure as `QUOTES_PRICE`. Now that approved Nerd AI prices exist, that blunt check would
+  price figure as `QUOTES_PRICE`. Now that approved homework-app prices exist, that blunt check would
   false-positive on legitimate prices. It's a tested *utility*, not yet enforced on live output,
   so no functional impact today — but when the live post-generation filter is wired, demote it to
   advisory or scope it to *live-tutoring* prices (which must always be custom/deferred). The real
@@ -868,7 +868,7 @@ runs on.
 ## P9-T1 — relabel CTA + audio-asset scaffolding (2026-05-28)
 
 - **New phase (9) for demo polish:** make `/demo` feel like a phone call. Relabeled the button
-  to "Call 1-800-Nerdy-4-u" and updated the intro copy in `frontend/index.html`.
+  to "Call 1-800-XXX-XXXX" and updated the intro copy in `frontend/index.html`.
 - **Decision — two audio assets, not one.** The user chose "loop ring until the agent answers,"
   which can't cleanly loop a single combined mp3. Split into `frontend/audio/dial.mp3` (one-shot
   dial+digits) and `frontend/audio/ring.mp3` (loop-safe ring) — a deviation from the original
@@ -900,7 +900,7 @@ runs on.
 - **Decision — don't claim "Connected" until the connection actually answers.** The old code set
   "Connected — start talking" right after `setRemoteDescription` (before ICE completes); now
   `onAnswered` owns that message so the status matches the real pickup moment.
-- **User copy change mid-build:** intro line is now "Click below to call 1-800-Nerdy-4-u
+- **User copy change mid-build:** intro line is now "Click below to call 1-800-XXX-XXXX
   (1-800-637-3948)…".
 - **Validation:** `node --check` clean. Browser-verified (agent-browser, server on :8099):
   click → "Dialing…" → after the dial clip → "Ringing…" (loops; getUserMedia stubbed to hang to
@@ -1111,7 +1111,7 @@ keys for IR-1. Tests: `tests/test_taxonomy.py` (9). `ruff` clean.
 `data/pricing/pricing.yaml` (keyed by leaf id) + `app/agent/pricing.py`. `quote_price(leaf|id)`
 does an **exact** lookup and returns a `PriceRecord` or `None` (R6) — no record means honest
 fallback, never an invented number (R6b). **Decisions:** (1) prices are clearly-labeled
-PLACEHOLDER (`approved: false`) — not approved Nerdy figures; the loaded value is the source of
+PLACEHOLDER (`approved: false`) — not approved business figures; the loaded value is the source of
 truth the mis-quote guardrail (IR1-T2) will check against. (2) The loader rejects a price keyed to
 a leaf the taxonomy doesn't define, so the table can't drift from `taxonomy.py`. Tests:
 `tests/test_pricing.py` (6). `ruff` clean.
@@ -1630,7 +1630,7 @@ Closes the IR7-T1 gap (latency was brain-decision-only). Added `Turn.latency_bre
 - Metrics: `turn_latency_breakdown_ms` = mean stt/brain/tts across voice turns (null in text mode);
   p50/p95 now reflect end-to-end on voice.
 - **Migration caution:** `latency_breakdown` is a NEW COLUMN on an existing table — `create_all`
-  won't add it to an existing dev DB. Recreate `nerdy_sales.db` (and rebuild the KB index) before
+  won't add it to an existing dev DB. Recreate `sales_agent.db` (and rebuild the KB index) before
   the next live run. Tests use fresh in-memory DBs.
 Full suite 176 passed; ruff clean. Frame wiring that feeds the helper lands in LAT-T2.
 
@@ -1802,7 +1802,7 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
 
 ### 2026-05-29 — VAD-T6: extend fixtures (longer, disfluencies, domain, edge cases)
 - The VAD-T5 fixtures were minimal one-liners. Extended `generate.sh` to 7 realistically-long,
-  domain-relevant clips (Nerdy tutoring sales) so the evaluator exercises real caller behavior:
+  domain-relevant clips (tutoring sales) so the evaluator exercises real caller behavior:
   multi-sentence `midsentence_pause`, `trailing_filler`, `two_utterances` (control), plus new
   `disfluent_ums` (heavy um/uh + restarts), `chem_vs_bio` (long "chemistry or biology?" question),
   `payment` (incl. a spoken card/phone number), and `edge_short_turns` (one-word turns, long gaps).
@@ -1986,3 +1986,32 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
   Construction tests + the frame-level mute test are the evidence; the first live call is the check.
 - Follow-up filed: `ANTHROPIC_API_KEY` is still required by `missing_voice_keys()` (and
   `anthropic_model` still feeds `/voice/status` + `model_version`) though nothing uses Claude now.
+
+### 2026-10-06 — Ticket 0011: README, CLAUDE.md, genericized brand
+- **Brand → config (user choice: genericize).** `company_name` default + `config.toml` are now the
+  fictional "Acme Tutoring". The two hardcoded SMS bodies now share `payment_sms_body(settings, url)`.
+  UI titles → "Tutoring Router — Call Center" / "Tutoring Sales Agent — Voice Demo"; demo button
+  "Call the agent"; TestCall keeps the real demo number but drops the brand vanity text;
+  npm package renamed `tutoring-router-dashboard`.
+- **KB: removed the homework-app pricing section** rather than rebranding it — those were a real
+  company's real prices, and attributing them to a fictional brand would be fabricated. The agent
+  can no longer answer homework-app pricing questions (off-taxonomy anyway). Other KB/persona/pricing
+  comments neutralized.
+- Docs genericized (PRD, BUILD_PLAN, STRATEGY, QandA, brainstorms, limitations, research-notes,
+  RUNBOOK, DEPLOY, AGENT_FLOW, and earlier entries in this file). **Git history still contains the
+  old name** — rewriting history is out of scope and would need your call.
+- **Default DB file renamed** (old brand-named file) → `sales_agent.db` (config default, Dockerfile, docs).
+  Your existing local DB file is untouched; if your `.env` doesn't set `DATABASE_URL`, rename it
+  to `backend/sales_agent.db` to keep your local data.
+- **Can't edit `backend/.env.example`** (permission-blocked): it still has the old DB filename.
+- Screenshots re-captured (old ones showed the brand) from a fresh instance: offline rule brain,
+  scratch DB, auth ON — which also confirmed in a real (headless Chrome) browser that the dashboard's
+  fetch/SSE calls work under HTTP Basic. Dropped unreferenced `docs/img/control.png`.
+- README: removed `PUT_YOUR_TWILIO_NUM_HERE`, broken image markup, stray `#` lines; added the brand
+  note + auth note; corrected my own first-draft blurb of the improvement doc (it reports negative
+  results). Kept the `ai-sales-agent/` tree label — that's the GitHub repo name.
+- CLAUDE.md filled in (it was the unfilled template): real description/status, pickup steps,
+  conventions (pip-tools + npm, plain CSS — the template said bun + Tailwind), sensitive surfaces.
+  `docs/architecture.md` is still an unfilled template — left untracked; CLAUDE.md points at
+  README/RUNBOOK instead.
+- Guard: `tests/test_branding.py` fails if the old brand names appear in product files.

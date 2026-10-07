@@ -186,7 +186,7 @@ A `dev fake mode` (`payments_fake`) swaps in `FakeStripeGateway` +
 
 ## 4. How the Call Stores Data
 
-**Engine:** SQLite by default (`backend/nerdy_sales.db`), swappable to Postgres
+**Engine:** SQLite by default (`backend/sales_agent.db`), swappable to Postgres
 via `DATABASE_URL`. Tables created by `init_db()`; sessions via `SessionLocal`.
 Turns and decisions are **committed as they happen** so a transcript survives a
 mid-call crash (`recorder.py`).

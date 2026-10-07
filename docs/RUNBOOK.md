@@ -77,7 +77,7 @@ cp .env.example .env        # then edit values
 | --------------- | ------------------------------ | -------------------------------- |
 | `APP_NAME`      | `Autonomous AI Sales Agent`    | Display name in `/health`, docs  |
 | `ENVIRONMENT`   | `development`                  | Environment label; anything other than `development` makes auth fail closed |
-| `DATABASE_URL`  | `sqlite:///./nerdy_sales.db`   | DB connection (swap for Postgres)|
+| `DATABASE_URL`  | `sqlite:///./sales_agent.db`   | DB connection (swap for Postgres)|
 | `LOG_LEVEL`     | `INFO`                         | Log verbosity                    |
 | `DASHBOARD_USERNAME` | `operator`                | HTTP Basic user for the dashboard, `/api`, `/demo`, `/voice/offer` |
 | `DASHBOARD_PASSWORD` | unset                     | HTTP Basic password. Unset = open in `development`, 503 everywhere else |
@@ -102,7 +102,7 @@ then reports any PII-substituted transcripts found in `data/transcripts/`:
 ```
 
 Seeding is **idempotent** — re-running updates the existing seed leads rather than
-duplicating them. The DB file (`backend/nerdy_sales.db`) is gitignored; delete it to
+duplicating them. The DB file (`backend/sales_agent.db`) is gitignored; delete it to
 reset from scratch.
 
 ## 6. Run the server
@@ -152,7 +152,7 @@ git push origin main
 | --- | --- |
 | `ModuleNotFoundError: app` | Run from `backend/`, and ensure `pip install -e ".[dev]"` completed. |
 | `no such table` errors | Run `python -m app.db.seed` (or `init_db()`) to create the schema. |
-| Want a clean DB | `rm backend/nerdy_sales.db` then re-seed. |
+| Want a clean DB | `rm backend/sales_agent.db` then re-seed. |
 | `zsh: no matches found: .[dev]` | Quote the extras: `pip install -e ".[dev]"`. |
 | Port already in use | Run uvicorn with a different `--port`. |
 

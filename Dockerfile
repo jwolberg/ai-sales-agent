@@ -51,7 +51,7 @@ RUN mkdir -p /app/var && chown app:app /app/var
 # ENVIRONMENT != development => operator routes fail closed (503) until DASHBOARD_PASSWORD is set.
 ENV PORT=8080 \
     ENVIRONMENT=production \
-    DATABASE_URL=sqlite:////app/var/nerdy_sales.db
+    DATABASE_URL=sqlite:////app/var/sales_agent.db
 
 USER app
 WORKDIR /app/backend

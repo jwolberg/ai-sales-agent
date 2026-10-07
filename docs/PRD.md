@@ -8,7 +8,7 @@
 
 ## 1. Product Summary
 
-Build an autonomous real-time voice AI sales agent for Nerdy / Varsity Tutors that can conduct a complete discovery-to-close sales conversation with prospective tutoring customers.
+Build an autonomous real-time voice AI sales agent for a tutoring company that can conduct a complete discovery-to-close sales conversation with prospective tutoring customers.
 
 The agent should gather missing required information, use prior conversation history, answer questions from a grounded knowledge base, handle objections, decide when to pivot toward close, and escalate high-risk or low-confidence situations. The system must be observable through transcripts, decision traces, KPI dashboards, and versioned experiment results.
 
@@ -16,7 +16,7 @@ The product is not just a voice demo. It is a measurable sales system with an im
 
 ## 2. Background
 
-Nerdy currently relies on live phone sales agents to qualify leads, gather information, answer questions, handle objections, and close individual sales. Human agents create operational constraints: limited hours, variable quality, training overhead, and slower experimentation cycles.
+The business currently relies on live phone sales agents to qualify leads, gather information, answer questions, handle objections, and close individual sales. Human agents create operational constraints: limited hours, variable quality, training overhead, and slower experimentation cycles.
 
 The core hypothesis is:
 
@@ -65,7 +65,7 @@ Common examples:
 
 ### 5.2 Sales Operator / Manager
 
-A Nerdy sales leader who wants to monitor agent performance, understand outcomes, review transcripts, and compare experiment variants.
+A sales leader at the business who wants to monitor agent performance, understand outcomes, review transcripts, and compare experiment variants.
 
 ### 5.3 Human Sales Agent / Escalation Handler
 
@@ -142,7 +142,7 @@ The baseline agent responds to price objections with a generic value statement.
 
 Example behavior:
 
-> "I understand price is important. Varsity Tutors offers personalized support from expert tutors, and many families find the investment worthwhile."
+> "I understand price is important. Acme Tutoring offers personalized support from expert tutors, and many families find the investment worthwhile."
 
 ### Variant Candidates
 
@@ -326,7 +326,7 @@ The agent must answer policy, objection, and competitive questions only using ap
 
 The knowledge base should include:
 
-- Varsity Tutors / Nerdy offering overview.
+- Company offering overview.
 - Tutoring formats.
 - Tutor matching process.
 - Scheduling policies.
@@ -602,7 +602,7 @@ The system should include at least the following synthetic personas:
 - Low patience for long discovery
 
 **Persona 5: Competitive Shopper**
-- Comparing Varsity Tutors to alternatives
+- Comparing us to alternatives
 - Asks direct competitive questions
 
 **Persona 6: Poor Fit / Disqualified Lead**

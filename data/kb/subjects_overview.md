@@ -1,7 +1,7 @@
 # Subject Tutoring Overview
 
-<!-- PLACEHOLDER explainer content (2026-05-28) for the intent-router KB. Not approved Nerdy /
-     Varsity Tutors copy. Pricing lives in data/pricing/pricing.yaml, NOT here (R6). -->
+<!-- PLACEHOLDER explainer content (2026-05-28) for the intent-router KB. Not approved business
+     copy. Pricing lives in data/pricing/pricing.yaml, NOT here (R6). -->
 
 ## Math tutoring
 

@@ -79,7 +79,7 @@ export default function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <h1>Nerdy Router — Call Center</h1>
+        <h1>Tutoring Router — Call Center</h1>
         <span className={connected ? 'status live' : 'status'}>
           <span className="dot" /> live
         </span>

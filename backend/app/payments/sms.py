@@ -74,6 +74,11 @@ class TwilioSmsSender:
         return sid
 
 
+def payment_sms_body(settings, url: str) -> str:
+    """The payment-link text, branded from ``company_name`` (one copy for every send path)."""
+    return f"Here's your secure link to get started with {settings.company_name}: {url}"
+
+
 def get_sms_sender(settings, *, post: PostFn = _urllib_post):
     """Build the sender from settings. In dev fake mode without Twilio creds (PAY7-T1) returns a
     no-op fake so the flow completes; otherwise the real Twilio sender. Raises :class:`SmsError`

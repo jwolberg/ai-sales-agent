@@ -7,7 +7,7 @@
 
 ## Project
 - **Name:** Autonomous AI Sales Agent
-- **Summary:** A real-time voice AI sales agent for Nerdy / Varsity Tutors that runs a full discovery-to-close tutoring sales conversation — gathering missing info, using prior call memory, answering from a grounded knowledge base, handling objections, deciding when to close or escalate — while capturing transcripts, decisions, and KPIs, and improving itself through a recursive experiment loop against synthetic prospects.
+- **Summary:** A real-time voice AI sales agent for a tutoring company that runs a full discovery-to-close tutoring sales conversation — gathering missing info, using prior call memory, answering from a grounded knowledge base, handling objections, deciding when to close or escalate — while capturing transcripts, decisions, and KPIs, and improving itself through a recursive experiment loop against synthetic prospects.
 
 ## Source of Truth
 - **Spec:** `/docs/PRD.md` (no `/docs/spec.md` exists; the PRD is the spec-equivalent and is used as the sole source of truth, per invocation argument)
@@ -102,7 +102,7 @@ dashboard") not built — the report is the before/after evidence.
   layer is now wired into the live pipeline (decider-led runtime: router → extraction → render →
   engine → live wiring → latency). Phase 5/6/8 build on the engine.
 - **ACTION NEEDED (user):** KB docs under `data/kb/` are safe PLACEHOLDERS, not approved
-  Nerdy content. See `docs/QandA_opens.md` for the pricing/refund/matching/scheduling copy to
+  business content. See `docs/QandA_opens.md` for the pricing/refund/matching/scheduling copy to
   provide; until then the agent defers those specifics to a human.
 - **Note:** P2-T4 transcript/call-record capture complete as a capability (`CallRecorder`
   + optional Orchestrator integration, unit-tested). **Follow-up:** wiring it into the live
@@ -537,19 +537,19 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
 
 ### Phase 9 — "Phone Call" Demo Intro
 **Goal**
-- Make the `/demo` CTA feel like placing a real phone call — relabel it "Call 1-800-Nerdy-4-u"
+- Make the `/demo` CTA feel like placing a real phone call — relabel it "Call 1-800-XXX-XXXX"
   and play dial tone → digits → ringing that loops until the agent answers — as demo polish for
   the §26 walkthrough. Frontend-only; no backend change. The phone number is cosmetic (no real
   telephony).
 
 **Exit Criteria**
-- Button reads "Call 1-800-Nerdy-4-u"; clicking plays dial+digits then a looping ring; the ring
+- Button reads "Call 1-800-XXX-XXXX"; clicking plays dial+digits then a looping ring; the ring
   stops and the agent greets the moment the WebRTC call connects; hang up / errors / denied mic
   stop all audio. Works with placeholder stubs and with user-supplied audio, no code change.
 
 **Tickets**
 - P9-T1 — Relabel CTA + audio-asset scaffolding
-  - Objective: Change the demo button text to "Call 1-800-Nerdy-4-u"; add the browser-served
+  - Objective: Change the demo button text to "Call 1-800-XXX-XXXX"; add the browser-served
     audio assets (one-shot `dial.mp3` + loop-safe `ring.mp3`) as silent placeholder stubs the
     user replaces; document the asset contract.
   - Files likely involved: `frontend/index.html`, `frontend/audio/dial.mp3`,
@@ -571,7 +571,7 @@ Numbered 4.5 to avoid renumbering existing Phases 5–8.
     `ring.mp3` on its `ended` event; connect runs in parallel; `onAnswered` (connectionState
     `connected`, `ontrack` fallback) stops the ring and greets; `stopDialingSound` runs on
     hang up / failure / mic denial; `answered` flag guards the answer-during-intro race.
-    Intro copy updated to "Click below to call 1-800-Nerdy-4-u (1-800-637-3948)". Browser-
+    Intro copy updated to "Click below to call a vanity 1-800 number". Browser-
     verified: Dialing… → Ringing… loop, and graceful teardown on mic-deny — no console errors.)
 
 ### Phase 10 — Conversation Memory & Context Continuity

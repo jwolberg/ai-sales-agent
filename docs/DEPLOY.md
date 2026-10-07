@@ -70,7 +70,7 @@ Notes:
 - **Secrets.** `--set-env-vars` is fine for a quick demo. For real keys use Secret Manager:
   `gcloud run deploy … --set-secrets OPENAI_API_KEY=openai-key:latest`.
 - **Database is ephemeral by default — an explicit choice for the demo.** The SQLite file lives at
-  `/app/var/nerdy_sales.db` (the image's only writable path; the app runs as non-root `app`) and
+  `/app/var/sales_agent.db` (the image's only writable path; the app runs as non-root `app`) and
   resets per instance/redeploy. On boot the image runs `python -m app.db.seed`, which creates/heals
   the schema and upserts the three fixed seed leads by `lead_id` — idempotent, and it never touches
   call data. For persistence, set `DATABASE_URL` to a managed DB (e.g. Cloud SQL Postgres) or mount a

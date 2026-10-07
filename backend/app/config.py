@@ -40,7 +40,7 @@ class Settings(BaseSettings):
     app_name: str = "Autonomous AI Sales Agent"
     environment: str = "development"
     # SQLite single-file DB by default; swap to a Postgres URL in production.
-    database_url: str = "sqlite:///./nerdy_sales.db"
+    database_url: str = "sqlite:///./sales_agent.db"
     log_level: str = "INFO"
 
     # --- Operator auth (ticket 0001) ---
@@ -102,7 +102,7 @@ class Settings(BaseSettings):
 
     # Agent persona identity. Set the live values in config.toml (these are fallbacks).
     agent_name: str = "Jay"
-    company_name: str = "Nerdy"
+    company_name: str = "Acme Tutoring"  # fictional placeholder brand; set yours in config.toml
     # When true, log inbound audio / VAD / transcription to the server console (debug).
     voice_debug: bool = False
     # Optional: the lead whose prior-call memory a live web demo call should continue from

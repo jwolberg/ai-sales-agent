@@ -31,7 +31,7 @@ def test_compute_versions_is_stable_and_well_formed():
 
 def test_agent_version_tracks_persona_changes():
     a = compute_versions(Settings(_env_file=None, agent_name="Ava", company_name="VT"))
-    b = compute_versions(Settings(_env_file=None, agent_name="Jay", company_name="Nerdy"))
+    b = compute_versions(Settings(_env_file=None, agent_name="Jay", company_name="Acme Tutoring"))
     assert a.agent_version != b.agent_version  # persona text changed -> version changed
 
 

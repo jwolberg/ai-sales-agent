@@ -32,7 +32,7 @@ from app.agent.recorder import PAYMENT_CREATED, PAYMENT_SENT
 from app.config import Settings, get_settings
 from app.kpis import events as kpi
 from app.logs import mask_phone, scrub
-from app.payments.sms import SmsError, get_sms_sender
+from app.payments.sms import SmsError, get_sms_sender, payment_sms_body
 from app.payments.stripe_service import PaymentError, get_stripe_service
 
 logger = logging.getLogger(__name__)
@@ -272,7 +272,7 @@ class IntentRouterEngine:
                 # Over the SMS budget: the link still exists + shows on the board.
                 logger.warning("payment-link SMS to %s refused: over limit", mask_phone(phone))
                 return False
-            sender.send(phone, f"Here's your secure link to get started with Nerdy: {link.url}")
+            sender.send(phone, payment_sms_body(self.settings, link.url))
             return True
         except SmsError as exc:
             logger.warning("payment-link SMS to %s failed: %s", mask_phone(phone), scrub(str(exc)))

@@ -94,7 +94,7 @@ personas:
 
   - key: competitive_shopper
     name: Competitive Shopper
-    summary: Comparing Varsity Tutors to alternatives; asks direct competitive questions.
+    summary: Comparing us to alternatives; asks direct competitive questions.
     converts: true
     disqualifies: false
     traits:
