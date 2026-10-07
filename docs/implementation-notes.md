@@ -1930,3 +1930,17 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
   traceback) instead of losing them; cancellations aren't logged as errors. Used by
   `/api/sim/start` (was a bare `create_task`) and `/voice/offer` (replaces its local
   `_active_tasks` set, so there's one pattern instead of two).
+
+### 2026-10-06 — Ticket 0012: small hardening batch
+- `/demo` now serves only `index.html`, `client.js`, and `audio/*` (allowlisting `StaticFiles`
+  subclass). It previously exposed the whole `frontend/` tree — tests confirmed `package.json`, the
+  lockfile, `vite.config.js`, and `dashboard-app/src/*` were all fetchable.
+- `/health` returns only `{status, version}` (dropped `app` and `environment`; it's public).
+- Stripe webhook 400 detail is generic; the specific reason goes to the log (0007).
+- **`.claude/`**: it was gitignored yet 16 files were tracked (old personal agents/skills). Chose to
+  **untrack** them (`git rm --cached`; files remain on disk) rather than un-ignore, because the rest
+  of `.claude/` is deliberately ignored local tooling and this repo is headed public. Collapsed the
+  redundant ignore lines into one.
+- **Frontend lint: decided not to add one.** ESLint would add several dev deps for a ~10-file
+  React dashboard; the CI `dashboard` job (vite build + dist drift check) already catches syntax
+  and import errors. Revisit if the dashboard grows.

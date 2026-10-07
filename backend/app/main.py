@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__
@@ -20,6 +20,18 @@ _DASHBOARD_APP_DIST = FRONTEND_DIR / "dashboard-app" / "dist"
 DASHBOARD_DIR = _DASHBOARD_APP_DIST if _DASHBOARD_APP_DIST.is_dir() else FRONTEND_DIR / "dashboard"
 
 
+class _DemoFiles(StaticFiles):
+    """The voice demo shares frontend/ with the dashboard's source tree, so serve only the demo's
+    own files — not package.json, the lockfile, or dashboard-app/src (ticket 0012)."""
+
+    _FILES = frozenset({".", "index.html", "client.js"})
+
+    async def get_response(self, path: str, scope):
+        if path not in self._FILES and not path.startswith("audio/"):
+            raise HTTPException(status_code=404)
+        return await super().get_response(path, scope)
+
+
 def create_app() -> FastAPI:
     """Build and configure the FastAPI application."""
     settings = get_settings()
@@ -28,14 +40,9 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        """Liveness probe used by tooling and deploy checks."""
-        config = get_settings()
-        return {
-            "status": "ok",
-            "app": config.app_name,
-            "version": __version__,
-            "environment": config.environment,
-        }
+        """Liveness probe used by tooling and deploy checks. Public, so it reveals nothing about
+        the deployment beyond being up."""
+        return {"status": "ok", "version": __version__}
 
     # Outermost layer: gates every route + static mount except the public webhooks/probe.
     app.add_middleware(BasicAuthMiddleware)
@@ -50,7 +57,7 @@ def create_app() -> FastAPI:
         app.mount("/dashboard", StaticFiles(directory=DASHBOARD_DIR, html=True), name="dashboard")
     # Serve the voice demo client at /demo (if the frontend has been added).
     if FRONTEND_DIR.is_dir():
-        app.mount("/demo", StaticFiles(directory=FRONTEND_DIR, html=True), name="demo")
+        app.mount("/demo", _DemoFiles(directory=FRONTEND_DIR, html=True), name="demo")
 
     return app
 

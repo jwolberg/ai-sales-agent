@@ -118,7 +118,7 @@ reset from scratch.
 
 ```bash
 curl -s http://localhost:8000/health
-# {"status":"ok","app":"Autonomous AI Sales Agent","version":"0.1.0","environment":"development"}
+# {"status":"ok","version":"0.1.0"}
 ```
 
 ## 8. Validation (run before every commit)

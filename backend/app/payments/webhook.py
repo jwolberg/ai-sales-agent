@@ -41,8 +41,9 @@ def _verify_event(payload: bytes, signature: str | None, secret: str) -> dict:
     try:
         return stripe.Webhook.construct_event(payload, signature, secret)
     except Exception as exc:  # SignatureVerificationError / ValueError
+        # The specific reason goes to the log only; the caller gets a generic 400.
         logger.warning("rejected Stripe webhook: invalid signature (%s)", exc)
-        raise HTTPException(status_code=400, detail=f"invalid Stripe signature: {exc}") from exc
+        raise HTTPException(status_code=400, detail="invalid Stripe signature") from exc
 
 
 def _paid_provider_ref(event: dict) -> str | None:
