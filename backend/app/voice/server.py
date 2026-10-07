@@ -4,7 +4,6 @@ Pipecat is imported lazily inside the handler so importing this router never req
 the optional ``voice`` extra. Missing keys or deps produce a clear 503.
 """
 
-import asyncio
 import logging
 from urllib.parse import parse_qs
 
@@ -12,14 +11,11 @@ from fastapi import APIRouter, HTTPException, Request, WebSocket
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from app import limits
+from app import limits, tasks
 from app.config import get_settings
 from app.voice.twilio_security import is_valid_request, public_request_url, stream_token
 
 router = APIRouter(prefix="/voice", tags=["voice"])
-
-# Keep references to running bot tasks so they aren't garbage-collected mid-call.
-_active_tasks: set[asyncio.Task] = set()
 
 logger = logging.getLogger(__name__)
 
@@ -70,12 +66,10 @@ async def voice_offer(offer: Offer) -> dict:
     try:
         connection = SmallWebRTCConnection(ice_servers=["stun:stun.l.google.com:19302"])
         await connection.initialize(sdp=offer.sdp, type=offer.type)
-        task = asyncio.create_task(run_bot(connection, settings))
+        task = tasks.spawn(run_bot(connection, settings), name="voice-call")
     except BaseException:
         slots.release()
         raise
-    _active_tasks.add(task)
-    task.add_done_callback(_active_tasks.discard)
     task.add_done_callback(lambda _t: slots.release())
 
     return connection.get_answer()

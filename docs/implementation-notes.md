@@ -1924,3 +1924,9 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
   auth token reaches the log.
 - The Twilio voice path still logs via Pipecat's `loguru` (pre-existing); left as is — it's Pipecat's
   logger and already flows to stderr.
+
+### 2026-10-06 — Ticket 0008: tracked background tasks
+- New `app/tasks.py` `spawn(coro, name=...)`: strong reference until done + logs crashes (with
+  traceback) instead of losing them; cancellations aren't logged as errors. Used by
+  `/api/sim/start` (was a bare `create_task`) and `/voice/offer` (replaces its local
+  `_active_tasks` set, so there's one pattern instead of two).

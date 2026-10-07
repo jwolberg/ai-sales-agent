@@ -18,7 +18,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import limits
+from app import limits, tasks
 from app.agent import taxonomy as tx
 from app.agent.pricing import quote_price
 from app.agent.recorder import PAYMENT_SENT
@@ -259,7 +259,7 @@ async def sim_start(payload: SimStartRequest | None = None) -> dict:
         logger.warning("sim call refused: concurrent session limit reached")
         raise HTTPException(status_code=429, detail="Too many live calls; try again shortly")
     slots = limits.session_slots  # release into the same instance even if limits are reset
-    task = asyncio.create_task(run_sim_call_paced(persona))
+    task = tasks.spawn(run_sim_call_paced(persona), name=f"sim-call:{persona.key}")
     task.add_done_callback(lambda _t: slots.release())
     return {"started": True, "persona": persona.key, "target_leaf": persona.target_leaf}
 
