@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -36,6 +37,13 @@ def create_app() -> FastAPI:
     """Build and configure the FastAPI application."""
     settings = get_settings()
     configure_logging(settings.log_level)
+    if not settings.dashboard_password:
+        # Open in development, 503 elsewhere (app/auth.py) — either way, make it impossible to miss.
+        logging.getLogger(__name__).warning(
+            "operator auth is OFF: DASHBOARD_PASSWORD is unset (environment=%s; %s)",
+            settings.environment,
+            "routes are open" if settings.environment == "development" else "routes return 503",
+        )
     app = FastAPI(title=settings.app_name, version=__version__)
 
     @app.get("/health")

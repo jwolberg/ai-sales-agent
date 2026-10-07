@@ -38,7 +38,10 @@ jobs:
         with:
           python-version-file: ".python-version"
       - name: System libs for the voice extra
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libsndfile1
+        # libsndfile1 for soundfile; libGL/glib for OpenCV (pulled in by Pipecat's WebRTC transport).
+        run: >-
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends
+          libsndfile1 libgl1 libglib2.0-0
       - name: Install
         run: pip install -r requirements/dev-voice.txt && pip install --no-deps -e .
       - name: Voice tests

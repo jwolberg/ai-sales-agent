@@ -55,6 +55,6 @@ ENV PORT=8080 \
 
 USER app
 WORKDIR /app/backend
-# Create/heal the schema and upsert the fixed seed leads (idempotent: it only touches the seed
-# lead_ids, never call data), then exec uvicorn so it receives SIGTERM directly.
+# Create/heal the schema and upsert the three fixed seed leads (resets *their* fields to the seed
+# values each boot; never touches calls or other leads), then exec uvicorn so it gets SIGTERM.
 CMD ["sh", "-c", "python -m app.db.seed && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]

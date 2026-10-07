@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     # --- Spend/abuse limits (ticket 0003; in-memory, per process — see app/limits.py) ---
     sms_max_per_call: int = 3  # payment-link texts per call, across bot + dashboard sends
     sms_max_per_number_per_hour: int = 5  # texts to one destination number in a rolling hour
+    sms_max_per_hour_total: int = 30  # all payment-link texts, every number, rolling hour
     max_concurrent_sessions: int = 3  # live voice / Twilio / simulated calls at once
 
     # --- Voice pipeline (Phase 2) ---

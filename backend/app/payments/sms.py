@@ -48,6 +48,10 @@ def _urllib_post(url: str, data: dict, auth: tuple[str, str]) -> dict:
         raise SmsError(f"Twilio API error {exc.code}: {detail}") from exc
     except urllib.error.URLError as exc:
         raise SmsError(f"Twilio request failed: {exc.reason}") from exc
+    except (TimeoutError, OSError) as exc:  # e.g. a read timeout after the connection opened
+        raise SmsError(f"Twilio request failed: {exc}") from exc
+    except ValueError as exc:  # non-JSON body
+        raise SmsError("Twilio returned a non-JSON response") from exc
 
 
 @dataclass
@@ -69,7 +73,8 @@ class TwilioSmsSender:
         result = self.post(url, data, (self.account_sid, self.auth_token))
         sid = result.get("sid")
         if not sid:
-            raise SmsError(f"Twilio response missing message sid: {result!r}")
+            # Not the body itself: it echoes the destination number.
+            raise SmsError(f"Twilio response missing message sid (status={result.get('status')!r})")
         logger.info("sms sent to %s (sid %s)", mask_phone(to), sid)
         return sid
 

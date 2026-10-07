@@ -72,8 +72,8 @@ Notes:
 - **Database is ephemeral by default — an explicit choice for the demo.** The SQLite file lives at
   `/app/var/sales_agent.db` (the image's only writable path; the app runs as non-root `app`) and
   resets per instance/redeploy. On boot the image runs `python -m app.db.seed`, which creates/heals
-  the schema and upserts the three fixed seed leads by `lead_id` — idempotent, and it never touches
-  call data. For persistence, set `DATABASE_URL` to a managed DB (e.g. Cloud SQL Postgres) or mount a
+  the schema and upserts the three fixed seed leads by `lead_id` — it never touches calls or other
+  leads, but it does reset those three demo leads' fields (incl. prior-call memory) each boot. For persistence, set `DATABASE_URL` to a managed DB (e.g. Cloud SQL Postgres) or mount a
   volume at `/app/var`; there's no migration tool (Alembic is iceboxed, ticket 0009), and the
   column self-heal only runs on SQLite, so create the schema once against Postgres.
 - **Image layout.** Multi-stage: dependencies install from `backend/requirements/prod.txt` in a

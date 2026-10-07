@@ -115,3 +115,27 @@ def test_open_in_development_when_password_unset(monkeypatch):
 def test_credentials_checked_in_development_once_password_set(monkeypatch):
     client = _use(monkeypatch, environment="development", dashboard_password=PASSWORD)
     assert client.get("/voice/status").status_code == 401
+
+
+def test_startup_warns_loudly_when_auth_is_off(monkeypatch, caplog):
+    import logging
+
+    from app import main
+
+    monkeypatch.setattr(main, "get_settings", lambda: Settings(_env_file=None))
+    with caplog.at_level(logging.WARNING, logger="app"):
+        main.create_app()
+    assert any("auth is OFF" in r.getMessage() for r in caplog.records)
+
+
+def test_no_auth_warning_when_password_set(monkeypatch, caplog):
+    import logging
+
+    from app import main
+
+    monkeypatch.setattr(
+        main, "get_settings", lambda: Settings(_env_file=None, dashboard_password="pw")
+    )
+    with caplog.at_level(logging.WARNING, logger="app"):
+        main.create_app()
+    assert not any("auth is OFF" in r.getMessage() for r in caplog.records)

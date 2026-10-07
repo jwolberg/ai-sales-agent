@@ -94,7 +94,10 @@ async def twilio_voice(request: Request) -> Response:
         url = public_request_url(request, settings)
         signature = request.headers.get("x-twilio-signature")
         if not is_valid_request(settings.twilio_auth_token, url, form, signature):
-            logger.warning("rejected Twilio webhook: bad or missing signature for %s", url)
+            # Path only: the query string is attacker-controlled and can carry a phone number.
+            logger.warning(
+                "rejected Twilio webhook: bad or missing signature (%s)", request.url.path
+            )
             return Response(status_code=403)
     elif settings.environment != "development":
         return Response("Twilio webhook not configured: set TWILIO_AUTH_TOKEN", status_code=503)
@@ -141,12 +144,5 @@ async def twilio_ws(websocket: WebSocket) -> None:
     except ImportError:
         await websocket.close(code=1011)
         return
-    if not limits.session_slots.try_acquire(limit=settings.max_concurrent_sessions):
-        logger.warning("twilio stream refused: concurrent session limit reached")
-        await websocket.close(code=1013)  # "try again later"
-        return
-    slots = limits.session_slots
-    try:
-        await run_twilio_bot(websocket, settings)
-    finally:
-        slots.release()
+    # Stream-token auth and the session-slot cap both happen inside, after the 'start' frame.
+    await run_twilio_bot(websocket, settings)

@@ -117,3 +117,57 @@ def test_stripe_webhook_bad_signature_logged_generic_response(monkeypatch, caplo
         )
     assert resp.status_code == 400
     assert any("signature" in r.getMessage().lower() for r in caplog.records)
+
+
+def test_rejected_twilio_get_does_not_log_caller_number(monkeypatch, caplog):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+    from app.voice import server
+
+    monkeypatch.setattr(
+        server, "get_settings", lambda: Settings(_env_file=None, twilio_auth_token="tok")
+    )
+    with caplog.at_level(logging.WARNING, logger="app"):
+        resp = TestClient(app).get("/voice/twilio", params={"From": PHONE, "CallSid": "CA1"})
+    assert resp.status_code == 403
+    assert "rejected Twilio webhook" in caplog.text
+    assert "5551234567" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [TimeoutError("read timed out"), ValueError("Expecting value: line 1 column 1")],
+)
+def test_sms_transport_failures_become_sms_errors(monkeypatch, failure):
+    from app.payments import sms
+
+    class _Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            if isinstance(failure, TimeoutError):
+                raise failure
+            return b"not json"
+
+    monkeypatch.setattr(sms.urllib.request, "urlopen", lambda *a, **k: _Resp())
+    with pytest.raises(sms.SmsError):
+        sms._urllib_post("https://api.twilio.test/x", {"To": PHONE}, ("AC", "tok"))
+
+
+def test_missing_sid_error_does_not_embed_response_body():
+    from app.payments.sms import SmsError, TwilioSmsSender
+
+    sender = TwilioSmsSender(
+        account_sid="AC1",
+        auth_token="tok",
+        from_number="+15550000000",
+        post=lambda url, data, auth: {"to": PHONE, "status": "weird"},
+    )
+    with pytest.raises(SmsError) as err:
+        sender.send(PHONE, "hi")
+    assert "5551234567" not in str(err.value)

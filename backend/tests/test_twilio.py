@@ -138,3 +138,133 @@ def test_run_twilio_bot_rejects_bad_stream_token_before_spending(monkeypatch, pa
     settings = Settings(_env_file=None, twilio_auth_token="tok", environment="production")
     asyncio.run(run_twilio_bot(ws, settings))
     assert ws.closed_code == 1008
+
+
+# --- Unauthenticated sockets must not hold paid-session slots (review H1/M4) ------------------
+
+
+class _ScriptedSocket(_FakeTwilioSocket):
+    """Sends exactly ``frames`` (raw strings); ``hang=True`` never sends anything."""
+
+    def __init__(self, frames=(), *, hang=False):
+        super().__init__({})
+        self._raw, self._hang = list(frames), hang
+
+    async def iter_text(self):
+        import asyncio
+
+        if self._hang:
+            await asyncio.Event().wait()
+        for frame in self._raw:
+            yield frame
+
+
+def _no_paid_work(monkeypatch):
+    from app import limits
+    from app.voice import twilio_bot
+
+    def _boom(*_a, **_k):
+        raise AssertionError("must not reach slots / DB / paid services")
+
+    monkeypatch.setattr(twilio_bot, "build_services", _boom)
+    monkeypatch.setattr(twilio_bot, "init_db", _boom)
+    monkeypatch.setattr(limits.session_slots, "try_acquire", _boom)
+
+
+def _prod():
+    return Settings(_env_file=None, twilio_auth_token="tok", environment="production")
+
+
+def test_bad_token_never_touches_a_session_slot(monkeypatch):
+    import asyncio
+
+    _no_paid_work(monkeypatch)
+    ws = _FakeTwilioSocket({"from": "+15551234567", "token": "forged"})
+    asyncio.run(run_twilio_bot(ws, _prod()))
+    assert ws.closed_code == 1008
+
+
+def test_silent_socket_times_out_without_holding_a_slot(monkeypatch):
+    import asyncio
+
+    from app.voice import twilio_bot
+
+    _no_paid_work(monkeypatch)
+    monkeypatch.setattr(twilio_bot, "START_TIMEOUT_SECS", 0.05)
+    ws = _ScriptedSocket(hang=True)
+    asyncio.run(run_twilio_bot(ws, _prod()))
+    assert ws.closed_code == 1008
+
+
+@pytest.mark.parametrize(
+    "frames",
+    [
+        [],  # caller hung up before 'start'
+        ["not json"],
+        ['["a list"]'],
+        ['{"event": "start", "start": "not-an-object"}'],
+        ['{"event": "start", "start": {"callSid": "CA1"}}'],  # no streamSid
+        ['{"event": "start", "start": {"streamSid": "MZ", "customParameters": "x"}}'],
+    ],
+)
+def test_malformed_or_missing_start_closes_cleanly(monkeypatch, frames):
+    import asyncio
+
+    _no_paid_work(monkeypatch)
+    ws = _ScriptedSocket(frames)
+    asyncio.run(run_twilio_bot(ws, _prod()))  # no exception escapes
+    assert ws.closed_code == 1008
+
+
+def _valid_socket():
+    from app.voice.twilio_security import stream_token
+
+    return _FakeTwilioSocket(
+        {"from": "+15551234567", "token": stream_token("tok", "CA123", "+15551234567")}
+    )
+
+
+def test_authorized_stream_refused_when_slots_full(monkeypatch):
+    import asyncio
+
+    from app import limits
+    from app.voice import twilio_bot
+
+    def _boom(*_a, **_k):
+        raise AssertionError("paid services must not start when slots are full")
+
+    monkeypatch.setattr(twilio_bot, "build_services", _boom)
+    settings = Settings(
+        _env_file=None, twilio_auth_token="tok", environment="production", max_concurrent_sessions=1
+    )
+    assert limits.session_slots.try_acquire(limit=1)
+    ws = _valid_socket()
+    asyncio.run(run_twilio_bot(ws, settings))
+    assert ws.closed_code == 1013
+
+
+def test_authorized_stream_releases_slot_when_setup_fails(monkeypatch):
+    import asyncio
+
+    from app import limits
+    from app.voice import twilio_bot
+
+    def _db_down():
+        raise RuntimeError("db unavailable")
+
+    monkeypatch.setattr(twilio_bot, "init_db", _db_down)
+    with pytest.raises(RuntimeError):
+        asyncio.run(run_twilio_bot(_valid_socket(), _prod()))
+    assert limits.session_slots.active == 0
+
+
+def test_refuse_tolerates_an_already_gone_client(monkeypatch):
+    import asyncio
+
+    _no_paid_work(monkeypatch)
+
+    class _Gone(_ScriptedSocket):
+        async def close(self, code=1000):
+            raise OSError("client disconnected")  # what uvicorn's ClientDisconnected subclasses
+
+    asyncio.run(run_twilio_bot(_Gone([]), _prod()))  # must not raise

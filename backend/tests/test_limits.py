@@ -240,3 +240,38 @@ def test_sim_start_releases_slot_when_call_finishes(monkeypatch):
             await asyncio.sleep(0)
 
     asyncio.run(_scenario())
+
+
+# --- Review H3: one destination, many spellings ---------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    ["15551234567", "5551234567", "(555) 123-4567", "+1 555 123 4567", "+1-555-123-4567"],
+)
+def test_per_number_cap_ignores_formatting(spelling):
+    budget = SmsBudget(clock=_Clock())
+    assert budget.try_acquire("a", "+15551234567", per_call=99, per_number_per_hour=1)
+    assert not budget.try_acquire("b", spelling, per_call=99, per_number_per_hour=1)
+
+
+def test_global_hourly_cap_across_all_numbers_and_calls():
+    clock = _Clock()
+    budget = SmsBudget(clock=clock)
+    allowed = [
+        budget.try_acquire(
+            f"c{i}", f"+1555000{i:04d}", per_call=99, per_number_per_hour=99, total_per_hour=3
+        )
+        for i in range(4)
+    ]
+    assert allowed == [True, True, True, False]
+    clock.now += 3601
+    assert budget.try_acquire(
+        "later", "+15559999999", per_call=99, per_number_per_hour=99, total_per_hour=3
+    )
+
+
+def test_allow_sms_applies_configured_global_cap():
+    settings = Settings(_env_file=None, sms_max_per_hour_total=1)
+    assert limits.allow_sms(settings, "c1", "+15550000001")
+    assert not limits.allow_sms(settings, "c2", "+15550000002")

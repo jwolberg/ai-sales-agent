@@ -2021,3 +2021,24 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
   `test_voice_offer_returns_429_when_sessions_full` failing: without Pipecat, `/voice/offer`
   correctly 503s ("voice deps missing") before the session cap. Now `importorskip("pipecat")`.
   Core lock: 344 passed / 10 skipped; voice lock: 381 passed.
+
+### 2026-10-06 — Independent review fixes (tickets 0002 / 0003 / 0007)
+A fresh-context reviewer (given the tickets' acceptance criteria, not my summary) found real gaps:
+- **H1 — public Twilio socket could exhaust paid-session slots (DoS).** The slot was taken before
+  the stream token was checked, and `_read_start` waited forever. Now: 10 s deadline for a valid
+  `start`, token check, *then* the slot. Malformed frames / early hang-ups close 1008 instead of
+  raising. Verified live: 3 idle sockets with `MAX_CONCURRENT_SESSIONS=1` no longer block a sim
+  call (200); idle sockets are cut at ~10 s; zero tracebacks. (The live probe also caught
+  `close()` raising uvicorn's `ClientDisconnected`, an `OSError`, on an already-gone client.)
+- **H2 — rejected GET webhook logged the full query string** (caller number). Logs the path only.
+- **H3 — per-number SMS cap bypassable by formatting** (`(555) 123-4567` vs `+15551234567`).
+  Keys are now digits-only with NANP normalization; added a global hourly cap
+  (`SMS_MAX_PER_HOUR_TOTAL=30`) since per-call + per-number alone don't bound many short calls.
+- **M5** — SMS read timeouts / non-JSON bodies escaped `except SmsError` and could break a live
+  turn; now wrapped. The missing-sid error no longer embeds the response body (it echoes the number).
+- **M1** — startup now logs a loud warning whenever operator auth is off.
+- **M6** — docs overstated seed idempotence: boot does reset the three demo leads' fields. Docs fixed;
+  behavior change filed as a follow-up.
+- CI voice job now installs OpenCV's libGL/glib (reviewer flagged a likely `libGL.so.1` failure).
+- Not changed (filed as follow-ups): Basic-auth guess throttling, per-caller call-rate cap, slot
+  held by a WebRTC offer that never connects (needs a live check), seed overwriting lead memory.

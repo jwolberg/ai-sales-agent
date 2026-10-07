@@ -13,6 +13,7 @@ Thread-safe because the engine runs turns in worker threads (``asyncio.to_thread
 
 from __future__ import annotations
 
+import re
 import threading
 import time
 from collections import defaultdict, deque
@@ -21,27 +22,48 @@ from collections.abc import Callable
 _HOUR = 3600.0
 
 
+def _number_key(to: str) -> str:
+    """Canonical key for a destination so formatting can't dodge the per-number cap: digits only,
+    with a bare 10-digit (NANP) number given its implied leading 1."""
+    digits = re.sub(r"\D", "", to)
+    return "1" + digits if len(digits) == 10 else digits
+
+
 class SmsBudget:
     def __init__(self, *, clock: Callable[[], float] = time.monotonic) -> None:
         self._clock = clock
         self._lock = threading.Lock()
         self._per_call: dict[str, int] = defaultdict(int)
         self._per_number: dict[str, deque[float]] = defaultdict(deque)
+        self._all: deque[float] = deque()
 
     def try_acquire(
-        self, call_id: str | None, to: str, *, per_call: int, per_number_per_hour: int
+        self,
+        call_id: str | None,
+        to: str,
+        *,
+        per_call: int,
+        per_number_per_hour: int,
+        total_per_hour: int | None = None,
     ) -> bool:
-        """Record one send and return True, or return False (recording nothing) if over a cap."""
+        """Record one send and return True, or return False (recording nothing) if over a cap.
+
+        ``total_per_hour`` bounds the whole relay: per-call and per-number caps alone don't stop
+        many short calls each texting a different number."""
         now = self._clock()
         with self._lock:
-            sent = self._per_number[to]
-            while sent and now - sent[0] >= _HOUR:
-                sent.popleft()
+            sent = self._per_number[_number_key(to)]
+            for window in (sent, self._all):
+                while window and now - window[0] >= _HOUR:
+                    window.popleft()
             if len(sent) >= per_number_per_hour:
+                return False
+            if total_per_hour is not None and len(self._all) >= total_per_hour:
                 return False
             if call_id is not None and self._per_call[call_id] >= per_call:
                 return False
             sent.append(now)
+            self._all.append(now)
             if call_id is not None:
                 self._per_call[call_id] += 1
             return True
@@ -74,6 +96,7 @@ def allow_sms(settings, call_id: str | None, to: str) -> bool:
         to,
         per_call=settings.sms_max_per_call,
         per_number_per_hour=settings.sms_max_per_number_per_hour,
+        total_per_hour=settings.sms_max_per_hour_total,
     )
 
 

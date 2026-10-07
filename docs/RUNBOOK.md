@@ -82,7 +82,8 @@ cp .env.example .env        # then edit values
 | `DASHBOARD_USERNAME` | `operator`                | HTTP Basic user for the dashboard, `/api`, `/demo`, `/voice/offer` |
 | `DASHBOARD_PASSWORD` | unset                     | HTTP Basic password. Unset = open in `development`, 503 everywhere else |
 | `SMS_MAX_PER_CALL` | `3`                         | Payment-link texts per call (bot + dashboard combined); over → not texted / 429 |
-| `SMS_MAX_PER_NUMBER_PER_HOUR` | `5`              | Texts to one destination number per rolling hour |
+| `SMS_MAX_PER_NUMBER_PER_HOUR` | `5`              | Texts to one destination number per rolling hour (formatting-insensitive) |
+| `SMS_MAX_PER_HOUR_TOTAL` | `30`                  | All payment-link texts, every number, per rolling hour |
 | `MAX_CONCURRENT_SESSIONS` | `3`                  | Live voice / Twilio / simulated calls at once; over → 429 (Twilio: socket closed 1013) |
 
 **Operator auth.** Every route except `/health`, `/voice/twilio`, `/voice/twilio/ws`, and

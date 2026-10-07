@@ -19,6 +19,7 @@ inbound call to a configured Twilio number pointed at a public URL — see docs/
 
 from __future__ import annotations
 
+import asyncio
 import json
 from xml.sax.saxutils import quoteattr
 
@@ -32,6 +33,7 @@ from pipecat.transports.websocket.fastapi import (
     FastAPIWebsocketTransport,
 )
 
+from app import limits
 from app.agent.recorder import CallRecorder
 from app.agent.versioning import compute_versions
 from app.config import Settings
@@ -75,18 +77,40 @@ def stream_ws_url(settings: Settings, host: str, *, scheme: str = "wss") -> str:
     return f"{scheme}://{host}/voice/twilio/ws"
 
 
-async def _read_start(websocket) -> tuple[str, str | None, str | None, str | None]:
+# An unauthenticated client can open this public socket; it gets this long to send a valid 'start'.
+START_TIMEOUT_SECS = 10.0
+
+
+async def _read_start(websocket) -> tuple[str, str | None, str | None, str | None] | None:
     """Consume Twilio's opening frames; return (stream_sid, call_sid, caller_number, token).
 
     ``caller_number`` and ``token`` are the ``from`` / ``token`` Stream parameters set in the
-    TwiML (caller ID and the per-call stream token), or None."""
+    TwiML (caller ID and the per-call stream token), or None. Returns None (never raises) if the
+    socket closes first or sends anything malformed — the client is still unauthenticated here.
+    """
     async for message in websocket.iter_text():
-        data = json.loads(message)
+        try:
+            data = json.loads(message)
+        except ValueError:
+            return None
+        if not isinstance(data, dict):
+            return None
         if data.get("event") == "start":
-            start = data["start"]
+            start = data.get("start")
+            if not isinstance(start, dict) or not start.get("streamSid"):
+                return None
             params = start.get("customParameters") or {}
+            if not isinstance(params, dict):
+                return None
             return start["streamSid"], start.get("callSid"), params.get("from"), params.get("token")
-    raise RuntimeError("Twilio stream closed before a 'start' frame")
+    return None
+
+
+async def _refuse(websocket, code: int) -> None:
+    try:
+        await websocket.close(code=code)
+    except (RuntimeError, OSError):
+        pass  # the client is already gone (Starlette: RuntimeError; uvicorn: ClientDisconnected)
 
 
 async def run_twilio_bot(websocket, settings: Settings) -> None:
@@ -94,12 +118,34 @@ async def run_twilio_bot(websocket, settings: Settings) -> None:
     if settings.voice_debug:
         configure_debug_logging()
     await websocket.accept()
-    stream_sid, call_sid, caller_number, token = await _read_start(websocket)
-    # Reject before any DB row or paid STT/TTS session exists (ticket 0002).
+    try:
+        start = await asyncio.wait_for(_read_start(websocket), timeout=START_TIMEOUT_SECS)
+    except TimeoutError:
+        start = None
+    if start is None:
+        logger.warning("twilio stream: no valid 'start' frame, closing")
+        await _refuse(websocket, 1008)
+        return
+    stream_sid, call_sid, caller_number, token = start
+    # Reject before any session slot, DB row, or paid STT/TTS session exists (tickets 0002/0003).
     if not stream_authorized(settings, call_sid, caller_number, token):
         logger.warning(f"twilio stream {stream_sid}: missing/invalid stream token, closing")
-        await websocket.close(code=1008)
+        await _refuse(websocket, 1008)
         return
+    # Only an authenticated call may take a paid-session slot, so idle or forged sockets can't
+    # starve real callers.
+    if not limits.session_slots.try_acquire(limit=settings.max_concurrent_sessions):
+        logger.warning(f"twilio stream {stream_sid}: concurrent session limit reached, closing")
+        await _refuse(websocket, 1013)  # "try again later"
+        return
+    slots = limits.session_slots
+    try:
+        await _run_authorized(websocket, settings, stream_sid, call_sid, caller_number)
+    finally:
+        slots.release()
+
+
+async def _run_authorized(websocket, settings, stream_sid, call_sid, caller_number) -> None:
     logger.info(f"twilio stream {stream_sid} (call {call_sid}) connected")
 
     init_db()
