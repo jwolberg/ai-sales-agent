@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     dashboard_username: str = "operator"
     dashboard_password: str | None = None
 
+    # --- Spend/abuse limits (ticket 0003; in-memory, per process — see app/limits.py) ---
+    sms_max_per_call: int = 3  # payment-link texts per call, across bot + dashboard sends
+    sms_max_per_number_per_hour: int = 5  # texts to one destination number in a rolling hour
+    max_concurrent_sessions: int = 3  # live voice / Twilio / simulated calls at once
+
     # --- Voice pipeline (Phase 2) ---
     # Provider API keys. Optional so the core app boots without them; the voice
     # endpoint returns a clear 503 until all three are set.

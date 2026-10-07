@@ -1894,3 +1894,18 @@ Deployed to Cloud Run. Issues found + fixes on the live service:
 - Fail-closed rule mirrors 0001: no auth token → open in `development`, 503 elsewhere.
 - `test_webhook_returns_twiml_xml` previously read the real `backend/.env` (which has a Twilio
   token); pinned its settings. Not exercised with a real inbound call.
+
+### 2026-10-06 — Ticket 0003: SMS budget + concurrent-session cap
+- `app/limits.py`: `SmsBudget` (per call + per destination per rolling hour) checked at the moment
+  of sending on **both** paths — engine caller-ID auto-text (over → not texted, link still recorded)
+  and dashboard manual send (over → 429, no `payment_sent` event). Refused attempts don't consume
+  budget; a send that then fails at Twilio does (conservative).
+- `SessionSlots` caps concurrent paid sessions across `/voice/offer`, `/api/sim/start`, and the
+  Twilio media socket (closed with 1013 "try again later"). Released on task completion; on
+  `/voice/offer` also released if WebRTC setup throws.
+- **In-memory, per process** — fine because Cloud Run runs `--max-instances 1` (already required by
+  the in-process event bus). Scaling out needs a shared store.
+- Defaults (3 per call, 5 per number/hour, 3 sessions) are my picks; all env-configurable.
+- Dashboard: "Start simulated call" used to swallow non-2xx responses; it now shows the server's
+  detail (e.g. the 429). Voice offer + SMS already surfaced errors. Rebuilt `dist/`.
+- Added `tests/conftest.py` (autouse reset of the global limiter state between tests).

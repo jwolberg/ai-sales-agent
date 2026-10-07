@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app import limits
 from app.agent import taxonomy as tx
 from app.agent.pricing import quote_price
 from app.agent.recorder import PAYMENT_SENT
@@ -250,7 +251,11 @@ async def sim_start(payload: SimStartRequest | None = None) -> dict:
     personas = get_personas().router_personas()
     key = payload.persona if payload else None
     persona = next((p for p in personas if p.key == key), personas[0])
-    asyncio.create_task(run_sim_call_paced(persona))
+    if not limits.session_slots.try_acquire(limit=get_settings().max_concurrent_sessions):
+        raise HTTPException(status_code=429, detail="Too many live calls; try again shortly")
+    slots = limits.session_slots  # release into the same instance even if limits are reset
+    task = asyncio.create_task(run_sim_call_paced(persona))
+    task.add_done_callback(lambda _t: slots.release())
     return {"started": True, "persona": persona.key, "target_leaf": persona.target_leaf}
 
 
@@ -332,10 +337,13 @@ def send_payment_sms(call_id: str, body: SendPaymentSms, db: Db) -> dict:
     if not phone:
         raise HTTPException(status_code=400, detail="a phone number is required")
     payment = max(call.payments, key=lambda p: p.created_at)
+    settings = get_settings()
     try:
-        sender = get_sms_sender(get_settings())
+        sender = get_sms_sender(settings)
     except SmsError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not limits.allow_sms(settings, call_id, phone):
+        raise HTTPException(status_code=429, detail="SMS limit reached for this call or number")
     body_text = f"Here's your secure link to get started with Nerdy: {payment.url}"
     try:
         sid = sender.send(phone, body_text)

@@ -21,6 +21,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 
+from app import limits
 from app.agent import taxonomy as tx
 from app.agent.brain import Brain, get_brain
 from app.agent.contract import BrainDecision, RouterAction
@@ -256,6 +257,9 @@ class IntentRouterEngine:
             )
             if sender is None:
                 return False
+            call_id = self.recorder.call_id if self.recorder is not None else None
+            if not limits.allow_sms(self.settings, call_id, phone):
+                return False  # over the SMS budget: link still exists + shows on the board
             sender.send(phone, f"Here's your secure link to get started with Nerdy: {link.url}")
             return True
         except SmsError:
